@@ -6,7 +6,10 @@
 import axios from 'axios';
 import { showError } from '../components/atoms/Toast/Toast.jsx';
 
-const BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api/v1';
+let BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api/v1';
+if (BASE && !BASE.endsWith('/api/v1')) {
+  BASE = BASE.replace(/\/+$/, '') + '/api/v1';
+}
 
 export const WS_BASE = import.meta.env.VITE_WS_URL || 'ws://localhost:5000';
 

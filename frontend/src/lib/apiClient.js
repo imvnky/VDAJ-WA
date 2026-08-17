@@ -6,8 +6,13 @@
 import axios from 'axios';
 import { showApiError } from '../components/atoms/Toast/Toast';
 
+let BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api/v1';
+if (BASE && !BASE.endsWith('/api/v1')) {
+  BASE = BASE.replace(/\/+$/, '') + '/api/v1';
+}
+
 const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api/v1',
+  baseURL: BASE,
   withCredentials: true,        // Send HTTP-only cookies with every request
   timeout: 30000,               // 30s timeout
   headers: {
