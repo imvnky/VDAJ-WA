@@ -58,6 +58,8 @@ const cookie = require('cookie');
 
 // ──────────────────────────────────────────────────────────────
 const app        = express();
+app.set('trust proxy', 1); // Trust Render's load balancer proxy for rate limiting
+
 const PORT       = process.env.PORT || 5000;
 const API_PREFIX = '/api/v1';
 
