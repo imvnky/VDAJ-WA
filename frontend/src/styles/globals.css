@@ -1,0 +1,226 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================================
+   VDAJ SERVICES — DESIGN TOKENS (CSS Custom Properties)
+   3 Themes: dark (default) | light | colorful
+   ============================================================ */
+
+/* ── DARK MODE (default) ── */
+:root,
+[data-theme="dark"] {
+  --bg-base:        #0F0F0F;
+  --bg-elevated:    #1A1A2E;
+  --bg-card:        #16213E;
+  --bg-border:      #2A2A4A;
+  --bg-hover:       rgba(83,74,183,0.08);
+
+  --text-primary:   #F8F7FF;
+  --text-secondary: rgba(248,247,255,0.55);
+  --text-muted:     rgba(248,247,255,0.25);
+
+  --brand:          #534AB7;
+  --brand-light:    #AFA9EC;
+  --brand-dark:     #3B3499;
+  --teal:           #1D9E75;
+  --teal-light:     #26C18E;
+
+  --shadow-card:    0 4px 24px rgba(0,0,0,0.4);
+  --shadow-brand:   0 4px 20px rgba(83,74,183,0.35);
+  --sidebar-bg:     #0D0D22;
+  --sidebar-active: rgba(83,74,183,0.25);
+  --sidebar-text:   rgba(248,247,255,0.7);
+  --topbar-bg:      rgba(13,13,34,0.9);
+}
+
+/* ── LIGHT MODE ── */
+[data-theme="light"] {
+  --bg-base:        #F8F7FF;
+  --bg-elevated:    #FFFFFF;
+  --bg-card:        #FFFFFF;
+  --bg-border:      #E2E0F5;
+  --bg-hover:       rgba(83,74,183,0.06);
+
+  --text-primary:   #1A1A2E;
+  --text-secondary: rgba(26,26,46,0.6);
+  --text-muted:     rgba(26,26,46,0.35);
+
+  --brand:          #534AB7;
+  --brand-light:    #7A73C9;
+  --brand-dark:     #3B3499;
+  --teal:           #1D9E75;
+  --teal-light:     #148059;
+
+  --shadow-card:    0 2px 16px rgba(83,74,183,0.1);
+  --shadow-brand:   0 4px 20px rgba(83,74,183,0.2);
+  --sidebar-bg:     #FFFFFF;
+  --sidebar-active: rgba(83,74,183,0.1);
+  --sidebar-text:   rgba(26,26,46,0.7);
+  --topbar-bg:      rgba(255,255,255,0.95);
+}
+
+/* ── COLORFUL (Outlook-style: rich purple nav) ── */
+[data-theme="colorful"] {
+  --bg-base:        #F0EEF9;
+  --bg-elevated:    #FFFFFF;
+  --bg-card:        #FFFFFF;
+  --bg-border:      #D4CFEE;
+  --bg-hover:       rgba(83,74,183,0.08);
+
+  --text-primary:   #1A1A2E;
+  --text-secondary: rgba(26,26,46,0.65);
+  --text-muted:     rgba(26,26,46,0.4);
+
+  --brand:          #534AB7;
+  --brand-light:    #AFA9EC;
+  --brand-dark:     #3B3499;
+  --teal:           #1D9E75;
+  --teal-light:     #26C18E;
+
+  --shadow-card:    0 2px 16px rgba(83,74,183,0.12);
+  --shadow-brand:   0 4px 20px rgba(83,74,183,0.3);
+  --sidebar-bg:     #534AB7;
+  --sidebar-active: rgba(255,255,255,0.18);
+  --sidebar-text:   rgba(255,255,255,0.85);
+  --topbar-bg:      #3B3499;
+}
+
+/* ============================================================
+   BASE RESET
+   ============================================================ */
+
+@layer base {
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background-color: var(--bg-base);
+    color: var(--text-primary);
+    min-height: 100vh;
+    transition: background-color 0.25s ease, color 0.25s ease;
+  }
+
+  /* ── Dark mode body aurora ── */
+  [data-theme="dark"] body {
+    background-image:
+      radial-gradient(ellipse at top left, rgba(83,74,183,0.12) 0%, transparent 50%),
+      radial-gradient(ellipse at bottom right, rgba(29,158,117,0.08) 0%, transparent 50%);
+  }
+
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(83,74,183,0.35); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(83,74,183,0.6); }
+
+  ::selection { background: rgba(83,74,183,0.35); color: var(--text-primary); }
+}
+
+/* ============================================================
+   COMPONENT SYSTEM
+   ============================================================ */
+
+@layer components {
+
+  /* ── GLASS / SURFACE CARDS ── */
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--bg-border);
+    border-radius: 1rem;
+    box-shadow: var(--shadow-card);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+  .card:hover { border-color: rgba(83,74,183,0.3); }
+
+  .glass-card {
+    background: var(--bg-card);
+    border: 1px solid var(--bg-border);
+    border-radius: 1rem;
+    backdrop-filter: blur(12px);
+    box-shadow: var(--shadow-card);
+  }
+  [data-theme="dark"] .glass-card {
+    background: linear-gradient(145deg, rgba(83,74,183,0.06) 0%, rgba(22,33,62,0.5) 100%);
+  }
+
+  /* ── GRADIENT TEXT ── */
+  .text-gradient {
+    background: linear-gradient(135deg, #AFA9EC 0%, #534AB7 50%, #1D9E75 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* ── BADGE SYSTEM ── */
+  .badge { @apply inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold; }
+  .badge-brand   { @apply badge; background: rgba(83,74,183,0.15); color: #AFA9EC; border: 1px solid rgba(83,74,183,0.3); }
+  .badge-teal    { @apply badge; background: rgba(29,158,117,0.15); color: #26C18E; border: 1px solid rgba(29,158,117,0.3); }
+  .badge-error   { @apply badge; background: rgba(239,68,68,0.15); color: #f87171; border: 1px solid rgba(239,68,68,0.3); }
+  .badge-warning { @apply badge; background: rgba(245,158,11,0.15); color: #fbbf24; border: 1px solid rgba(245,158,11,0.3); }
+  .badge-muted   { @apply badge; background: var(--bg-elevated); color: var(--text-muted); border: 1px solid var(--bg-border); }
+
+  /* ── FOCUS RING ── */
+  .focus-ring {
+    @apply focus-visible:outline-none;
+    &:focus-visible { box-shadow: 0 0 0 2px var(--brand), 0 0 0 4px rgba(83,74,183,0.2); }
+  }
+
+  /* ── GRADIENT BACKGROUNDS ── */
+  .bg-brand-gradient { background: linear-gradient(135deg, #534AB7 0%, #3B3499 100%); }
+  .bg-teal-gradient  { background: linear-gradient(135deg, #1D9E75 0%, #148059 100%); }
+
+  /* ── SHADOWS ── */
+  .shadow-brand-sm  { box-shadow: 0 1px 8px rgba(83,74,183,0.25); }
+  .shadow-brand-md  { box-shadow: 0 4px 20px rgba(83,74,183,0.35); }
+  .shadow-brand-lg  { box-shadow: 0 8px 40px rgba(83,74,183,0.45); }
+  .shadow-teal-sm   { box-shadow: 0 1px 8px rgba(29,158,117,0.25); }
+  .shadow-teal-md   { box-shadow: 0 4px 20px rgba(29,158,117,0.35); }
+  .shadow-glass     { box-shadow: 0 8px 32px rgba(0,0,0,0.25); }
+
+  /* ── THEME-AWARE TEXT ── */
+  .text-primary   { color: var(--text-primary); }
+  .text-secondary { color: var(--text-secondary); }
+  .text-muted     { color: var(--text-muted); }
+  .bg-base        { background-color: var(--bg-base); }
+  .bg-elevated    { background-color: var(--bg-elevated); }
+  .bg-card-theme  { background-color: var(--bg-card); }
+  .border-theme   { border-color: var(--bg-border); }
+
+  /* ── DIVIDER ── */
+  .divider { border-top: 1px solid var(--bg-border); }
+
+  /* ── BTN PRIMARY ── */
+  .btn-primary {
+    display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+    font-weight: 600; color: #F8F7FF; cursor: pointer; user-select: none;
+    transition: all 0.2s ease;
+    background: linear-gradient(135deg, #534AB7 0%, #3B3499 100%);
+    border: 1px solid rgba(83,74,183,0.4);
+    box-shadow: 0 1px 8px rgba(83,74,183,0.25);
+  }
+  .btn-primary:hover { filter: brightness(1.1); box-shadow: 0 4px 20px rgba(83,74,183,0.35); }
+
+  /* ── THEME TRANSITION ── */
+  .theme-transition { transition: background-color 0.25s ease, border-color 0.25s ease, color 0.2s ease; }
+}
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+  .text-2xs { font-size: 0.625rem; line-height: 1rem; }
+
+  /* Translate helpers for toggle switch */
+  .translate-x-4\.5 { transform: translateX(1.125rem); }
+  .translate-x-0\.5 { transform: translateX(0.125rem); }
+
+  /* Sidebar-aware colors */
+  .sidebar-bg     { background-color: var(--sidebar-bg); }
+  .sidebar-text   { color: var(--sidebar-text); }
+  .sidebar-active { background-color: var(--sidebar-active); }
+  .topbar-bg      { background-color: var(--topbar-bg); }
+}

@@ -1,0 +1,52 @@
+/**
+ * VDAJ Services — Axios API Client
+ * Centralized HTTP client with base URL, cookie credentials, error parsing.
+ */
+
+import axios from 'axios';
+import { showApiError } from '../components/atoms/Toast/Toast';
+
+const apiClient = axios.create({
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api/v1',
+  withCredentials: true,        // Send HTTP-only cookies with every request
+  timeout: 30000,               // 30s timeout
+  headers: {
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+  },
+});
+
+// ============================================================
+// REQUEST INTERCEPTOR — Attach request ID for tracing
+// ============================================================
+
+apiClient.interceptors.request.use((config) => {
+  config.headers['X-Request-ID'] = crypto.randomUUID();
+  return config;
+});
+
+// ============================================================
+// RESPONSE INTERCEPTOR — Handle 401 redirect + error toasts
+// ============================================================
+
+apiClient.interceptors.response.use(
+  (response) => response.data,  // Unwrap data from { success, data, message }
+  (error) => {
+    if (error.response?.status === 401) {
+      // Token expired — redirect to login (avoid loop if already on /login)
+      if (!window.location.pathname.startsWith('/login')) {
+        window.location.href = '/login?session=expired';
+      }
+      return Promise.reject(error);
+    }
+
+    // Show toast for non-401 errors (can be suppressed per-call with { silent: true })
+    if (!error.config?.silent) {
+      showApiError(error);
+    }
+
+    return Promise.reject(error);
+  }
+);
+
+export default apiClient;

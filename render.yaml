@@ -1,0 +1,52 @@
+# ============================================================
+# VDAJ Services — Render.com Blueprint Spec (Staging)
+# Multi-tenant SaaS | React & Node.js Deployment
+# ============================================================
+
+databases:
+  - name: vdaj-db
+    plan: free
+
+services:
+  # Managed Key Value (Redis / Valkey) instance for Bull queues
+  - type: keyvalue
+    name: vdaj-redis
+    plan: free
+    maxmemoryPolicy: noeviction
+
+  # Backend Web Service (Express API & WS Server)
+  - type: web
+    name: vdaj-backend
+    env: node
+    plan: free
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: vdaj-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: vdaj-redis
+          property: connectionString
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: FRONTEND_URL
+        value: https://vdaj-frontend.onrender.com
+
+  # Frontend Static Site (React Single Page App)
+  - type: web
+    name: vdaj-frontend
+    env: static
+    plan: free
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    publishDir: dist
+    envVars:
+      - key: VITE_API_BASE_URL
+        value: https://vdaj-backend.onrender.com/api/v1
