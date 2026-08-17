@@ -11,7 +11,19 @@ if (BASE && !BASE.endsWith('/api/v1')) {
   BASE = BASE.replace(/\/+$/, '') + '/api/v1';
 }
 
-export const WS_BASE = import.meta.env.VITE_WS_URL || 'ws://localhost:5000';
+// Build WS_BASE dynamically from BASE if VITE_WS_URL is not set
+const getWsBase = () => {
+  if (import.meta.env.VITE_WS_URL) return import.meta.env.VITE_WS_URL;
+  try {
+    const apiURL = new URL(BASE);
+    const protocol = apiURL.protocol === 'https:' ? 'wss:' : 'ws:';
+    return `${protocol}//${apiURL.host}`;
+  } catch (err) {
+    return 'ws://localhost:5000';
+  }
+};
+
+export const WS_BASE = getWsBase();
 
 const client = axios.create({
   baseURL: BASE,
