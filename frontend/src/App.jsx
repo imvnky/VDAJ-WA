@@ -68,9 +68,16 @@ export default function App() {
   const { setAuth, clearAuth } = useAuthStore();
 
   useEffect(() => {
+    // Check for an existing session (e.g. returning user with valid cookie).
+    // Use { silent: true } to suppress the 401 error toast on /login page.
+    // Guard: only clear auth if login hasn't happened in the meantime (race-condition fix).
     authApi.me({ silent: true })
       .then((res) => setAuth(res.data?.user, res.data?.tenant || null))
-      .catch(() => clearAuth());
+      .catch(() => {
+        // Only reset if we haven't already been authenticated by a manual login.
+        const { isAuthenticated } = useAuthStore.getState();
+        if (!isAuthenticated) clearAuth();
+      });
   }, []); // eslint-disable-line
 
   return (

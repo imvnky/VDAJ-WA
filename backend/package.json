@@ -6,11 +6,13 @@
   "scripts": {
     "start": "node src/server.js",
     "build": "npm install",
-    "prestart": "npm run migrate",
+    "prestart": "npm run migrate && npm run bootstrap",
     "dev": "nodemon src/server.js",
     "worker": "node src/workers/messageWorker.js",
     "migrate": "node src/database/migrate.js",
+    "bootstrap": "node scripts/bootstrap.js",
     "seed": "node scripts/seed.js",
+    "seed:admin": "node src/database/seed.js",
     "seed:reset": "node scripts/seed.js",
     "stamp": "node src/database/stamp_existing.js",
     "audit": "node src/database/health_audit.js"

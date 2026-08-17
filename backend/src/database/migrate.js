@@ -46,7 +46,9 @@ async function run() {
 
   const client = new Client({
     connectionString,
-    ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: true } : false,
+    ssl: process.env.DATABASE_URL
+      ? { rejectUnauthorized: false }  // Render managed DB — self-signed certs
+      : (process.env.DB_SSL === 'true' ? { rejectUnauthorized: true } : false),
   });
 
   console.log(BOLD('\n━━━  VDAJ Migration Runner  ━━━\n'));

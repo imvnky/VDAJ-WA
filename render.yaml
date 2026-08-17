@@ -38,6 +38,11 @@ services:
         value: 10000
       - key: FRONTEND_URL
         value: https://vdaj-frontend.onrender.com
+      # ── Super-Admin Bootstrap (set SUPER_ADMIN_PASSWORD as secret in Render dashboard) ──
+      - key: SUPER_ADMIN_EMAIL
+        value: admin@vdajservices.com
+      - key: SUPER_ADMIN_PASSWORD
+        value: VDAJAdmin@2025!
 
   # Frontend Static Site (React Single Page App)
   - type: web
