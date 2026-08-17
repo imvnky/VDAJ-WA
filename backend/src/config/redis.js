@@ -24,7 +24,14 @@ const redisConfig = {
   },
 };
 
-const redisClient = new Redis(redisConfig);
+const redisClient = process.env.REDIS_URL
+  ? new Redis(process.env.REDIS_URL, {
+      keyPrefix: process.env.REDIS_KEY_PREFIX || 'vdaj:',
+      maxRetriesPerRequest: 3,
+      retryStrategy: redisConfig.retryStrategy,
+      reconnectOnError: redisConfig.reconnectOnError,
+    })
+  : new Redis(redisConfig);
 
 redisClient.on('connect', () => logger.info('Redis connected'));
 redisClient.on('ready', () => logger.info('Redis ready'));

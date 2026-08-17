@@ -42,30 +42,52 @@ const REDIS_OPTIONS = {
 // ============================================================
 
 /** Main campaign message queue */
-const messageQueue = new Bull('vdaj:message-queue', {
-  redis: REDIS_OPTIONS,
-  prefix: 'vdaj',
-  defaultJobOptions: {
-    attempts: QUEUE_CONFIG.MAX_RETRIES,
-    backoff: {
-      type: 'exponential',
-      delay: QUEUE_CONFIG.BACKOFF_DELAY_MS,
-    },
-    removeOnComplete: { count: 1000, age: 86400 }, // Keep last 1000 completed jobs (24h)
-    removeOnFail: false, // Keep failed jobs for inspection
-  },
-});
+const messageQueue = process.env.REDIS_URL
+  ? new Bull('vdaj:message-queue', process.env.REDIS_URL, {
+      prefix: 'vdaj',
+      defaultJobOptions: {
+        attempts: QUEUE_CONFIG.MAX_RETRIES,
+        backoff: {
+          type: 'exponential',
+          delay: QUEUE_CONFIG.BACKOFF_DELAY_MS,
+        },
+        removeOnComplete: { count: 1000, age: 86400 }, // Keep last 1000 completed jobs (24h)
+        removeOnFail: false, // Keep failed jobs for inspection
+      },
+    })
+  : new Bull('vdaj:message-queue', {
+      redis: REDIS_OPTIONS,
+      prefix: 'vdaj',
+      defaultJobOptions: {
+        attempts: QUEUE_CONFIG.MAX_RETRIES,
+        backoff: {
+          type: 'exponential',
+          delay: QUEUE_CONFIG.BACKOFF_DELAY_MS,
+        },
+        removeOnComplete: { count: 1000, age: 86400 }, // Keep last 1000 completed jobs (24h)
+        removeOnFail: false, // Keep failed jobs for inspection
+      },
+    });
 
 /** Dead-letter queue — jobs that exhausted all retries */
-const deadLetterQueue = new Bull('vdaj:dead-letter-queue', {
-  redis: REDIS_OPTIONS,
-  prefix: 'vdaj',
-  defaultJobOptions: {
-    attempts: 1,
-    removeOnComplete: false,
-    removeOnFail: false,
-  },
-});
+const deadLetterQueue = process.env.REDIS_URL
+  ? new Bull('vdaj:dead-letter-queue', process.env.REDIS_URL, {
+      prefix: 'vdaj',
+      defaultJobOptions: {
+        attempts: 1,
+        removeOnComplete: false,
+        removeOnFail: false,
+      },
+    })
+  : new Bull('vdaj:dead-letter-queue', {
+      redis: REDIS_OPTIONS,
+      prefix: 'vdaj',
+      defaultJobOptions: {
+        attempts: 1,
+        removeOnComplete: false,
+        removeOnFail: false,
+      },
+    });
 
 // ============================================================
 // CHUNK SPLITTING — Accepts array, returns array of chunk arrays
