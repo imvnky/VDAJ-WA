@@ -84,7 +84,7 @@ router.get('/overview', catchAsync(async (req, res) => {
        COUNT(*) FILTER (WHERE status = 'active')::int       AS active_contacts,
        COUNT(*) FILTER (WHERE status = 'opted_out')::int    AS opted_out
      FROM contacts
-     WHERE tenant_id = $1 AND deleted_at IS NULL`,
+     WHERE tenant_id = $1`,
     [tid]
   );
 

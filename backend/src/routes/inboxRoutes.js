@@ -43,7 +43,7 @@ router.get('/conversations', catchAsync(async (req, res) => {
   const { rows } = await query(sql, params);
   const total = parseInt(rows[0]?.total_count || 0);
 
-  return sendSuccess(res, rows, null, {
+  return sendSuccess(res, rows, 'Conversations fetched.', 200, {
     total, page: parseInt(page), limit: parseInt(limit), pages: Math.ceil(total / parseInt(limit))
   });
 }));

@@ -37,7 +37,7 @@ router.post('/', catchAsync(async (req, res) => {
      RETURNING *`,
     [req.user.tenantId, name, description, triggerType, JSON.stringify(triggerConfig), JSON.stringify(steps), req.user.id]
   );
-  return sendSuccess(res, rows[0], 'Automation created.', null, 201);
+  return sendSuccess(res, rows[0], 'Automation created.', 201);
 }));
 
 // ---- PUT /automations/:id ----
