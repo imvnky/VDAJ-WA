@@ -12,6 +12,9 @@ export default defineConfig({
       },
     },
   },
+  preview: {
+    allowedHosts: true,
+  },
   resolve: {
     extensions: ['.jsx', '.js'],
   },
