@@ -25,9 +25,10 @@ const path = require('path');
 // ── Migration order matters — V1 must precede V2, V2 must precede V3 ──
 const DB_DIR = path.join(__dirname);
 const MIGRATION_ORDER = [
-  { name: 'schema_v1',        file: path.join(DB_DIR, 'schema.sql') },
-  { name: 'schema_v2',        file: path.join(DB_DIR, 'schema_v2.sql') },
-  { name: 'v3_flow_builder',  file: path.join(DB_DIR, 'migrations', 'v3_flow_builder.sql') },
+  { name: 'schema_v1',           file: path.join(DB_DIR, 'schema.sql') },
+  { name: 'schema_v2',           file: path.join(DB_DIR, 'schema_v2.sql') },
+  { name: 'v3_flow_builder',     file: path.join(DB_DIR, 'migrations', 'v3_flow_builder.sql') },
+  { name: '002_bsp_compliance',  file: path.join(DB_DIR, 'migrations', '002_bsp_compliance.sql') },
 ];
 
 // ── ANSI colour helpers ────────────────────────────────────────

@@ -330,9 +330,53 @@ const exchangeEmbeddedSignupToken = async (code, metaAppId, metaAppSecret) => {
   };
 };
 
+// ─────────────────────────────────────────────────────────────────
+// getWABAHealth — Fetch phone number health from Meta Graph API
+// ─────────────────────────────────────────────────────────────────
+
+/**
+ * Fetch WABA phone number health metrics from Meta Graph API.
+ *
+ * Returns quality_rating (GREEN|YELLOW|RED), messaging_limit_tier
+ * (TIER_1K|TIER_10K|TIER_100K|TIER_UNLIMITED|UNLIMITED),
+ * display_phone_number, verified_name, and name_status.
+ *
+ * Used by the WABA health cron in analyticsWorker.js to keep the
+ * tenants table in sync so clients always see accurate limits/status.
+ *
+ * @param {string} phoneNumberId  — Meta phone number ID stored in tenants.phone_number_id
+ * @param {string} accessToken    — System-user token (tenants.meta_system_token)
+ * @returns {Promise<object>}     — Raw Meta API response object
+ */
+const getWABAHealth = async (phoneNumberId, accessToken) => {
+  if (!phoneNumberId || !accessToken) {
+    throw new AppError(
+      'phoneNumberId and accessToken are required to fetch WABA health.',
+      400,
+      'ERR_META_006'
+    );
+  }
+
+  const responseBody = await callMetaApi({
+    method: 'GET',
+    path:   `${phoneNumberId}?fields=quality_rating,messaging_limit_tier,display_phone_number,verified_name,name_status`,
+    accessToken,
+  });
+
+  logger.debug('WABA health fetched', {
+    phoneNumberId,
+    quality_rating:       responseBody?.quality_rating,
+    messaging_limit_tier: responseBody?.messaging_limit_tier,
+    name_status:          responseBody?.name_status,
+  });
+
+  return responseBody;
+};
+
 module.exports = {
   sendWhatsAppMessage,
   createMetaTemplate,
   syncMetaTemplateStatus,
   exchangeEmbeddedSignupToken,
+  getWABAHealth,
 };

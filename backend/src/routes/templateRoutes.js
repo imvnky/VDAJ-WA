@@ -41,6 +41,26 @@ router.post('/', catchAsync(async (req, res) => {
     throw new AppError('name and bodyText are required.', 400, 'ERR_VDAJ_VAL_001');
   }
 
+  // ── BSP Compliance: marketing templates MUST contain opt-out text ──
+  // Meta's template policy requires that marketing (promotional) templates
+  // inform recipients how to stop receiving messages. Templates submitted
+  // without this are routinely rejected by Meta's review team.
+  //
+  // Accepted phrases (case-insensitive): STOP, unsubscribe, opt out,
+  // opt-out, optout, no more — any of these satisfy the requirement.
+  const resolvedCategory = (category || 'marketing').toLowerCase();
+  if (resolvedCategory === 'marketing') {
+    const OPT_OUT_REGEX = /\b(stop|unsubscribe|opt.?out|no more)\b/i;
+    if (!OPT_OUT_REGEX.test(bodyText)) {
+      throw new AppError(
+        'Marketing templates must include an opt-out instruction in the message body ' +
+        '(e.g. "Reply STOP to unsubscribe"). Meta will reject templates without this.',
+        400,
+        'ERR_TEMPLATE_NO_OPTOUT'
+      );
+    }
+  }
+
   // Insert local record first (status = 'pending')
   const { rows: [template] } = await query(
     `INSERT INTO message_templates
@@ -51,7 +71,7 @@ router.post('/', catchAsync(async (req, res) => {
     [
       req.user.tenantId,
       name.trim().toLowerCase().replace(/\s+/g, '_'),
-      category || 'marketing',
+      resolvedCategory,
       language || 'en',
       bodyText,
       headerText || null,

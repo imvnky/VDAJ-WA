@@ -70,13 +70,17 @@ export const campaignApi = {
   launch: (id) => client.post(`/campaigns/${id}/launch`),
   pause: (id) => client.patch(`/campaigns/${id}/pause`),
   delete: (id) => client.delete(`/campaigns/${id}`),
+  messages: (params) => client.get('/campaigns/messages', { params }),
 };
 
 // ---- CONTACTS ----
 export const contactApi = {
   list: (params) => client.get('/contacts', { params }),
+  get: (id) => client.get(`/contacts/${id}`),
   create: (data) => client.post('/contacts', data),
-  bulkImport: (contacts, listId) => client.post('/contacts/bulk', { contacts, listId }),
+  bulkImport: (contacts, listId, opt_in_source, opt_in_proof) =>
+    client.post('/contacts/bulk', { contacts, listId, opt_in_source, opt_in_proof }),
+  updateTags: (id, tags) => client.patch(`/contacts/${id}/tags`, { tags }),
   optOut: (id) => client.patch(`/contacts/${id}/opt-out`),
   lists: () => client.get('/contacts/lists'),
   createList: (data) => client.post('/contacts/lists', data),
@@ -93,6 +97,11 @@ export const templateApi = {
 // ---- TENANTS ----
 export const tenantApi = {
   me: (config) => client.get('/tenants/me', config),
+  wabaHealth: (config) => client.get('/tenants/me/waba-health', config),
+  updateAccount: (data) => client.patch('/tenants/me', data),
+  team: () => client.get('/tenants/me/team'),
+  invite: (data) => client.post('/tenants/me/invite', data),
+  compliance: () => client.get('/tenants/me/compliance'),
   list: () => client.get('/tenants'),
   create: (data) => client.post('/tenants', data),
   setStatus: (id, isActive) => client.patch(`/tenants/${id}/status`, { isActive }),

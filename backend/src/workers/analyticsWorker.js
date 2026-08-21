@@ -19,6 +19,7 @@
 
 const { query } = require('../config/database');
 const logger = require('../utils/logger');
+const { getWABAHealth } = require('../services/metaApiService');
 
 // ─────────────────────────────────────────────────────────────────
 // Core aggregation function — one tenant, one date
@@ -202,4 +203,177 @@ function startAnalyticsCron() {
   scheduleDaily();
 }
 
-module.exports = { aggregateTenantSnapshot, runDailyAggregation, startAnalyticsCron };
+// ─────────────────────────────────────────────────────────────────
+// WABA Health Sync — per-tenant quality rating + messaging tier
+// ─────────────────────────────────────────────────────────────────
+
+/**
+ * Map Meta's messaging_limit_tier string to an integer tier number.
+ * Meta tier strings: 'TIER_1K' | 'TIER_10K' | 'TIER_100K' | 'TIER_UNLIMITED' | 'UNLIMITED'
+ *
+ * @param {string|null} tierStr
+ * @returns {number} 1 | 2 | 3 | 4
+ */
+function parseTier(tierStr) {
+  if (!tierStr) return 1;
+  const s = tierStr.toUpperCase();
+  if (s.includes('100K') || s === 'TIER_100K') return 3;
+  if (s.includes('10K')  || s === 'TIER_10K')  return 2;
+  if (s.includes('UNLIMITED'))                  return 4;
+  return 1; // TIER_1K or unknown → safest default
+}
+
+/**
+ * Tier-to-daily-limit lookup (messages per day).
+ * @param {number} tier
+ * @returns {number}
+ */
+function tierDailyLimit(tier) {
+  const limits = { 1: 1000, 2: 10000, 3: 100000, 4: 999999 };
+  return limits[tier] || 1000;
+}
+
+/**
+ * Fetch WABA health for all active tenants that have WhatsApp configured,
+ * update the tenants table, and auto-pause any running campaigns whose
+ * tenant's quality rating has dropped to RED.
+ *
+ * Never throws — individual tenant failures are logged and skipped.
+ */
+async function syncWABAHealth() {
+  logger.info('WABA health sync started');
+
+  const { rows: tenants } = await query(`
+    SELECT id, phone_number_id, meta_system_token, quality_rating AS prev_rating
+    FROM tenants
+    WHERE is_active = TRUE
+      AND deleted_at IS NULL
+      AND phone_number_id IS NOT NULL
+      AND meta_system_token IS NOT NULL
+  `);
+
+  if (tenants.length === 0) {
+    logger.info('WABA health sync: no configured tenants, skipping.');
+    return;
+  }
+
+  let success = 0;
+  let failed  = 0;
+
+  for (const tenant of tenants) {
+    try {
+      const health = await getWABAHealth(tenant.phone_number_id, tenant.meta_system_token);
+
+      const newRating = (health.quality_rating || 'GREEN').toUpperCase();
+      const newTier   = parseTier(health.messaging_limit_tier);
+
+      await query(
+        `UPDATE tenants
+           SET quality_rating        = $2,
+               messaging_tier        = $3,
+               display_phone_number  = COALESCE($4, display_phone_number),
+               verified_name         = COALESCE($5, verified_name),
+               waba_health_synced_at = NOW(),
+               updated_at            = NOW()
+         WHERE id = $1`,
+        [
+          tenant.id,
+          newRating,
+          newTier,
+          health.display_phone_number || null,
+          health.verified_name        || null,
+        ]
+      );
+
+      // ── Auto-pause running campaigns when quality drops to RED ──────
+      // A RED quality rating means Meta has flagged this number and may
+      // stop delivery. Pausing protects the sender reputation and avoids
+      // wasting message quota on undeliverable sends.
+      if (newRating === 'RED' && tenant.prev_rating !== 'RED') {
+        const { rowCount } = await query(
+          `UPDATE campaigns
+             SET status = 'paused', updated_at = NOW()
+           WHERE tenant_id = $1 AND status = 'running'`,
+          [tenant.id]
+        );
+        if (rowCount > 0) {
+          logger.warn('Campaigns auto-paused: quality rating dropped to RED', {
+            tenantId:     tenant.id,
+            pausedCount:  rowCount,
+          });
+        }
+      }
+
+      logger.debug('WABA health synced', {
+        tenantId:    tenant.id,
+        quality:     newRating,
+        tier:        newTier,
+        dailyLimit:  tierDailyLimit(newTier),
+      });
+
+      success++;
+    } catch (err) {
+      failed++;
+      logger.error('WABA health sync failed for tenant', {
+        tenantId: tenant.id,
+        error:    err.message,
+        code:     err.errorCode,
+      });
+      // Continue — one tenant failure must not block the rest
+    }
+  }
+
+  logger.info('WABA health sync complete', { success, failed, total: tenants.length });
+}
+
+/**
+ * Registers the WABA health sync cron.
+ * Fires every 6 hours: 00:00, 06:00, 12:00, 18:00 UTC.
+ * Uses the same setInterval/setTimeout pattern as startAnalyticsCron
+ * to avoid adding a new npm dependency.
+ *
+ * Call this from server.js during startup.
+ */
+function startWABAHealthCron() {
+  const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
+
+  // Compute ms until the next 6-hour mark (00, 06, 12, 18 UTC)
+  const scheduleNext = () => {
+    const now     = new Date();
+    const utcHour = now.getUTCHours();
+    const nextMark = Math.ceil((utcHour + 1) / 6) * 6; // next 0/6/12/18
+    const next    = new Date(Date.UTC(
+      now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(),
+      nextMark % 24, 0, 0, 0
+    ));
+    // If nextMark >= 24, bump to tomorrow 00:00
+    if (nextMark >= 24) {
+      next.setUTCDate(next.getUTCDate() + 1);
+      next.setUTCHours(0);
+    }
+    const msUntilNext = next.getTime() - Date.now();
+
+    logger.info('WABA health cron scheduled', {
+      nextRun:    next.toISOString(),
+      msUntilNext,
+    });
+
+    setTimeout(async () => {
+      try {
+        await syncWABAHealth();
+      } catch (err) {
+        logger.error('WABA health cron run failed', { error: err.message });
+      }
+      scheduleNext(); // reschedule after each run
+    }, msUntilNext);
+  };
+
+  // Run immediately on startup so health data is fresh right away
+  syncWABAHealth().catch((err) =>
+    logger.error('WABA health initial sync failed', { error: err.message })
+  );
+
+  scheduleNext();
+}
+
+module.exports = { aggregateTenantSnapshot, runDailyAggregation, startAnalyticsCron, syncWABAHealth, startWABAHealthCron };

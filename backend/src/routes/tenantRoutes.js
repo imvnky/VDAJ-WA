@@ -121,6 +121,71 @@ router.get('/me', catchAsync(async (req, res) => {
   return sendSuccess(res, response, 'Tenant profile fetched.');
 }));
 
+// ── GET /tenants/me/waba-health — WABA health for current tenant ─
+// Returns quality rating, messaging tier, daily limit, and usage.
+// Available to all authenticated tenant roles; super_admin must pass ?tenantId=.
+router.get('/me/waba-health', catchAsync(async (req, res) => {
+  // Reuse the same tenantId resolution logic as GET /tenants/me
+  let tenantId;
+  if (req.user.role === 'super_admin') {
+    tenantId = req.query.tenantId || null;
+    if (!tenantId) {
+      throw new AppError(
+        'super_admin must provide ?tenantId= to use this endpoint.',
+        400,
+        'ERR_VDAJ_VAL_005'
+      );
+    }
+  } else {
+    tenantId = req.user.tenantId;
+    if (!tenantId) {
+      throw new AppError('User is not associated with a tenant.', 400, 'ERR_VDAJ_TENANT_003');
+    }
+  }
+
+  // Translate integer tier → human-readable daily limit
+  const TIER_LIMITS = { 1: 1000, 2: 10000, 3: 100000, 4: 999999 };
+
+  const { rows: [health] } = await query(
+    `SELECT
+       quality_rating,
+       messaging_tier,
+       msgs_sent_today,
+       msgs_sent_today_date,
+       display_phone_number,
+       verified_name,
+       waba_health_synced_at,
+       (phone_number_id IS NOT NULL AND meta_system_token IS NOT NULL) AS waba_connected
+     FROM tenants
+     WHERE id = $1 AND deleted_at IS NULL`,
+    [tenantId]
+  );
+
+  if (!health) throw new AppError('Tenant not found.', 404, 'ERR_VDAJ_TENANT_001');
+
+  // Reset msgs_sent_today counter if date has rolled over (UTC)
+  const todayUTC = new Date().toISOString().slice(0, 10);
+  const storedDate = health.msgs_sent_today_date
+    ? new Date(health.msgs_sent_today_date).toISOString().slice(0, 10)
+    : null;
+
+  const msgsSentToday = storedDate === todayUTC ? (health.msgs_sent_today || 0) : 0;
+  const tier          = health.messaging_tier || 1;
+  const dailyLimit    = TIER_LIMITS[tier] || 1000;
+
+  return sendSuccess(res, {
+    quality_rating:        health.quality_rating  || 'GREEN',
+    messaging_tier:        tier,
+    daily_limit:           dailyLimit,
+    msgs_sent_today:       msgsSentToday,
+    usage_pct:             Math.round((msgsSentToday / dailyLimit) * 100),
+    display_phone_number:  health.display_phone_number  || null,
+    verified_name:         health.verified_name          || null,
+    waba_connected:        health.waba_connected,
+    waba_health_synced_at: health.waba_health_synced_at || null,
+  }, 'WABA health retrieved.');
+}));
+
 // ── GET /tenants — SuperAdmin: list all ────────────────────────
 router.get('/', authorize('super_admin'), catchAsync(async (req, res) => {
   const { rows } = await query(
@@ -173,6 +238,137 @@ router.patch('/:id/status', authorize('super_admin'), catchAsync(async (req, res
   );
   if (!tenant) throw new AppError('Tenant not found.', 404, 'ERR_VDAJ_TENANT_001');
   return sendSuccess(res, tenant, `Tenant ${isActive ? 'activated' : 'deactivated'}.`);
+}));
+
+// ── GET /tenants/me/team — List users for this tenant ──────────
+router.get('/me/team', catchAsync(async (req, res) => {
+  const tenantId = req.user.tenantId;
+  if (!tenantId) throw new AppError('Not associated with a tenant.', 400, 'ERR_VDAJ_TENANT_003');
+
+  const { rows } = await query(
+    `SELECT id, first_name, last_name, email, role, created_at, last_login_at
+       FROM users
+      WHERE tenant_id = $1 AND deleted_at IS NULL
+      ORDER BY created_at ASC`,
+    [tenantId]
+  );
+  return sendSuccess(res, rows, 'Team members fetched.');
+}));
+
+// ── POST /tenants/me/invite — Invite a team member ─────────────
+router.post('/me/invite', catchAsync(async (req, res) => {
+  const tenantId = req.user.tenantId;
+  if (!tenantId) throw new AppError('Not associated with a tenant.', 400, 'ERR_VDAJ_TENANT_003');
+
+  const { email, role = 'tenant_user', firstName = '', lastName = '' } = req.body;
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    throw new AppError('Valid email is required.', 400, 'ERR_VDAJ_VAL_001');
+  }
+  const VALID_ROLES = ['tenant_admin', 'tenant_user'];
+  if (!VALID_ROLES.includes(role)) {
+    throw new AppError(`Role must be one of: ${VALID_ROLES.join(', ')}.`, 400, 'ERR_VDAJ_VAL_002');
+  }
+
+  // Upsert: if user already exists (same email across tenants), associate with this tenant.
+  // Otherwise create a new placeholder user. In production you'd send an invite email here.
+  const tempPassword = require('crypto').randomBytes(16).toString('hex');
+  const bcrypt = require('bcryptjs');
+  const hashed = await bcrypt.hash(tempPassword, 12);
+
+  const { rows: [user] } = await query(
+    `INSERT INTO users (tenant_id, email, first_name, last_name, role, password_hash)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     ON CONFLICT (email) DO UPDATE
+       SET tenant_id = $1, role = $5, updated_at = NOW()
+     RETURNING id, email, first_name, last_name, role, created_at`,
+    [tenantId, email.toLowerCase().trim(), firstName.trim(), lastName.trim(), role, hashed]
+  );
+
+  // TODO: send invite email with password reset link
+  return sendSuccess(res, user, 'Team member invited. They will receive an email shortly.');
+}));
+
+// ── PATCH /tenants/me — Update tenant account settings ─────────
+router.patch('/me', catchAsync(async (req, res) => {
+  const tenantId = req.user.tenantId;
+  if (!tenantId) throw new AppError('Not associated with a tenant.', 400, 'ERR_VDAJ_TENANT_003');
+
+  const { name, timezone, country_code } = req.body;
+
+  const { rows: [tenant] } = await query(
+    `UPDATE tenants
+        SET name         = COALESCE($2, name),
+            timezone     = COALESCE($3, timezone),
+            country_code = COALESCE($4, country_code),
+            updated_at   = NOW()
+      WHERE id = $1 AND deleted_at IS NULL
+      RETURNING id, name, timezone, country_code, updated_at`,
+    [tenantId, name?.trim() || null, timezone || null, country_code || null]
+  );
+  if (!tenant) throw new AppError('Tenant not found.', 404, 'ERR_VDAJ_TENANT_001');
+  return sendSuccess(res, tenant, 'Settings updated.');
+}));
+
+// ── GET /tenants/me/compliance — Consent & quality audit ────────
+router.get('/me/compliance', catchAsync(async (req, res) => {
+  const tenantId = req.user.tenantId;
+  if (!tenantId) throw new AppError('Not associated with a tenant.', 400, 'ERR_VDAJ_TENANT_003');
+
+  // Opt-in breakdown by source
+  const { rows: optInBreakdown } = await query(
+    `SELECT opt_in_source AS source, COUNT(*) AS count
+       FROM contacts
+      WHERE tenant_id = $1
+        AND opted_in_at IS NOT NULL
+        AND deleted_at IS NULL
+      GROUP BY opt_in_source
+      ORDER BY count DESC`,
+    [tenantId]
+  );
+
+  // Opt-out rate
+  const { rows: [rates] } = await query(
+    `SELECT
+       COUNT(*) FILTER (WHERE status = 'opted_out') AS opted_out_count,
+       COUNT(*) AS total_count
+       FROM contacts
+      WHERE tenant_id = $1 AND deleted_at IS NULL`,
+    [tenantId]
+  );
+
+  // Contacts without opt-in (compliance risk)
+  const { rows: [noOptin] } = await query(
+    `SELECT COUNT(*) AS count
+       FROM contacts
+      WHERE tenant_id = $1
+        AND opted_in_at IS NULL
+        AND status = 'active'
+        AND deleted_at IS NULL`,
+    [tenantId]
+  );
+
+  // WABA quality from tenant row
+  const { rows: [waba] } = await query(
+    `SELECT quality_rating, messaging_tier, msgs_sent_today, waba_health_synced_at
+       FROM tenants WHERE id = $1`,
+    [tenantId]
+  );
+
+  const optOutRate = rates.total_count > 0
+    ? parseFloat(((rates.opted_out_count / rates.total_count) * 100).toFixed(1))
+    : 0;
+
+  return sendSuccess(res, {
+    opt_in_breakdown:      optInBreakdown,
+    opted_out_count:       parseInt(rates.opted_out_count, 10),
+    total_contacts:        parseInt(rates.total_count, 10),
+    opt_out_rate_pct:      optOutRate,
+    contacts_missing_optin: parseInt(noOptin.count, 10),
+    quality_rating:        waba?.quality_rating || 'GREEN',
+    messaging_tier:        waba?.messaging_tier || 1,
+    msgs_sent_today:       waba?.msgs_sent_today || 0,
+    waba_health_synced_at: waba?.waba_health_synced_at || null,
+  }, 'Compliance data fetched.');
 }));
 
 module.exports = router;

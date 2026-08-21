@@ -1,8 +1,8 @@
 /**
- * VDAJ Services — TemplatesPage
- * Sprint 2: Fixed all invisible-text contrast bugs.
- * All text now uses CSS variable tokens (var(--text-primary / secondary / muted))
- * and explicit hex values for badge colours — works correctly in all 3 theme modes.
+ * VDAJ Services — TemplatesPage (Tier 4)
+ * - Category compliance warnings in CreateModal
+ * - Rejected template reason display on card
+ * - "Edit & Resubmit" button pre-fills modal with rejected template data
  */
 
 import React, { useState, useEffect } from 'react';
@@ -12,63 +12,21 @@ import { showSuccess, showError } from '../components/atoms/Toast/Toast.jsx';
 import { PrimaryButton, GhostButton } from '../components/atoms/Button/Button.jsx';
 import Input, { Select, Textarea } from '../components/atoms/Input/Input.jsx';
 
-// ── Category badge styles (explicit, theme-safe) ───────────────
+// ── Category badge styles ──────────────────────────────────────
 const CATEGORY_STYLES = {
-  MARKETING: {
-    bg:     'rgba(83,74,183,0.12)',
-    color:  '#AFA9EC',
-    border: 'rgba(83,74,183,0.3)',
-  },
-  UTILITY: {
-    bg:     'rgba(29,158,117,0.12)',
-    color:  '#1D9E75',
-    border: 'rgba(29,158,117,0.3)',
-  },
-  AUTHENTICATION: {
-    bg:     'rgba(251,191,36,0.12)',
-    color:  '#fbbf24',
-    border: 'rgba(251,191,36,0.3)',
-  },
+  MARKETING:      { bg: 'rgba(83,74,183,0.12)',  color: '#AFA9EC',  border: 'rgba(83,74,183,0.3)'  },
+  UTILITY:        { bg: 'rgba(29,158,117,0.12)', color: '#1D9E75',  border: 'rgba(29,158,117,0.3)' },
+  AUTHENTICATION: { bg: 'rgba(251,191,36,0.12)', color: '#fbbf24',  border: 'rgba(251,191,36,0.3)' },
 };
 
 // ── Status badge styles ────────────────────────────────────────
 const STATUS_STYLES = {
-  APPROVED: {
-    bg:     'rgba(29,158,117,0.12)',
-    color:  '#1D9E75',
-    border: 'rgba(29,158,117,0.3)',
-    label:  'Approved',
-  },
-  approved: {
-    bg:     'rgba(29,158,117,0.12)',
-    color:  '#1D9E75',
-    border: 'rgba(29,158,117,0.3)',
-    label:  'Approved',
-  },
-  pending: {
-    bg:     'rgba(251,191,36,0.12)',
-    color:  '#fbbf24',
-    border: 'rgba(251,191,36,0.3)',
-    label:  'Pending',
-  },
-  PENDING: {
-    bg:     'rgba(251,191,36,0.12)',
-    color:  '#fbbf24',
-    border: 'rgba(251,191,36,0.3)',
-    label:  'Pending',
-  },
-  REJECTED: {
-    bg:     'rgba(239,68,68,0.10)',
-    color:  '#f87171',
-    border: 'rgba(239,68,68,0.25)',
-    label:  'Rejected',
-  },
-  rejected: {
-    bg:     'rgba(239,68,68,0.10)',
-    color:  '#f87171',
-    border: 'rgba(239,68,68,0.25)',
-    label:  'Rejected',
-  },
+  APPROVED:  { bg: 'rgba(29,158,117,0.12)', color: '#1D9E75', border: 'rgba(29,158,117,0.3)', label: 'Approved'  },
+  approved:  { bg: 'rgba(29,158,117,0.12)', color: '#1D9E75', border: 'rgba(29,158,117,0.3)', label: 'Approved'  },
+  pending:   { bg: 'rgba(251,191,36,0.12)', color: '#fbbf24', border: 'rgba(251,191,36,0.3)', label: 'Pending'   },
+  PENDING:   { bg: 'rgba(251,191,36,0.12)', color: '#fbbf24', border: 'rgba(251,191,36,0.3)', label: 'Pending'   },
+  REJECTED:  { bg: 'rgba(239,68,68,0.10)',  color: '#f87171', border: 'rgba(239,68,68,0.25)', label: 'Rejected'  },
+  rejected:  { bg: 'rgba(239,68,68,0.10)',  color: '#f87171', border: 'rgba(239,68,68,0.25)', label: 'Rejected'  },
 };
 
 // ── Badge component ────────────────────────────────────────────
@@ -87,11 +45,60 @@ function Badge({ style, children }) {
   );
 }
 
+// ── Category compliance callout ────────────────────────────────
+function CategoryCallout({ category }) {
+  if (category === 'MARKETING') {
+    return (
+      <div className="rounded-xl p-3 flex items-start gap-2.5"
+        style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)' }}>
+        <svg className="w-4 h-4 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24"
+          stroke="#f59e0b" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round"
+            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+        </svg>
+        <div>
+          <p className="text-xs font-bold" style={{ color: '#f59e0b' }}>Marketing Template Policy</p>
+          <p className="text-xs mt-0.5" style={{ color: 'rgba(245,158,11,0.8)' }}>
+            ⚠️ Marketing templates require <strong>explicit opt-in</strong> from every recipient and{' '}
+            <strong>must include opt-out text</strong> (e.g., &ldquo;Reply STOP to unsubscribe&rdquo;) in the footer.
+            Missing either will result in Meta rejection.
+          </p>
+        </div>
+      </div>
+    );
+  }
+  if (category === 'UTILITY') {
+    return (
+      <div className="rounded-xl p-3 flex items-start gap-2.5"
+        style={{ background: 'rgba(96,165,250,0.08)', border: '1px solid rgba(96,165,250,0.25)' }}>
+        <svg className="w-4 h-4 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24"
+          stroke="#60a5fa" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round"
+            d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <div>
+          <p className="text-xs font-bold" style={{ color: '#60a5fa' }}>Utility Template Policy</p>
+          <p className="text-xs mt-0.5" style={{ color: 'rgba(96,165,250,0.8)' }}>
+            ℹ️ Utility templates must be <strong>strictly transactional</strong> (orders, alerts, account updates).
+            Promotional language or offers will result in Meta rejection and may affect your quality rating.
+          </p>
+        </div>
+      </div>
+    );
+  }
+  return null;
+}
+
 // ── Create / Edit Modal ────────────────────────────────────────
-function CreateModal({ onClose, onCreated }) {
+function CreateModal({ onClose, onCreated, prefill = null }) {
+  const isEdit = !!prefill;
   const [form, setForm] = useState({
-    name: '', category: 'MARKETING', language: 'en',
-    bodyText: '', headerText: '', footerText: '',
+    name:       prefill?.name        || '',
+    category:   prefill?.category    || 'MARKETING',
+    language:   prefill?.language    || 'en',
+    bodyText:   prefill?.body_text   || '',
+    headerText: prefill?.header_text || '',
+    footerText: prefill?.footer_text || '',
   });
   const [loading, setLoading] = useState(false);
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
@@ -111,28 +118,36 @@ function CreateModal({ onClose, onCreated }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)' }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl animate-scale-in"
+      <div className="w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl animate-scale-in max-h-[90vh] flex flex-col"
         style={{ background: 'var(--bg-card)', border: '1px solid var(--bg-border)' }}>
 
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b"
+        <div className="flex items-center justify-between px-6 py-4 border-b shrink-0"
           style={{ borderColor: 'var(--bg-border)' }}>
           <h2 className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>
-            New Template
+            {isEdit ? '✏️ Edit & Resubmit Template' : 'New Template'}
           </h2>
           <button onClick={onClose}
             className="w-8 h-8 rounded-xl flex items-center justify-center hover:opacity-70"
             style={{ background: 'var(--bg-elevated)' }}>
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24"
-              stroke="currentColor" strokeWidth={2}
-              style={{ color: 'var(--text-muted)' }}>
+              stroke="currentColor" strokeWidth={2} style={{ color: 'var(--text-muted)' }}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
 
-        {/* Form */}
-        <div className="p-6 space-y-4">
+        {/* Form — scrollable */}
+        <div className="p-6 space-y-4 overflow-y-auto flex-1">
+          {isEdit && (
+            <div className="rounded-xl p-3"
+              style={{ background: 'rgba(83,74,183,0.08)', border: '1px solid rgba(83,74,183,0.25)' }}>
+              <p className="text-xs" style={{ color: '#AFA9EC' }}>
+                ✏️ This template was rejected. Correct the issues below and resubmit. Meta will re-review it.
+              </p>
+            </div>
+          )}
+
           <Input
             label="Template Name"
             placeholder="e.g. order_confirmation"
@@ -147,8 +162,8 @@ function CreateModal({ onClose, onCreated }) {
               value={form.category}
               onChange={(e) => set('category', e.target.value)}
               options={[
-                { value: 'MARKETING', label: 'Marketing' },
-                { value: 'UTILITY', label: 'Utility' },
+                { value: 'MARKETING',      label: 'Marketing' },
+                { value: 'UTILITY',        label: 'Utility' },
                 { value: 'AUTHENTICATION', label: 'Authentication' },
               ]}
             />
@@ -164,6 +179,10 @@ function CreateModal({ onClose, onCreated }) {
               ]}
             />
           </div>
+
+          {/* Compliance callout — updates live on category change */}
+          <CategoryCallout category={form.category} />
+
           <Input
             label="Header (optional)"
             placeholder="e.g. Order Update"
@@ -178,19 +197,24 @@ function CreateModal({ onClose, onCreated }) {
             helperText="Variables must match Meta's format exactly."
           />
           <Input
-            label="Footer (optional)"
-            placeholder="e.g. Reply STOP to opt out"
+            label={form.category === 'MARKETING' ? 'Footer * (opt-out text required)' : 'Footer (optional)'}
+            placeholder={form.category === 'MARKETING' ? 'Reply STOP to unsubscribe' : 'e.g. Reply STOP to opt out'}
             value={form.footerText}
             onChange={(e) => set('footerText', e.target.value)}
           />
+          {form.category === 'MARKETING' && !form.footerText && (
+            <p className="text-2xs" style={{ color: '#f59e0b' }}>
+              ⚠ Marketing templates must include opt-out text in the footer.
+            </p>
+          )}
         </div>
 
         {/* Actions */}
-        <div className="flex justify-end gap-3 px-6 py-4 border-t"
+        <div className="flex justify-end gap-3 px-6 py-4 border-t shrink-0"
           style={{ borderColor: 'var(--bg-border)', background: 'var(--bg-elevated)' }}>
           <GhostButton onClick={onClose}>Cancel</GhostButton>
           <PrimaryButton loading={loading} onClick={handleCreate}>
-            Submit to Meta
+            {isEdit ? 'Resubmit to Meta' : 'Submit to Meta'}
           </PrimaryButton>
         </div>
       </div>
@@ -199,11 +223,12 @@ function CreateModal({ onClose, onCreated }) {
 }
 
 // ── Template Card ──────────────────────────────────────────────
-function TemplateCard({ template, onSync }) {
+function TemplateCard({ template, onSync, onResubmit }) {
   const [syncing, setSyncing] = useState(false);
-  const catStyle = CATEGORY_STYLES[template.category] || {};
-  const statusKey = template.status?.toUpperCase() || 'PENDING';
+  const catStyle   = CATEGORY_STYLES[template.category] || {};
+  const statusKey  = template.status?.toUpperCase() || 'PENDING';
   const statusStyle = STATUS_STYLES[statusKey] || STATUS_STYLES.PENDING;
+  const isRejected  = statusKey === 'REJECTED';
 
   const handleSync = async () => {
     setSyncing(true);
@@ -217,22 +242,17 @@ function TemplateCard({ template, onSync }) {
   return (
     <div
       className="rounded-2xl p-5 flex flex-col gap-3 transition-all duration-200"
-      style={{
-        background: 'var(--bg-card)',
-        border: '1px solid var(--bg-border)',
-      }}
-      onMouseEnter={(e) => e.currentTarget.style.borderColor = 'rgba(83,74,183,0.4)'}
-      onMouseLeave={(e) => e.currentTarget.style.borderColor = 'var(--bg-border)'}
+      style={{ background: 'var(--bg-card)', border: `1px solid ${isRejected ? 'rgba(239,68,68,0.3)' : 'var(--bg-border)'}` }}
+      onMouseEnter={(e) => e.currentTarget.style.borderColor = isRejected ? 'rgba(239,68,68,0.5)' : 'rgba(83,74,183,0.4)'}
+      onMouseLeave={(e) => e.currentTarget.style.borderColor = isRejected ? 'rgba(239,68,68,0.3)' : 'var(--bg-border)'}
     >
       {/* Card header */}
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-bold font-mono truncate"
-            style={{ color: 'var(--text-primary)' }}>
+          <p className="text-sm font-bold font-mono truncate" style={{ color: 'var(--text-primary)' }}>
             {template.name}
           </p>
-          <p className="text-2xs mt-0.5"
-            style={{ color: 'var(--text-muted)' }}>
+          <p className="text-2xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
             {template.language}
             {template.meta_template_id && ` · ID: ${template.meta_template_id}`}
           </p>
@@ -243,33 +263,54 @@ function TemplateCard({ template, onSync }) {
         </div>
       </div>
 
+      {/* Rejection reason banner */}
+      {isRejected && (
+        <div className="rounded-xl p-3"
+          style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}>
+          <p className="text-2xs font-bold mb-0.5" style={{ color: '#f87171' }}>
+            ❌ Rejection Reason
+          </p>
+          <p className="text-xs" style={{ color: 'rgba(248,113,113,0.85)' }}>
+            {template.rejection_reason || template.meta_rejection_reason
+              || 'Meta did not provide a specific reason. Common causes: missing opt-out text, promotional language in utility templates, or policy violations.'}
+          </p>
+        </div>
+      )}
+
       {/* Body preview */}
       <div className="rounded-xl px-3 py-2.5"
         style={{ background: 'var(--bg-elevated)', border: '1px solid var(--bg-border)' }}>
-        <p className="text-xs leading-relaxed font-mono line-clamp-3"
-          style={{ color: 'var(--text-secondary)' }}>
+        <p className="text-xs leading-relaxed font-mono line-clamp-3" style={{ color: 'var(--text-secondary)' }}>
           {template.body_text || template.components?.[0]?.text || 'No body defined.'}
         </p>
       </div>
 
-      {/* Footer: timestamp + sync button */}
-      <div className="flex items-center justify-between mt-auto">
+      {/* Footer: timestamp + actions */}
+      <div className="flex items-center justify-between mt-auto gap-2 flex-wrap">
         <p className="text-2xs" style={{ color: 'var(--text-muted)' }}>
-          {new Date(template.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+          {new Date(template.created_at).toLocaleDateString('en-IN', {
+            day: 'numeric', month: 'short', year: 'numeric',
+          })}
         </p>
-        {statusKey !== 'APPROVED' && (
-          <button
-            onClick={handleSync}
-            disabled={syncing}
-            className="text-2xs font-semibold px-2.5 py-1 rounded-lg transition-all hover:opacity-70 disabled:opacity-40"
-            style={{
-              background: 'rgba(83,74,183,0.12)',
-              color: '#AFA9EC',
-              border: '1px solid rgba(83,74,183,0.25)',
-            }}>
-            {syncing ? 'Syncing…' : '↻ Sync Status'}
-          </button>
-        )}
+        <div className="flex gap-2">
+          {isRejected && (
+            <button
+              onClick={() => onResubmit(template)}
+              className="text-2xs font-bold px-2.5 py-1 rounded-lg transition-all hover:brightness-110"
+              style={{ background: 'rgba(83,74,183,0.12)', color: '#AFA9EC', border: '1px solid rgba(83,74,183,0.25)' }}>
+              ✏️ Edit &amp; Resubmit
+            </button>
+          )}
+          {statusKey !== 'APPROVED' && (
+            <button
+              onClick={handleSync}
+              disabled={syncing}
+              className="text-2xs font-semibold px-2.5 py-1 rounded-lg transition-all hover:opacity-70 disabled:opacity-40"
+              style={{ background: 'rgba(83,74,183,0.08)', color: '#AFA9EC', border: '1px solid rgba(83,74,183,0.15)' }}>
+              {syncing ? 'Syncing…' : '↻ Sync'}
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -285,9 +326,7 @@ function EmptyState({ onNew }) {
         <path strokeLinecap="round" strokeLinejoin="round"
           d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
       </svg>
-      <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
-        No templates yet
-      </p>
+      <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>No templates yet</p>
       <p className="text-xs mt-1 mb-6" style={{ color: 'var(--text-muted)' }}>
         Create a template and submit it to Meta for approval.
       </p>
@@ -301,6 +340,7 @@ export default function TemplatesPage() {
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading]     = useState(true);
   const [creating, setCreating]   = useState(false);
+  const [prefill, setPrefill]     = useState(null);  // template to pre-fill modal for resubmit
 
   useEffect(() => {
     templateApi.list()
@@ -309,28 +349,35 @@ export default function TemplatesPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const handleSync = (id) => {
-    // Reload single template status after sync
-    templateApi.list()
-      .then((r) => setTemplates(r?.data || []))
-      .catch(() => {});
+  const handleSync = () => {
+    templateApi.list().then((r) => setTemplates(r?.data || [])).catch(() => {});
   };
+
+  const openResubmit = (template) => {
+    setPrefill(template);
+    setCreating(true);
+  };
+
+  const closeModal = () => { setCreating(false); setPrefill(null); };
+
+  // Stats bar
+  const approved  = templates.filter((t) => (t.status || '').toLowerCase() === 'approved').length;
+  const rejected  = templates.filter((t) => (t.status || '').toLowerCase() === 'rejected').length;
+  const pending   = templates.filter((t) => (t.status || '').toLowerCase() === 'pending').length;
 
   return (
     <div className="max-w-6xl mx-auto space-y-6" style={{ animation: 'fadeIn 0.3s ease-out' }}>
 
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-black" style={{ color: 'var(--text-primary)' }}>
-            Templates
-          </h1>
+          <h1 className="text-2xl font-black" style={{ color: 'var(--text-primary)' }}>Templates</h1>
           <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
-            Meta-approved message templates for your campaigns.
+            Meta-approved message templates for campaigns &amp; inbox.
           </p>
         </div>
         <PrimaryButton
-          onClick={() => setCreating(true)}
+          onClick={() => { setPrefill(null); setCreating(true); }}
           leftIcon={
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24"
               stroke="currentColor" strokeWidth={2.5}>
@@ -341,6 +388,28 @@ export default function TemplatesPage() {
           New Template
         </PrimaryButton>
       </div>
+
+      {/* Stats strip */}
+      {templates.length > 0 && (
+        <div className="flex items-center gap-4 flex-wrap">
+          {[
+            { label: 'Approved', val: approved, color: '#1D9E75', bg: 'rgba(29,158,117,0.10)' },
+            { label: 'Pending',  val: pending,  color: '#f59e0b', bg: 'rgba(245,158,11,0.10)' },
+            { label: 'Rejected', val: rejected, color: '#f87171', bg: 'rgba(239,68,68,0.10)'  },
+          ].map((s) => (
+            <div key={s.label} className="flex items-center gap-2 px-3 py-1.5 rounded-xl"
+              style={{ background: s.bg, border: `1px solid ${s.color}25` }}>
+              <span className="text-xl font-black tabular-nums" style={{ color: s.color }}>{s.val}</span>
+              <span className="text-xs font-semibold" style={{ color: s.color }}>{s.label}</span>
+            </div>
+          ))}
+          {rejected > 0 && (
+            <p className="text-xs" style={{ color: '#f87171' }}>
+              ⚠ {rejected} template{rejected > 1 ? 's' : ''} need{rejected === 1 ? 's' : ''} attention.
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Content */}
       {loading ? (
@@ -355,16 +424,22 @@ export default function TemplatesPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {templates.map((t) => (
-            <TemplateCard key={t.id} template={t} onSync={handleSync} />
+            <TemplateCard
+              key={t.id}
+              template={t}
+              onSync={handleSync}
+              onResubmit={openResubmit}
+            />
           ))}
         </div>
       )}
 
-      {/* Create Modal */}
+      {/* Create / Edit Modal */}
       {creating && (
         <CreateModal
-          onClose={() => setCreating(false)}
-          onCreated={(t) => { setTemplates((ts) => [t, ...ts]); setCreating(false); }}
+          onClose={closeModal}
+          prefill={prefill}
+          onCreated={(t) => { setTemplates((ts) => [t, ...ts]); closeModal(); }}
         />
       )}
     </div>

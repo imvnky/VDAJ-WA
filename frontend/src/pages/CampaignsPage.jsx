@@ -307,41 +307,88 @@ export default function CampaignsPage() {
       ) : (
         <div className="space-y-3">
           {campaigns.map((c) => {
-            const pct = c.total_count ? Math.round((c.sent_count / c.total_count) * 100) : 0;
+            const sentPct  = c.total_count  ? Math.round((c.sent_count       / c.total_count)  * 100) : 0;
+            const delPct   = c.sent_count   ? Math.round(((c.delivered_count || 0) / c.sent_count)  * 100) : 0;
+            const readPct  = c.sent_count   ? Math.round(((c.read_count      || 0) / c.sent_count)  * 100) : 0;
             const isRunning = c.status === 'running';
-            const isDraft = c.status === 'draft' || c.status === 'scheduled';
+            const isDraft   = c.status === 'draft' || c.status === 'scheduled';
             const al = actionLoading[c.id];
             return (
               <div key={c.id} className="glass-card px-5 py-4 hover:border-brand/30 transition-colors">
                 <div className="flex items-start gap-4">
                   <div className="flex-1 min-w-0">
+                    {/* Name + badge */}
                     <div className="flex items-center gap-3 flex-wrap">
                       <h3 className="text-sm font-bold text-aura-white truncate">{c.name}</h3>
                       <StatusBadge status={c.status} />
                     </div>
 
-                    {/* Stats row */}
+                    {/* Numerical stats row */}
                     <div className="flex items-center gap-4 mt-2 flex-wrap">
                       {[
-                        { label: 'Sent', val: c.sent_count },
-                        { label: 'Delivered', val: c.delivered_count },
-                        { label: 'Read', val: c.read_count },
-                        { label: 'Failed', val: c.failed_count },
+                        { label: 'Sent',      val: c.sent_count,      pct: sentPct,  color: '#AFA9EC' },
+                        { label: 'Delivered', val: c.delivered_count, pct: delPct,   color: '#1D9E75' },
+                        { label: 'Read',      val: c.read_count,      pct: readPct,  color: '#60a5fa' },
+                        { label: 'Failed',    val: c.failed_count,    pct: null,     color: '#f87171' },
                       ].map((s) => (
-                        <div key={s.label} className="flex items-center gap-1.5">
+                        <div key={s.label} className="flex flex-col">
                           <span className="text-2xs text-aura-white/30">{s.label}</span>
-                          <span className="text-xs font-bold text-aura-white tabular-nums">{s.val ?? 0}</span>
+                          <div className="flex items-baseline gap-1">
+                            <span
+                              className="text-sm font-black tabular-nums"
+                              style={{ color: (s.val ?? 0) > 0 ? s.color : 'rgba(255,255,255,0.3)' }}
+                            >
+                              {(s.val ?? 0).toLocaleString()}
+                            </span>
+                            {s.pct !== null && (s.val ?? 0) > 0 && (
+                              <span className="text-2xs" style={{ color: s.color, opacity: 0.7 }}>
+                                {s.pct}%
+                              </span>
+                            )}
+                          </div>
                         </div>
                       ))}
+
+                      {/* Opt-out count */}
+                      {(c.opt_out_count ?? 0) > 0 && (
+                        <div className="flex flex-col">
+                          <span className="text-2xs text-aura-white/30">Opt-outs</span>
+                          <span className="text-sm font-black tabular-nums text-amber-400">
+                            {c.opt_out_count}
+                          </span>
+                        </div>
+                      )}
                     </div>
 
                     {/* Progress bar */}
                     {c.total_count > 0 && (
-                      <div className="mt-3 flex items-center gap-3">
-                        <div className="flex-1 h-1.5 rounded-full bg-surface-border overflow-hidden">
-                          <div className="h-full rounded-full bg-brand-gradient" style={{ width: `${pct}%` }} />
+                      <div className="mt-3">
+                        {/* Layered bar: sent (brand) + delivered overlay (teal) */}
+                        <div className="relative h-2 rounded-full bg-surface-border overflow-hidden">
+                          {/* Sent layer */}
+                          <div
+                            className="absolute inset-y-0 left-0 rounded-full"
+                            style={{ width: `${sentPct}%`, background: 'rgba(83,74,183,0.4)' }}
+                          />
+                          {/* Delivered layer */}
+                          <div
+                            className="absolute inset-y-0 left-0 rounded-full transition-all"
+                            style={{ width: `${delPct * sentPct / 100}%`, background: '#1D9E75' }}
+                          />
                         </div>
-                        <span className="text-2xs text-aura-white/30 tabular-nums">{pct}%</span>
+                        <div className="flex items-center justify-between mt-1">
+                          <span className="text-2xs text-aura-white/30">
+                            {sentPct}% sent · {delPct}% delivered · {readPct}% read
+                          </span>
+                          {/* View details placeholder */}
+                          <button
+                            className="text-2xs font-semibold hover:underline transition-colors"
+                            style={{ color: '#AFA9EC' }}
+                            onClick={() => { /* TODO: open campaign detail drawer */ }}
+                          >
+                            View details →
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>

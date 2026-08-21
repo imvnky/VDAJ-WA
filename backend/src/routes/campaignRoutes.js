@@ -169,4 +169,91 @@ router.delete('/:id', uuidParamValidator('id'), validate, catchAsync(async (req,
   return sendSuccess(res, null, 'Campaign deleted.');
 }));
 
+// ── GET /campaigns/messages — WhatsApp delivery log ────────────
+// Returns paginated campaign_messages with campaign + template metadata.
+// Query params: status, campaign_id, date_from, date_to, limit, offset
+router.get('/messages', catchAsync(async (req, res) => {
+  const tenantId = req.user.tenantId;
+  const {
+    status,
+    campaign_id,
+    date_from,
+    date_to,
+    limit  = 50,
+    offset = 0,
+  } = req.query;
+
+  const filters = ['cm.tenant_id = $1', 'cm.deleted_at IS NULL'];
+  const params  = [tenantId];
+  let   pidx    = 2;
+
+  if (status) {
+    filters.push(`cm.status = $${pidx++}`);
+    params.push(status);
+  }
+  if (campaign_id) {
+    filters.push(`cm.campaign_id = $${pidx++}`);
+    params.push(campaign_id);
+  }
+  if (date_from) {
+    filters.push(`cm.created_at >= $${pidx++}`);
+    params.push(new Date(date_from).toISOString());
+  }
+  if (date_to) {
+    // Include the full day_to day by going to end of that day
+    const end = new Date(date_to);
+    end.setHours(23, 59, 59, 999);
+    filters.push(`cm.created_at <= $${pidx++}`);
+    params.push(end.toISOString());
+  }
+
+  const WHERE = filters.join(' AND ');
+
+  // Main data query
+  const { rows } = await query(
+    `SELECT
+       cm.id,
+       cm.phone_e164,
+       cm.status,
+       cm.sent_at,
+       cm.delivered_at,
+       cm.read_at,
+       cm.failed_at,
+       cm.last_error,
+       cm.retry_count,
+       cm.is_dead_letter,
+       cm.created_at,
+       -- Campaign
+       c.name   AS campaign_name,
+       c.id     AS campaign_id,
+       -- Template
+       mt.name  AS template_name,
+       mt.category AS template_category,
+       -- Contact
+       co.first_name,
+       co.last_name
+     FROM campaign_messages cm
+     LEFT JOIN campaigns         c  ON c.id  = cm.campaign_id
+     LEFT JOIN message_templates mt ON mt.id = c.template_id
+     LEFT JOIN contacts          co ON co.id = cm.contact_id
+     WHERE ${WHERE}
+     ORDER BY cm.created_at DESC
+     LIMIT $${pidx++} OFFSET $${pidx++}`,
+    [...params, Math.min(Number(limit), 200), Number(offset)]
+  );
+
+  // Total count for pagination
+  const { rows: [{ total }] } = await query(
+    `SELECT COUNT(*) AS total FROM campaign_messages cm WHERE ${WHERE}`,
+    params
+  );
+
+  return sendSuccess(res, {
+    messages: rows,
+    total: parseInt(total, 10),
+    limit:  Number(limit),
+    offset: Number(offset),
+  }, 'Campaign messages fetched.');
+}));
+
 module.exports = router;

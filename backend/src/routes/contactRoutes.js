@@ -17,7 +17,7 @@ router.use(authenticate);
 
 // ── GET /contacts ─────────────────────────────────────────────
 router.get('/', catchAsync(async (req, res) => {
-  const { page = 1, limit = 50, search, status } = req.query;
+  const { page = 1, limit = 50, search, status, tag } = req.query;
   const offset = (page - 1) * limit;
 
   let whereClause = 'WHERE c.tenant_id = $1';
@@ -32,6 +32,12 @@ router.get('/', catchAsync(async (req, res) => {
   if (status) {
     whereClause += ` AND c.status = $${idx}`;
     params.push(status);
+    idx++;
+  }
+  // Tag filter — uses GIN index for efficiency
+  if (tag) {
+    whereClause += ` AND $${idx} = ANY(c.tags)`;
+    params.push(tag);
     idx++;
   }
 
@@ -76,16 +82,24 @@ router.post('/', contactValidators, validate, catchAsync(async (req, res) => {
 }));
 
 // ── POST /contacts/bulk — CSV batch upsert ────────────────────
-// Body: { contacts: [{phoneE164, firstName, lastName, email, customVars}], listId? }
+// Body: {
+//   contacts: [{phoneE164, firstName, lastName, email, customVars}],
+//   listId?,
+//   opt_in_source?,   -- How contacts consented (required for BSP compliance)
+//   opt_in_proof?,    -- Free-text proof (e.g. 'Web form on /sign-up page')
+// }
 //
-// Strategy:
-//  - Validate minimum required fields (phoneE164 E.164 format) server-side.
-//  - Upsert in a single transaction using UNNEST for performance.
-//  - ON CONFLICT updates firstName/lastName/email if they are provided.
-//  - Optionally adds all contacts to a contact list.
-//  - Returns counts: inserted, updated, invalid.
+// BSP Compliance Note:
+//   opt_in_source is strongly recommended and will default to 'import' if
+//   omitted.  Meta requires proof of consent for every number you message.
+//   Accepted values: 'import' | 'web_form' | 'manual' | 'api' | 'verbal'
 router.post('/bulk', catchAsync(async (req, res) => {
-  const { contacts: rawContacts, listId } = req.body;
+  const {
+    contacts:    rawContacts,
+    listId,
+    opt_in_source = 'import',          // default: bulk import
+    opt_in_proof  = 'Bulk CSV import', // fallback proof text
+  } = req.body;
 
   if (!Array.isArray(rawContacts) || rawContacts.length === 0) {
     throw new AppError('contacts array is required and must not be empty.', 400, 'ERR_VDAJ_VAL_001');
@@ -194,6 +208,44 @@ router.post('/bulk', catchAsync(async (req, res) => {
         [listId, newContactIds]
       );
     }
+
+    // ── BSP Compliance: record opt-in consent for all upserted contacts ──
+    // Only set where opted_in_at IS NULL so explicit consent (web_form,
+    // manual, etc.) recorded before this import is never overwritten.
+    if (newContactIds.length > 0) {
+      const proof = opt_in_proof?.trim()
+        || `Bulk import by user ${req.user.id} on ${new Date().toISOString().slice(0, 10)}`;
+
+      await client.query(
+        `UPDATE contacts
+           SET opted_in_at   = COALESCE(opted_in_at,   NOW()),
+               opt_in_source = COALESCE(opt_in_source, $3),
+               opt_in_proof  = COALESCE(opt_in_proof,  $4),
+               updated_at    = NOW()
+         WHERE id = ANY($1::uuid[])
+           AND tenant_id = $2`,
+        [newContactIds, req.user.tenantId, opt_in_source, proof]
+      );
+
+      // Insert audit records into opt_in_events (one row per newly inserted contact)
+      // Only log truly NEW rows (is_new = true) to avoid duplicate audit noise on updates.
+      const newlyInsertedIds = upserted.filter(r => r.is_new).map(r => r.id);
+      if (newlyInsertedIds.length > 0) {
+        await client.query(
+          `INSERT INTO opt_in_events (tenant_id, contact_id, phone_e164, source, proof, ip_address)
+           SELECT $1, c.id, c.phone_e164, $3, $4, $5
+           FROM contacts c
+           WHERE c.id = ANY($2::uuid[]) AND c.tenant_id = $1`,
+          [
+            req.user.tenantId,
+            newlyInsertedIds,
+            opt_in_source,
+            proof,
+            req.ip || null,
+          ]
+        );
+      }
+    }
   });
 
   return sendSuccess(
@@ -231,6 +283,100 @@ router.post('/lists', catchAsync(async (req, res) => {
     [req.user.tenantId, name.trim(), description || null, req.user.id]
   );
   return sendCreated(res, list, 'Contact list created.');
+}));
+
+// ── GET /contacts/:id — Full contact detail ────────────────────
+router.get('/:id', uuidParamValidator('id'), validate, catchAsync(async (req, res) => {
+  const tenantId   = req.user.tenantId;
+  const contactId  = req.params.id;
+
+  // 1. Base contact row
+  const { rows: [contact] } = await query(
+    `SELECT c.*,
+            oe.source        AS opt_in_event_source,
+            oe.proof         AS opt_in_event_proof,
+            oe.ip_address    AS opt_in_event_ip,
+            oe.created_at    AS opt_in_event_at
+       FROM contacts c
+       LEFT JOIN LATERAL (
+         SELECT source, proof, ip_address, created_at
+           FROM opt_in_events
+          WHERE contact_id = c.id
+          ORDER BY created_at ASC
+          LIMIT 1
+       ) oe ON TRUE
+      WHERE c.id = $1 AND c.tenant_id = $2 AND c.deleted_at IS NULL`,
+    [contactId, tenantId]
+  );
+  if (!contact) throw new AppError('Contact not found.', 404, 'ERR_VDAJ_CONT_001');
+
+  // 2. Latest opt-out event (if any)
+  const { rows: [optOutEvent] } = await query(
+    `SELECT trigger_keyword, created_at AS opted_out_at
+       FROM opt_out_events
+      WHERE contact_id = $1
+      ORDER BY created_at DESC
+      LIMIT 1`,
+    [contactId]
+  );
+
+  // 3. Campaign history — last 20 messages sent to this contact
+  const { rows: campaignHistory } = await query(
+    `SELECT
+         cm.id,
+         ca.name          AS campaign_name,
+         cm.status        AS delivery_status,
+         cm.wa_message_id,
+         cm.sent_at,
+         cm.delivered_at,
+         cm.read_at,
+         cm.failed_at,
+         cm.error_message
+       FROM campaign_messages cm
+       JOIN campaigns ca ON ca.id = cm.campaign_id
+      WHERE cm.contact_id = $1
+        AND ca.tenant_id  = $2
+      ORDER BY cm.created_at DESC
+      LIMIT 20`,
+    [contactId, tenantId]
+  );
+
+  // 4. Active inbox conversation thread (if exists)
+  const { rows: [conversation] } = await query(
+    `SELECT id FROM inbox_conversations
+      WHERE contact_id = $1 AND tenant_id = $2
+      ORDER BY last_message_at DESC
+      LIMIT 1`,
+    [contactId, tenantId]
+  );
+
+  return sendSuccess(res, {
+    ...contact,
+    opt_out_event:     optOutEvent || null,
+    campaign_history:  campaignHistory,
+    conversation_id:   conversation?.id || null,
+  }, 'Contact detail fetched.');
+}));
+
+// ── PATCH /contacts/:id/tags — Update tag array ────────────────
+router.patch('/:id/tags', uuidParamValidator('id'), validate, catchAsync(async (req, res) => {
+  const { tags } = req.body;
+  if (!Array.isArray(tags)) throw new AppError('tags must be an array of strings.', 400, 'ERR_VDAJ_VAL_001');
+
+  // Sanitise: lowercase, alphanumeric + dash/underscore, max 30 chars, max 20 tags
+  const clean = [...new Set(
+    tags.map((t) => String(t).toLowerCase().trim().replace(/[^a-z0-9_-]/g, '').slice(0, 30))
+        .filter(Boolean)
+  )].slice(0, 20);
+
+  const { rows: [contact] } = await query(
+    `UPDATE contacts SET tags = $3, updated_at = NOW()
+      WHERE id = $1 AND tenant_id = $2
+      RETURNING id, tags`,
+    [req.params.id, req.user.tenantId, clean]
+  );
+  if (!contact) throw new AppError('Contact not found.', 404, 'ERR_VDAJ_CONT_001');
+  return sendSuccess(res, contact, 'Tags updated.');
 }));
 
 // ── PATCH /contacts/:id/opt-out ────────────────────────────────

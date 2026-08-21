@@ -163,6 +163,15 @@ const UploadIcon = ({ active }) => (
 );
 
 // ── Main Component ────────────────────────────────────────────
+// Consent source options (BSP-compliant)
+const OPT_IN_SOURCES = [
+  { value: 'web_form',        label: 'They shared number via web / landing page form' },
+  { value: 'click_to_chat',   label: 'WhatsApp click-to-chat button on our website' },
+  { value: 'manual',          label: 'Offline / verbal consent (store visit, call)' },
+  { value: 'transactional',   label: 'Purchased product/service (transactional only)' },
+  { value: 'inbound_message', label: 'Inbound WhatsApp message from them' },
+];
+
 export default function CsvContactUploader({ isOpen, onClose, onImported, lists = [] }) {
   const [step, setStep]             = useState('drop'); // drop | preview | importing | done
   const [dragging, setDragging]     = useState(false);
@@ -170,6 +179,7 @@ export default function CsvContactUploader({ isOpen, onClose, onImported, lists 
   const [valid, setValid]           = useState([]);
   const [invalid, setInvalid]       = useState([]);
   const [selectedList, setSelectedList] = useState('');
+  const [optInSource, setOptInSource]   = useState('');
   const [importing, setImporting]   = useState(false);
   const [result, setResult]         = useState(null);
   const inputRef = useRef();
@@ -179,6 +189,7 @@ export default function CsvContactUploader({ isOpen, onClose, onImported, lists 
     if (!isOpen) {
       setStep('drop'); setDragging(false); setFilename('');
       setValid([]); setInvalid([]); setResult(null); setImporting(false);
+      setOptInSource('');
     }
   }, [isOpen]);
 
@@ -222,9 +233,16 @@ export default function CsvContactUploader({ isOpen, onClose, onImported, lists 
 
   const handleImport = async () => {
     if (!valid.length) return;
+    if (!optInSource) { showError('Please select how these contacts gave consent.'); return; }
     setImporting(true);
     try {
-      const res = await contactApi.bulkImport(valid, selectedList || undefined);
+      const proofText = `CSV import · source: ${optInSource} · file: ${filename}`;
+      const res = await contactApi.bulkImport(
+        valid,
+        selectedList || undefined,
+        optInSource,
+        proofText
+      );
       setResult(res.data);
       setStep('done');
       showSuccess(`Import complete — ${res.data.inserted} new, ${res.data.updated} updated.`);
@@ -402,6 +420,35 @@ export default function CsvContactUploader({ isOpen, onClose, onImported, lists 
                 )}
               </div>
 
+              {/* ── REQUIRED: Consent / opt-in source ────── */}
+              <div>
+                <label className="block text-xs font-semibold mb-1.5"
+                  style={{ color: 'var(--text-secondary)' }}>
+                  How did these contacts give consent?{' '}
+                  <span style={{ color: '#ef4444' }}>*</span>
+                </label>
+                <select
+                  value={optInSource}
+                  onChange={(e) => setOptInSource(e.target.value)}
+                  className="w-full h-10 rounded-xl px-3 text-sm outline-none"
+                  style={{
+                    background: 'var(--bg-elevated)',
+                    border: `1px solid ${optInSource ? 'var(--bg-border)' : '#ef4444'}`,
+                    color: optInSource ? 'var(--text-primary)' : 'var(--text-muted)',
+                  }}
+                >
+                  <option value="">— Select consent source (required) —</option>
+                  {OPT_IN_SOURCES.map((s) => (
+                    <option key={s.value} value={s.value}>{s.label}</option>
+                  ))}
+                </select>
+                {!optInSource && (
+                  <p className="text-2xs mt-1" style={{ color: '#f87171' }}>
+                    Required by Meta BSP policy — you must record how consent was obtained.
+                  </p>
+                )}
+              </div>
+
               {/* Optional: assign to list */}
               {lists.length > 0 && (
                 <div>
@@ -487,7 +534,7 @@ export default function CsvContactUploader({ isOpen, onClose, onImported, lists 
               </button>
               <button
                 onClick={handleImport}
-                disabled={importing || valid.length === 0}
+                disabled={importing || valid.length === 0 || !optInSource}
                 className="h-10 px-5 rounded-xl text-sm font-semibold text-white transition-all hover:brightness-110 disabled:opacity-50"
                 style={{ background: 'linear-gradient(135deg,#534AB7,#3B3499)' }}>
                 {importing ? (

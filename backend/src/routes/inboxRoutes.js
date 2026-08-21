@@ -1,8 +1,11 @@
 /**
  * VDAJ Services — Inbox Routes
- * GET /inbox/conversations
- * GET /inbox/conversations/:id/messages
+ * GET  /inbox/conversations
+ * GET  /inbox/conversations/:id/messages
  * POST /inbox/conversations/:id/reply
+ *   Body: { body: string, messageType?: string, template_id?: string }
+ *   BSP Note: If the 24-hour customer service window has expired,
+ *   `template_id` is REQUIRED. Free-text replies will be blocked.
  * PATCH /inbox/conversations/:id/resolve
  */
 
@@ -81,7 +84,7 @@ router.get('/conversations/:id/messages', catchAsync(async (req, res) => {
 
 // ---- POST /inbox/conversations/:id/reply ----
 router.post('/conversations/:id/reply', catchAsync(async (req, res) => {
-  const { body: messageBody, messageType = 'text' } = req.body;
+  const { body: messageBody, messageType = 'text', template_id } = req.body;
   if (!messageBody?.trim()) throw new AppError('Message body is required.', 400, 'ERR_INBOX_002');
 
   const convRes = await query(
@@ -96,6 +99,30 @@ router.post('/conversations/:id/reply', catchAsync(async (req, res) => {
   const conv = convRes.rows[0];
   if (!conv.meta_system_token || !conv.phone_number_id) {
     throw new AppError('WhatsApp not connected. Go to WhatsApp Setup.', 409, 'ERR_META_NOT_CONNECTED');
+  }
+
+  // ── BSP Compliance: enforce 24-hour customer service window ───────
+  // Meta only allows free-form text replies within 24 hours of the
+  // customer's last inbound message. After that, agents MUST use a
+  // pre-approved template. Violating this causes message delivery
+  // failures and can lower the account's quality rating.
+  if (!template_id) {
+    const lastInbound = conv.last_inbound_at ? new Date(conv.last_inbound_at) : null;
+    const msSinceLast = lastInbound ? Date.now() - lastInbound.getTime() : Infinity;
+    const hoursSinceLast = msSinceLast / 3_600_000;
+
+    if (hoursSinceLast > 24) {
+      const hrs = lastInbound
+        ? Math.round(hoursSinceLast)
+        : null;
+      throw new AppError(
+        'The 24-hour customer service window has closed.' +
+        (hrs ? ` Last customer message was ${hrs}h ago.` : '') +
+        ' You must use a pre-approved template to send a message.',
+        400,
+        'ERR_24HR_WINDOW'
+      );
+    }
   }
 
   // Send via Meta API

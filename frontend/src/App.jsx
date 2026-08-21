@@ -18,6 +18,10 @@ import DashboardPage      from './pages/DashboardPage';
 import InboxPage          from './pages/InboxPage';
 import CampaignsPage      from './pages/CampaignsPage';
 import ContactsPage       from './pages/ContactsPage';
+import ContactDetailPage  from './pages/ContactDetailPage';
+import SettingsPage       from './pages/SettingsPage';
+import ActivityLogPage    from './pages/ActivityLogPage';
+import WhatsAppLogsPage   from './pages/WhatsAppLogsPage';
 import TemplatesPage      from './pages/TemplatesPage';
 import MetaOnboardingPage from './pages/MetaOnboardingPage';
 import AdminQueuePage     from './pages/AdminQueuePage';
@@ -96,6 +100,10 @@ export default function App() {
             <Route path="/inbox"          element={<InboxPage />} />
             <Route path="/campaigns"      element={<CampaignsPage />} />
             <Route path="/contacts"       element={<ContactsPage />} />
+            <Route path="/contacts/:id"   element={<ContactDetailPage />} />
+            <Route path="/settings"        element={<SettingsPage />} />
+            <Route path="/logs"            element={<WhatsAppLogsPage />} />
+            <Route path="/activity"        element={<ActivityLogPage />} />
             <Route path="/templates"      element={<TemplatesPage />} />
             <Route path="/whatsapp-setup" element={<MetaOnboardingPage />} />
 

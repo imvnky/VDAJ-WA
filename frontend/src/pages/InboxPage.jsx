@@ -1,12 +1,14 @@
 /**
- * VDAJ Services — InboxPage
- * Real-time two-way chat via WebSocket + REST fallback.
- * Conversation list sidebar + thread panel + inline reply.
+ * VDAJ Services — InboxPage (Tier 4)
+ * 24-hour service window enforcement:
+ *  - Countdown pill on thread header (green → amber < 4h → red expired)
+ *  - Input locking when window expired
+ *  - Quick-template picker when window expired
  */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { clsx } from 'clsx';
-import { inboxApi, WS_BASE } from '../lib/api';
+import { inboxApi, templateApi, WS_BASE } from '../lib/api';
 import useAuthStore from '../store/authStore';
 import { showSuccess } from '../components/atoms/Toast/Toast.jsx';
 
@@ -14,9 +16,9 @@ import { showSuccess } from '../components/atoms/Toast/Toast.jsx';
 function timeAgo(ts) {
   if (!ts) return '';
   const diff = (Date.now() - new Date(ts)) / 1000;
-  if (diff < 60)   return 'just now';
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-  if (diff < 86400)return `${Math.floor(diff / 3600)}h ago`;
+  if (diff < 60)    return 'just now';
+  if (diff < 3600)  return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
   return new Date(ts).toLocaleDateString();
 }
 
@@ -31,13 +33,249 @@ function Avatar({ name, phone }) {
   );
 }
 
+// ── 24-Hour Service Window hook ───────────────────────────────
+function useServiceWindow(lastInboundAt) {
+  const [remaining, setRemaining] = useState(null); // seconds remaining, null = no inbound
+
+  useEffect(() => {
+    if (!lastInboundAt) { setRemaining(null); return; }
+    const tick = () => {
+      const elapsed = (Date.now() - new Date(lastInboundAt)) / 1000;
+      setRemaining(Math.max(0, 86400 - elapsed)); // 24h = 86400s
+    };
+    tick();
+    const t = setInterval(tick, 30_000); // refresh every 30s
+    return () => clearInterval(t);
+  }, [lastInboundAt]);
+
+  if (remaining === null) return { expired: true, hoursLeft: 0, minutesLeft: 0, status: 'no_inbound' };
+  if (remaining <= 0)     return { expired: true, hoursLeft: 0, minutesLeft: 0, status: 'expired' };
+
+  const hoursLeft   = Math.floor(remaining / 3600);
+  const minutesLeft = Math.floor((remaining % 3600) / 60);
+  const status      = remaining < 4 * 3600 ? 'warning' : 'ok';
+
+  return { expired: false, hoursLeft, minutesLeft, status };
+}
+
+// ── Service Window Banner ──────────────────────────────────────
+function ServiceWindowBanner({ lastInboundAt }) {
+  const { expired, hoursLeft, minutesLeft, status } = useServiceWindow(lastInboundAt);
+
+  if (expired) {
+    return (
+      <div className="flex items-center gap-2 px-4 py-2 shrink-0"
+        style={{ background: 'rgba(239,68,68,0.08)', borderBottom: '1px solid rgba(239,68,68,0.2)' }}>
+        <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24"
+          stroke="#f87171" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round"
+            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+        </svg>
+        <p className="text-xs font-semibold" style={{ color: '#f87171' }}>
+          ⚠️ 24-hour service window has expired.{' '}
+          <span className="font-normal" style={{ color: 'rgba(248,113,113,0.7)' }}>
+            You can only send pre-approved templates.
+          </span>
+        </p>
+      </div>
+    );
+  }
+
+  const isWarning = status === 'warning';
+  const color     = isWarning ? '#f59e0b' : '#1D9E75';
+  const bg        = isWarning ? 'rgba(245,158,11,0.08)' : 'rgba(29,158,117,0.08)';
+  const border    = isWarning ? 'rgba(245,158,11,0.2)' : 'rgba(29,158,117,0.2)';
+
+  return (
+    <div className="flex items-center gap-2 px-4 py-1.5 shrink-0"
+      style={{ background: bg, borderBottom: `1px solid ${border}` }}>
+      <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24"
+        stroke={color} strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+      <p className="text-xs font-semibold" style={{ color }}>
+        Service window: {hoursLeft}h {minutesLeft}m remaining
+      </p>
+    </div>
+  );
+}
+
+// ── Quick Template Picker Modal ────────────────────────────────
+function TemplatePicker({ templates, onSend, onClose }) {
+  const [selected,  setSelected]  = useState(null);
+  const [variables, setVariables] = useState({});
+  const [sending,   setSending]   = useState(false);
+
+  // Extract {{n}} variable placeholders from template body
+  const extractVars = (body = '') => {
+    const matches = [...body.matchAll(/\{\{(\d+)\}\}/g)];
+    return [...new Set(matches.map((m) => m[1]))].sort((a, b) => +a - +b);
+  };
+
+  const varKeys = selected ? extractVars(selected.body_text) : [];
+
+  const buildBody = () => {
+    if (!selected) return '';
+    return selected.body_text.replace(/\{\{(\d+)\}\}/g, (_, n) => variables[n] || `{{${n}}}`);
+  };
+
+  const handleSend = async () => {
+    if (!selected) return;
+    setSending(true);
+    try {
+      await onSend(selected, buildBody());
+      onClose();
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const approvedTemplates = templates.filter((t) =>
+    (t.status || '').toLowerCase() === 'approved'
+  );
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)' }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl animate-scale-in"
+        style={{ background: 'var(--bg-card)', border: '1px solid var(--bg-border)' }}>
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b"
+          style={{ borderColor: 'var(--bg-border)' }}>
+          <div>
+            <h2 className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>
+              Send Template Message
+            </h2>
+            <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+              24-hr window expired — only approved templates can be sent.
+            </p>
+          </div>
+          <button onClick={onClose}
+            className="w-8 h-8 rounded-xl flex items-center justify-center hover:opacity-70"
+            style={{ background: 'var(--bg-elevated)' }}>
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24"
+              stroke="currentColor" strokeWidth={2} style={{ color: 'var(--text-muted)' }}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+          {approvedTemplates.length === 0 ? (
+            <div className="py-8 text-center">
+              <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                No approved templates available. Create and get a template approved first.
+              </p>
+            </div>
+          ) : (
+            <>
+              {/* Template list */}
+              <div className="space-y-2">
+                {approvedTemplates.map((t) => (
+                  <button key={t.id}
+                    onClick={() => { setSelected(t); setVariables({}); }}
+                    className={clsx(
+                      'w-full text-left px-4 py-3 rounded-xl border transition-all',
+                      selected?.id === t.id
+                        ? 'border-[#534AB7]'
+                        : 'hover:border-[#534AB7]/50'
+                    )}
+                    style={{
+                      background: selected?.id === t.id ? 'rgba(83,74,183,0.08)' : 'var(--bg-elevated)',
+                      borderColor: selected?.id === t.id ? '#534AB7' : 'var(--bg-border)',
+                    }}>
+                    <p className="text-sm font-bold font-mono" style={{ color: 'var(--text-primary)' }}>
+                      {t.name}
+                    </p>
+                    <p className="text-xs mt-1 line-clamp-2" style={{ color: 'var(--text-secondary)' }}>
+                      {t.body_text}
+                    </p>
+                    <div className="flex gap-1.5 mt-1.5">
+                      <span className="text-2xs px-1.5 py-0.5 rounded-md font-semibold"
+                        style={{ background: 'rgba(29,158,117,0.12)', color: '#1D9E75' }}>
+                        {t.category}
+                      </span>
+                      <span className="text-2xs px-1.5 py-0.5 rounded-md font-semibold"
+                        style={{ background: 'rgba(83,74,183,0.12)', color: '#AFA9EC' }}>
+                        {t.language}
+                      </span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+
+              {/* Variable filler */}
+              {selected && varKeys.length > 0 && (
+                <div className="space-y-3 pt-2 border-t" style={{ borderColor: 'var(--bg-border)' }}>
+                  <p className="text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>
+                    Fill template variables:
+                  </p>
+                  {varKeys.map((k) => (
+                    <div key={k}>
+                      <label className="block text-xs font-semibold mb-1"
+                        style={{ color: 'var(--text-muted)' }}>
+                        {`{{${k}}}`}
+                      </label>
+                      <input
+                        value={variables[k] || ''}
+                        onChange={(e) => setVariables((v) => ({ ...v, [k]: e.target.value }))}
+                        placeholder={`Value for {{${k}}}`}
+                        className="w-full h-9 rounded-xl px-3 text-sm outline-none"
+                        style={{
+                          background: 'var(--bg-elevated)',
+                          border: '1px solid var(--bg-border)',
+                          color: 'var(--text-primary)',
+                        }}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Preview */}
+              {selected && (
+                <div className="rounded-xl px-4 py-3"
+                  style={{ background: '#005C4B', border: '1px solid rgba(255,255,255,0.1)' }}>
+                  <p className="text-xs font-semibold mb-1 text-white/50">Preview</p>
+                  <p className="text-sm text-white leading-relaxed whitespace-pre-wrap">
+                    {buildBody()}
+                  </p>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="flex justify-end gap-3 px-6 py-4 border-t"
+          style={{ borderColor: 'var(--bg-border)', background: 'var(--bg-elevated)' }}>
+          <button onClick={onClose}
+            className="h-10 px-4 rounded-xl text-sm font-semibold hover:opacity-70 transition-all"
+            style={{ background: 'var(--bg-card)', border: '1px solid var(--bg-border)', color: 'var(--text-secondary)' }}>
+            Cancel
+          </button>
+          <button
+            onClick={handleSend}
+            disabled={!selected || sending}
+            className="h-10 px-5 rounded-xl text-sm font-semibold text-white transition-all hover:brightness-110 disabled:opacity-50"
+            style={{ background: 'linear-gradient(135deg,#534AB7,#3B3499)' }}>
+            {sending ? 'Sending…' : 'Send Template'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Conversation Card ─────────────────────────────────────────
 function ConvoCard({ conv, active, onClick }) {
   return (
     <button onClick={onClick} className={clsx(
       'w-full flex items-start gap-3 px-4 py-3.5 text-left transition-colors border-b',
       active ? 'bg-brand/10 border-l-2 border-l-brand' : 'hover:opacity-80'
-    )} style={{ borderBottomColor: 'var(--bg-border)', background: active ? undefined : undefined }}>
+    )} style={{ borderBottomColor: 'var(--bg-border)' }}>
       <Avatar name={conv.display_name} phone={conv.phone_e164} />
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-2">
@@ -110,17 +348,23 @@ function EmptyInbox() {
 
 // ── Main InboxPage ────────────────────────────────────────────
 export default function InboxPage() {
-  const { user } = useAuthStore();
+  const { user }           = useAuthStore();
   const [conversations, setConversations] = useState([]);
-  const [activeConv, setActiveConv] = useState(null);
-  const [messages, setMessages] = useState([]);
-  const [replyText, setReplyText] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [sending, setSending] = useState(false);
-  const [wsStatus, setWsStatus] = useState('disconnected');
-  const wsRef = useRef(null);
+  const [activeConv, setActiveConv]       = useState(null);
+  const [messages, setMessages]           = useState([]);
+  const [replyText, setReplyText]         = useState('');
+  const [loading, setLoading]             = useState(true);
+  const [sending, setSending]             = useState(false);
+  const [wsStatus, setWsStatus]           = useState('disconnected');
+  const [templates, setTemplates]         = useState([]);
+  const [showPicker, setShowPicker]       = useState(false);
+  const wsRef          = useRef(null);
   const messagesEndRef = useRef(null);
-  const replyRef = useRef(null);
+  const replyRef       = useRef(null);
+
+  // 24-hr service window
+  const window24 = useServiceWindow(activeConv?.last_inbound_at);
+  const windowExpired = window24.expired;
 
   // ── Load conversations ────────────────────────────────────
   const loadConversations = useCallback(async () => {
@@ -132,6 +376,11 @@ export default function InboxPage() {
 
   useEffect(() => { loadConversations(); }, [loadConversations]);
 
+  // ── Load templates for quick-picker ──────────────────────
+  useEffect(() => {
+    templateApi.list().then((r) => setTemplates(r?.data || [])).catch(() => {});
+  }, []);
+
   // ── WebSocket connection ──────────────────────────────────
   useEffect(() => {
     if (!user?.tenantId) return;
@@ -142,31 +391,33 @@ export default function InboxPage() {
       try {
         ws = new WebSocket(`${WS_BASE}/ws/inbox?tenantId=${user.tenantId}`);
         wsRef.current = ws;
-
-        ws.onopen = () => { setWsStatus('connected'); };
+        ws.onopen  = () => setWsStatus('connected');
         ws.onclose = () => {
           setWsStatus('disconnected');
-          retryTimeout = setTimeout(connect, 5000); // Auto-reconnect
+          retryTimeout = setTimeout(connect, 5000);
         };
         ws.onerror = () => setWsStatus('error');
-
         ws.onmessage = (event) => {
           try {
             const payload = JSON.parse(event.data);
             if (payload.type === 'new_message') {
               const msg = payload.data;
-              // Update message thread if viewing that conversation
               setMessages((prev) => {
-                if (prev.length && prev[0]?.conversation_id === msg.conversation_id) {
+                if (prev.length && prev[0]?.conversation_id === msg.conversation_id)
                   return [...prev, msg];
-                }
                 return prev;
               });
-              // Refresh conversation list for unread badge
               setConversations((prev) =>
                 prev.map((c) =>
                   c.id === msg.conversation_id
-                    ? { ...c, last_message_preview: msg.body?.slice(0, 100), last_message_at: msg.created_at, unread_count: (c.unread_count || 0) + 1 }
+                    ? {
+                        ...c,
+                        last_message_preview: msg.body?.slice(0, 100),
+                        last_message_at: msg.created_at,
+                        unread_count: (c.unread_count || 0) + 1,
+                        // Update last_inbound_at when we receive an inbound WS message
+                        ...(msg.direction === 'inbound' ? { last_inbound_at: msg.created_at } : {}),
+                      }
                     : c
                 )
               );
@@ -180,7 +431,7 @@ export default function InboxPage() {
     return () => { ws?.close(); clearTimeout(retryTimeout); };
   }, [user?.tenantId]);
 
-  // ── Scroll to bottom on new messages ─────────────────────
+  // ── Scroll to bottom ──────────────────────────────────────
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
@@ -197,18 +448,37 @@ export default function InboxPage() {
     replyRef.current?.focus();
   };
 
-  // ── Send reply ────────────────────────────────────────────
+  // ── Send free-text reply ──────────────────────────────────
   const sendReply = async () => {
-    if (!replyText.trim() || !activeConv) return;
+    if (!replyText.trim() || !activeConv || windowExpired) return;
     setSending(true);
     try {
       const res = await inboxApi.reply(activeConv.id, replyText.trim());
       setMessages((ms) => [...ms, res.data]);
       setReplyText('');
       setConversations((cs) =>
-        cs.map((c) => c.id === activeConv.id ? { ...c, last_message_preview: replyText.slice(0, 100), last_message_at: new Date().toISOString() } : c)
+        cs.map((c) =>
+          c.id === activeConv.id
+            ? { ...c, last_message_preview: replyText.slice(0, 100), last_message_at: new Date().toISOString() }
+            : c
+        )
       );
     } catch {} finally { setSending(false); }
+  };
+
+  // ── Send template (from picker) ────────────────────────────
+  const sendTemplate = async (template, resolvedBody) => {
+    if (!activeConv) return;
+    const res = await inboxApi.reply(activeConv.id, resolvedBody, 'template');
+    setMessages((ms) => [...ms, res.data]);
+    setConversations((cs) =>
+      cs.map((c) =>
+        c.id === activeConv.id
+          ? { ...c, last_message_preview: resolvedBody.slice(0, 100), last_message_at: new Date().toISOString() }
+          : c
+      )
+    );
+    showSuccess('Template sent successfully.');
   };
 
   const handleKeyDown = (e) => {
@@ -221,18 +491,16 @@ export default function InboxPage() {
 
       {/* ── Left: Conversation List ── */}
       <div className="w-80 flex flex-col shrink-0 border-r" style={{ borderColor: 'var(--bg-border)' }}>
-        {/* Header */}
         <div className="px-4 py-4 border-b flex items-center justify-between" style={{ borderColor: 'var(--bg-border)' }}>
           <div>
             <h1 className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>Inbox</h1>
             <p className="text-2xs flex items-center gap-1.5 mt-0.5" style={{ color: 'var(--text-muted)' }}>
-              <span className={clsx('w-1.5 h-1.5 rounded-full', wsStatus === 'connected' ? 'bg-teal-light animate-pulse' : 'bg-red-400')} />
+              <span className={clsx('w-1.5 h-1.5 rounded-full',
+                wsStatus === 'connected' ? 'bg-teal-light animate-pulse' : 'bg-red-400')} />
               {wsStatus === 'connected' ? 'Live' : 'Connecting…'}
             </p>
           </div>
         </div>
-
-        {/* List */}
         <div className="flex-1 overflow-y-auto">
           {loading ? (
             <div className="space-y-0">
@@ -279,13 +547,21 @@ export default function InboxPage() {
             </div>
             <div className="ml-auto flex gap-2">
               <button
-                onClick={async () => { await inboxApi.resolve(activeConv.id); setActiveConv(null); loadConversations(); showSuccess('Conversation resolved.'); }}
+                onClick={async () => {
+                  await inboxApi.resolve(activeConv.id);
+                  setActiveConv(null);
+                  loadConversations();
+                  showSuccess('Conversation resolved.');
+                }}
                 className="h-8 px-3 rounded-lg text-xs font-semibold transition-all"
                 style={{ background: 'rgba(29,158,117,0.15)', color: '#26C18E', border: '1px solid rgba(29,158,117,0.3)' }}>
                 ✓ Resolve
               </button>
             </div>
           </div>
+
+          {/* 24-hr window banner */}
+          <ServiceWindowBanner lastInboundAt={activeConv.last_inbound_at} />
 
           {/* Messages */}
           <div className="flex-1 overflow-y-auto p-5 space-y-3">
@@ -294,43 +570,98 @@ export default function InboxPage() {
           </div>
 
           {/* Reply Composer */}
-          <div className="p-4 border-t shrink-0" style={{ borderColor: 'var(--bg-border)', background: 'var(--bg-card)' }}>
-            <div className="flex items-end gap-3 p-3 rounded-2xl" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--bg-border)' }}>
-              <textarea
-                ref={replyRef}
-                rows={2}
-                value={replyText}
-                onChange={(e) => setReplyText(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Type a reply… (Enter to send, Shift+Enter for newline)"
-                className="flex-1 bg-transparent text-sm resize-none outline-none"
-                style={{ color: 'var(--text-primary)' }}
-              />
-              <button
-                onClick={sendReply}
-                disabled={sending || !replyText.trim()}
-                className="w-10 h-10 rounded-xl flex items-center justify-center transition-all shrink-0"
-                style={{
-                  background: sending || !replyText.trim() ? 'var(--bg-border)' : 'linear-gradient(135deg,#534AB7,#3B3499)',
-                  cursor: sending || !replyText.trim() ? 'not-allowed' : 'pointer',
-                }}>
-                {sending ? (
-                  <svg className="w-4 h-4 animate-spin text-white" viewBox="0 0 24 24" fill="none">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+          <div className="p-4 border-t shrink-0"
+            style={{ borderColor: 'var(--bg-border)', background: 'var(--bg-card)' }}>
+
+            {windowExpired ? (
+              /* ── Locked state: window expired ── */
+              <div>
+                <div className="flex items-center gap-3 p-3 rounded-2xl"
+                  style={{ background: 'var(--bg-elevated)', border: '1px solid rgba(239,68,68,0.25)' }}>
+                  <svg className="w-4 h-4 shrink-0 text-red-400" fill="none" viewBox="0 0 24 24"
+                    stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round"
+                      d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                   </svg>
-                ) : (
-                  <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
-                  </svg>
-                )}
-              </button>
-            </div>
-            <p className="text-2xs mt-2 text-center" style={{ color: 'var(--text-muted)' }}>
-              Replies send via WhatsApp Business API · 24h service window applies
-            </p>
+                  <p className="flex-1 text-sm" style={{ color: 'var(--text-muted)' }}>
+                    Free-form messaging disabled. Use a pre-approved template.
+                  </p>
+                  <button
+                    onClick={() => setShowPicker(true)}
+                    className="shrink-0 h-9 px-4 rounded-xl text-xs font-bold text-white transition-all hover:brightness-110"
+                    style={{ background: 'linear-gradient(135deg,#534AB7,#3B3499)' }}>
+                    📋 Use Template
+                  </button>
+                </div>
+                <p className="text-2xs mt-2 text-center" style={{ color: 'var(--text-muted)' }}>
+                  24-hour service window has closed · Only pre-approved templates are permitted by Meta
+                </p>
+              </div>
+            ) : (
+              /* ── Active state: window open ── */
+              <div>
+                <div className="flex items-end gap-3 p-3 rounded-2xl"
+                  style={{ background: 'var(--bg-elevated)', border: '1px solid var(--bg-border)' }}>
+                  <textarea
+                    ref={replyRef}
+                    rows={2}
+                    value={replyText}
+                    onChange={(e) => setReplyText(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder="Type a reply… (Enter to send, Shift+Enter for newline)"
+                    className="flex-1 bg-transparent text-sm resize-none outline-none"
+                    style={{ color: 'var(--text-primary)' }}
+                  />
+                  {/* Template picker button (quick access even inside window) */}
+                  <button
+                    onClick={() => setShowPicker(true)}
+                    title="Send a template"
+                    className="w-10 h-10 rounded-xl flex items-center justify-center transition-all shrink-0 hover:opacity-80"
+                    style={{ background: 'var(--bg-card)', border: '1px solid var(--bg-border)' }}>
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24"
+                      stroke="currentColor" strokeWidth={2} style={{ color: '#AFA9EC' }}>
+                      <path strokeLinecap="round" strokeLinejoin="round"
+                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={sendReply}
+                    disabled={sending || !replyText.trim()}
+                    className="w-10 h-10 rounded-xl flex items-center justify-center transition-all shrink-0"
+                    style={{
+                      background: sending || !replyText.trim()
+                        ? 'var(--bg-border)'
+                        : 'linear-gradient(135deg,#534AB7,#3B3499)',
+                      cursor: sending || !replyText.trim() ? 'not-allowed' : 'pointer',
+                    }}>
+                    {sending ? (
+                      <svg className="w-4 h-4 animate-spin text-white" viewBox="0 0 24 24" fill="none">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                      </svg>
+                    ) : (
+                      <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                      </svg>
+                    )}
+                  </button>
+                </div>
+                <p className="text-2xs mt-2 text-center" style={{ color: 'var(--text-muted)' }}>
+                  Replies send via WhatsApp Business API · 24h service window applies
+                </p>
+              </div>
+            )}
           </div>
         </div>
+      )}
+
+      {/* Template Picker Modal */}
+      {showPicker && (
+        <TemplatePicker
+          templates={templates}
+          onSend={sendTemplate}
+          onClose={() => setShowPicker(false)}
+        />
       )}
     </div>
   );

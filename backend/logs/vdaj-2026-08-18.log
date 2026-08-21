@@ -1,0 +1,10 @@
+{"level":"info","message":"Analytics cron scheduled","msUntilNext":31150233,"nextRun":"2026-08-19T00:10:00.000Z","timestamp":"2026-08-18 21:00:49"}
+{"level":"info","message":"WABA health sync started","timestamp":"2026-08-18 21:00:49"}
+{"level":"info","message":"WABA health cron scheduled","msUntilNext":8950213,"nextRun":"2026-08-18T18:00:00.000Z","timestamp":"2026-08-18 21:00:49"}
+{"env":"local","level":"info","message":"VDAJ Services backend running","port":"5000","routes":["auth","tenants","campaigns","contacts","templates","inbox","analytics","automations","commerce","billing","webhooks","admin/queue"],"tenantMode":"multi","timestamp":"2026-08-18 21:00:49","version":"1.0.0"}
+{"level":"info","message":"Redis connected","timestamp":"2026-08-18 21:00:49"}
+{"level":"info","message":"Redis ready","timestamp":"2026-08-18 21:00:49"}
+{"level":"debug","message":"PostgreSQL pool — new client connected","timestamp":"2026-08-18 21:00:49"}
+{"code":"ERR_META_005","error":"Meta API network error: request to https://graph.facebook.com/v19.0/DEMO_PH_DENTAL_001?fields=quality_rating,messaging_limit_tier,display_phone_number,verified_name,name_status failed, reason: unable to verify the first certificate; if the root CA is installed locally, try running Node.js with --use-system-ca","level":"error","message":"WABA health sync failed for tenant","tenantId":"a1f95503-d732-4f5e-bfdb-5ead05297db2","timestamp":"2026-08-18 21:00:50"}
+{"code":"ERR_META_005","error":"Meta API network error: request to https://graph.facebook.com/v19.0/DEMO_PH_ANGOLA_001?fields=quality_rating,messaging_limit_tier,display_phone_number,verified_name,name_status failed, reason: unable to verify the first certificate; if the root CA is installed locally, try running Node.js with --use-system-ca","level":"error","message":"WABA health sync failed for tenant","tenantId":"2286a7db-a7f6-4121-b616-4069f72aff2e","timestamp":"2026-08-18 21:00:50"}
+{"failed":2,"level":"info","message":"WABA health sync complete","success":0,"timestamp":"2026-08-18 21:00:50","total":2}

@@ -49,7 +49,7 @@ const commerceRoutes   = require('./routes/commerceRoutes');
 const billingRoutes    = require('./routes/billingRoutes');
 
 // ── Background workers ─────────────────────────────────────────
-const { startAnalyticsCron } = require('./workers/analyticsWorker');
+const { startAnalyticsCron, startWABAHealthCron } = require('./workers/analyticsWorker');
 
 // ── WebSocket ──────────────────────────────────────────────────
 const { WebSocketServer } = require('ws');
@@ -308,6 +308,9 @@ app.set('broadcastToTenant', broadcastToTenant);
 // Analytics daily aggregation cron (00:10 UTC)
 if (process.env.NODE_ENV !== 'test') {
   startAnalyticsCron();
+  // WABA health sync cron (every 6 hours: 00:00, 06:00, 12:00, 18:00 UTC)
+  // Keeps quality_rating, messaging_tier, and display_phone_number fresh.
+  startWABAHealthCron();
 }
 
 // ============================================================

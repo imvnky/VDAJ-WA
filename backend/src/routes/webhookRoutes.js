@@ -183,6 +183,30 @@ async function handleInboundMessage(msg, value, broadcastToTenant) {
     return;
   }
 
+  // ── BSP Compliance: update last_inbound_at for 24-hour window ──
+  // This timestamp is checked in inboxRoutes before allowing free-text
+  // replies — Meta only permits service messages within 24 hours of
+  // the customer's last message.
+  await query(
+    `UPDATE inbox_conversations
+       SET last_inbound_at = NOW(), updated_at = NOW()
+     WHERE id = $1`,
+    [conv.id]
+  );
+
+  // ── BSP Compliance: auto-record implied opt-in consent ─────────
+  // Receiving a message from a customer constitutes implied consent.
+  // COALESCE preserves any explicit opt-in already recorded (e.g. from
+  // a web form or manual import) — we never downgrade an explicit source.
+  await query(
+    `UPDATE contacts
+       SET opted_in_at   = COALESCE(opted_in_at,   NOW()),
+           opt_in_source = COALESCE(opt_in_source, 'inbound_message'),
+           opt_in_proof  = COALESCE(opt_in_proof,  $3)
+     WHERE tenant_id = $1 AND phone_e164 = $2`,
+    [tenantId, conv.phone_e164, `Inbound WA message ${waMessageId}`]
+  );
+
   logger.info('Inbound message saved', {
     tenantId,
     conversationId: conv.id,
