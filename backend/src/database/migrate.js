@@ -29,6 +29,7 @@ const MIGRATION_ORDER = [
   { name: 'schema_v2',           file: path.join(DB_DIR, 'schema_v2.sql') },
   { name: 'v3_flow_builder',     file: path.join(DB_DIR, 'migrations', 'v3_flow_builder.sql') },
   { name: '002_bsp_compliance',  file: path.join(DB_DIR, 'migrations', '002_bsp_compliance.sql') },
+  { name: '003_multi_tenancy',   file: path.join(DB_DIR, 'migrations', '003_multi_tenancy.sql') },
 ];
 
 // ── ANSI colour helpers ────────────────────────────────────────

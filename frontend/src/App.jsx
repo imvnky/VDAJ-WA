@@ -28,6 +28,8 @@ import AdminQueuePage     from './pages/AdminQueuePage';
 import AutomationPage     from './pages/AutomationPage';
 import AnalyticsPage      from './pages/AnalyticsPage';
 import CommercePage       from './pages/CommercePage';
+import SuperAdminTenantsPage from './pages/admin/SuperAdminTenantsPage';
+import SuperAdminUsersPage   from './pages/admin/SuperAdminUsersPage';
 
 // ── Loading Spinner ───────────────────────────────────────────
 function FullPageLoader() {
@@ -112,9 +114,11 @@ export default function App() {
             <Route path="/analytics"      element={<AnalyticsPage />} />
             <Route path="/commerce"       element={<CommercePage />} />
 
-            {/* Admin only */}
-            <Route element={<RequireRole roles={['super_admin', 'tenant_admin']} />}>
-              <Route path="/admin/queue" element={<AdminQueuePage />} />
+            {/* Admin only — super_admin */}
+            <Route element={<RequireRole roles={['super_admin']} />}>
+              <Route path="/admin/queue"   element={<AdminQueuePage />} />
+              <Route path="/admin/tenants" element={<SuperAdminTenantsPage />} />
+              <Route path="/admin/users"   element={<SuperAdminUsersPage />} />
             </Route>
           </Route>
         </Route>

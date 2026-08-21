@@ -47,6 +47,7 @@ const analyticsRoutes  = require('./routes/analyticsRoutes');
 const automationRoutes = require('./routes/automationRoutes');
 const commerceRoutes   = require('./routes/commerceRoutes');
 const billingRoutes    = require('./routes/billingRoutes');
+const superAdminRoutes = require('./routes/superAdminRoutes');
 
 // ── Background workers ─────────────────────────────────────────
 const { startAnalyticsCron, startWABAHealthCron } = require('./workers/analyticsWorker');
@@ -203,6 +204,9 @@ app.use(`${API_PREFIX}/webhooks`,     webhookRoutes);
 
 // ── Admin: queue management (SuperAdmin / tenant_admin only) ───
 app.use(`${API_PREFIX}/admin/queue`,  queueRoutes);
+
+// ── Super Admin: tenant & user management ─────────────────────
+app.use(`${API_PREFIX}/admin`,        superAdminRoutes);
 
 // ============================================================
 // ERROR HANDLERS (must be LAST)

@@ -27,7 +27,7 @@ const authenticate = catchAsync(async (req, res, next) => {
     `SELECT u.id, u.email, u.first_name, u.last_name, u.role, u.is_active,
             u.tenant_id, t.id AS t_id, t.name AS tenant_name, t.is_active AS tenant_active,
             t.waba_id, t.phone_number_id, t.meta_system_token, t.timezone,
-            t.max_messages_per_day, t.monthly_message_quota
+            t.max_messages_per_day, t.monthly_message_quota, t.enabled_features
      FROM users u
      LEFT JOIN tenants t ON t.id = u.tenant_id
      WHERE u.id = $1 AND u.deleted_at IS NULL`,
@@ -68,6 +68,8 @@ const authenticate = catchAsync(async (req, res, next) => {
       timezone: user.timezone,
       maxMessagesPerDay: user.max_messages_per_day,
       monthlyMessageQuota: user.monthly_message_quota,
+      // Feature flags — used by frontend for RBAC sidebar gating
+      enabledFeatures: user.enabled_features || [],
     };
   }
 

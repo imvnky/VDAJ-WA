@@ -145,4 +145,18 @@ export const billingApi = {
   tiers: () => client.get('/billing/tiers'),
 };
 
+// ---- SUPER ADMIN ----
+export const superAdminApi = {
+  // Tenants
+  listTenants:      ()          => client.get('/admin/tenants'),
+  createTenant:     (data)      => client.post('/admin/tenants', data),
+  suspendTenant:    (id, s)     => client.patch(`/admin/tenants/${id}/suspend`, { suspend: s }),
+  updateFeatures:   (id, feats) => client.patch(`/admin/tenants/${id}/features`, { features: feats }),
+  // Users
+  listUsers:        ()          => client.get('/admin/users'),
+  createUser:       (data)      => client.post('/admin/users', data),
+  resetPassword:    (id, pw)    => client.patch(`/admin/users/${id}/reset-password`, pw ? { password: pw } : {}),
+  changeRole:       (id, role)  => client.patch(`/admin/users/${id}/role`, { role }),
+};
+
 export default client;
