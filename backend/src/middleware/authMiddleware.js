@@ -45,13 +45,19 @@ const authenticate = catchAsync(async (req, res, next) => {
   }
 
   // Attach user to request
+  // NOTE: For impersonation sessions, decoded.tenantId is the TARGET tenant's ID
+  // and decoded.is_impersonating = true. We surface this so /auth/me can tell
+  // the frontend to restore the impersonation banner on page refresh.
   req.user = {
-    id: user.id,
-    email: user.email,
+    id:       user.id,
+    email:    user.email,
     firstName: user.first_name,
-    lastName: user.last_name,
-    role: user.role,
-    tenantId: user.tenant_id,
+    lastName:  user.last_name,
+    role:      user.role,
+    tenantId:  user.tenant_id,
+    // Impersonation fields — only present when token is scoped
+    isImpersonating:  decoded.is_impersonating  || false,
+    originalUserId:   decoded.original_user_id  || null,
   };
 
   // Attach tenant context (null for super_admin)
@@ -60,13 +66,13 @@ const authenticate = catchAsync(async (req, res, next) => {
       throw new AppError('Tenant is inactive.', 403, 'ERR_VDAJ_TENANT_002');
     }
     req.tenant = {
-      id: user.t_id,
-      name: user.tenant_name,
-      wabaId: user.waba_id,
-      phoneNumberId: user.phone_number_id,
+      id:             user.t_id,
+      name:           user.tenant_name,
+      wabaId:         user.waba_id,
+      phoneNumberId:  user.phone_number_id,
       metaSystemToken: user.meta_system_token,
-      timezone: user.timezone,
-      maxMessagesPerDay: user.max_messages_per_day,
+      timezone:        user.timezone,
+      maxMessagesPerDay:   user.max_messages_per_day,
       monthlyMessageQuota: user.monthly_message_quota,
       // Feature flags — used by frontend for RBAC sidebar gating
       enabledFeatures: user.enabled_features || [],

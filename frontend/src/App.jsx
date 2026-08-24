@@ -71,20 +71,27 @@ function RootRedirect() {
 
 // ── App ───────────────────────────────────────────────────────
 export default function App() {
-  const { setAuth, clearAuth } = useAuthStore();
+  const { setAuth, clearAuth, startImpersonation } = useAuthStore();
 
   useEffect(() => {
     // Check for an existing session (e.g. returning user with valid cookie).
-    // Use { silent: true } to suppress the 401 error toast on /login page.
-    // Guard: only clear auth if login hasn't happened in the meantime (race-condition fix).
     authApi.me({ silent: true })
-      .then((res) => setAuth(res.data?.user, res.data?.tenant || null))
+      .then((res) => {
+        const u = res.data?.user;
+        const t = res.data?.tenant || null;
+        setAuth(u, t);
+
+        // Restore impersonation banner if the session is a scoped impersonation token
+        if (u?.isImpersonating && t) {
+          startImpersonation({ id: t.id, name: t.name, slug: t.slug });
+        }
+      })
       .catch(() => {
-        // Only reset if we haven't already been authenticated by a manual login.
         const { isAuthenticated } = useAuthStore.getState();
         if (!isAuthenticated) clearAuth();
       });
   }, []); // eslint-disable-line
+
 
   return (
     <BrowserRouter>

@@ -16,6 +16,7 @@ import { useTheme } from '../context/ThemeContext.jsx';
 import Logo from '../components/atoms/Logo.jsx';
 import NotificationBell, { useNotificationWS } from '../components/NotificationBell.jsx';
 import UpdateBanner from '../components/organisms/UpdateBanner.jsx';
+import ImpersonationBanner from '../components/ImpersonationBanner.jsx';
 
 // ─── Theme Switcher Button ─────────────────────────────────────
 function ThemeSwitcher() {
@@ -112,6 +113,7 @@ export default function DashboardLayout() {
   return (
     <>
       <UpdateBanner />
+      <ImpersonationBanner />
       <div className="flex h-screen overflow-hidden" style={{ background: 'var(--bg-base)' }}>
       {/* Mobile overlay */}
       {mobileOpen && (

@@ -5,14 +5,18 @@
  * All routes gated by: authenticate + authorize('super_admin')
  *
  * Endpoints:
- *  GET  /admin/tenants            — List all tenants with health + user count
- *  POST /admin/tenants            — Create tenant + seed tenant_admin user
- *  PATCH /admin/tenants/:id/suspend — Toggle suspend/activate
- *  PATCH /admin/tenants/:id/features — Update enabled_features checkboxes
- *  GET  /admin/users              — List all users (all tenants)
- *  POST /admin/users              — Create user and assign to a tenant
- *  PATCH /admin/users/:id/reset-password — Force-reset a user's password
- *  PATCH /admin/users/:id/role    — Change user role
+ *  GET  /admin/overview                    — Platform-wide KPI snapshot
+ *  GET  /admin/tenants                     — List all tenants with health + user count
+ *  POST /admin/tenants                     — Create tenant + seed tenant_admin user
+ *  PATCH /admin/tenants/:id/suspend        — Toggle suspend/activate
+ *  PATCH /admin/tenants/:id/status         — Explicit status update
+ *  PATCH /admin/tenants/:id/features       — Update enabled_features checkboxes
+ *  GET  /admin/users                       — List all users (all tenants)
+ *  POST /admin/users                       — Create user and assign to a tenant
+ *  PATCH /admin/users/:id/reset-password   — Force-reset a user's password
+ *  PATCH /admin/users/:id/role             — Change user role
+ *  POST /admin/impersonate/:tenantId       — Begin impersonation session
+ *  POST /admin/impersonate/exit            — Exit impersonation, restore super_admin
  */
 
 'use strict';
@@ -21,14 +25,179 @@ const express = require('express');
 const router  = express.Router();
 const bcrypt  = require('bcryptjs');
 const crypto  = require('crypto');
+const jwt     = require('jsonwebtoken');
 
 const { query }    = require('../config/database');
 const { sendSuccess, sendCreated, catchAsync } = require('../middleware/responseHandler');
 const { authenticate, authorize } = require('../middleware/authMiddleware');
 const AppError = require('../utils/AppError');
 
-// All admin routes require super_admin
+const COOKIE_OPTIONS = {
+  httpOnly: true,
+  secure:   process.env.NODE_ENV === 'production',
+  sameSite: process.env.NODE_ENV === 'production' ? 'None' : 'Lax',
+  maxAge:   7 * 24 * 60 * 60 * 1000,
+};
+
+// ── POST /admin/impersonate/exit (PUBLIC WITHIN ADMIN NS) ───────
+// Must be registered BEFORE router.use(authorize('super_admin'))
+// because callers hold a tenant_admin impersonation token.
+router.post('/impersonate/exit', authenticate, catchAsync(async (req, res) => {
+  const rawToken = req.cookies?.[process.env.JWT_COOKIE_NAME || 'vdaj_access_token'];
+  if (!rawToken) throw new AppError('No active session.', 401, 'ERR_VDAJ_AUTH_003');
+
+  let decoded;
+  try {
+    decoded = jwt.verify(rawToken, process.env.JWT_SECRET);
+  } catch {
+    throw new AppError('Invalid or expired session token.', 401, 'ERR_VDAJ_AUTH_003');
+  }
+
+  if (!decoded.is_impersonating) {
+    throw new AppError('No active impersonation session.', 400, 'ERR_VDAJ_AUTH_008');
+  }
+
+  const originalUserId = decoded.original_user_id;
+
+  const { rows: [admin] } = await query(
+    `SELECT id, email, role, is_active FROM users
+     WHERE id = $1 AND role = 'super_admin' AND deleted_at IS NULL`,
+    [originalUserId]
+  );
+  if (!admin) throw new AppError('Original admin account not found.', 404, 'ERR_VDAJ_AUTH_005');
+  if (!admin.is_active) throw new AppError('Original admin account is inactive.', 403, 'ERR_VDAJ_AUTH_002');
+
+  const restoredToken = jwt.sign(
+    { sub: admin.id, role: 'super_admin', tenantId: null },
+    process.env.JWT_SECRET,
+    { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+  );
+
+  res.cookie(
+    process.env.JWT_COOKIE_NAME || 'vdaj_access_token',
+    restoredToken,
+    COOKIE_OPTIONS
+  );
+
+  return sendSuccess(res,
+    { userId: admin.id, email: admin.email, role: 'super_admin' },
+    'Impersonation ended. Super Admin session restored.'
+  );
+}));
+
+// All remaining admin routes require super_admin
 router.use(authenticate, authorize('super_admin'));
+
+
+// ── GET /admin/overview ─────────────────────────────────────────
+// Platform-wide KPI snapshot for the super admin dashboard.
+router.get('/overview', catchAsync(async (req, res) => {
+  const [tenantsRow, contactsRow, messagesRow, qualityRow] = await Promise.all([
+    // Active + total tenants
+    query(`
+      SELECT
+        COUNT(*) FILTER (WHERE status = 'active')    AS active_tenants,
+        COUNT(*) FILTER (WHERE status = 'suspended') AS suspended_tenants,
+        COUNT(*)                                     AS total_tenants,
+        COUNT(*) FILTER (WHERE phone_number_id IS NOT NULL AND meta_system_token IS NOT NULL) AS waba_connected
+      FROM tenants WHERE deleted_at IS NULL
+    `),
+    // Total contacts across platform
+    query(`SELECT COUNT(*) AS total_contacts FROM contacts WHERE deleted_at IS NULL`),
+    // Messages today and this month
+    query(`
+      SELECT
+        COALESCE(SUM(msgs_sent_today), 0)           AS msgs_today,
+        COALESCE(SUM(monthly_message_quota), 0)     AS monthly_quota
+      FROM tenants WHERE deleted_at IS NULL
+    `),
+    // WABA quality distribution
+    query(`
+      SELECT
+        COUNT(*) FILTER (WHERE quality_rating = 'GREEN')  AS green,
+        COUNT(*) FILTER (WHERE quality_rating = 'YELLOW') AS yellow,
+        COUNT(*) FILTER (WHERE quality_rating = 'RED')    AS red,
+        COUNT(*) FILTER (WHERE quality_rating IS NULL)    AS unknown
+      FROM tenants WHERE deleted_at IS NULL AND phone_number_id IS NOT NULL
+    `),
+  ]);
+
+  return sendSuccess(res, {
+    tenants:  tenantsRow.rows[0],
+    contacts: contactsRow.rows[0],
+    messages: messagesRow.rows[0],
+    quality:  qualityRow.rows[0],
+  }, 'Overview fetched.');
+}));
+
+// ── POST /admin/impersonate/:tenantId ───────────────────────────
+// Begin an impersonation session for a specific tenant.
+// Issues a scoped JWT with is_impersonating=true, saves original
+// super_admin context in the token for restoration later.
+router.post('/impersonate/:tenantId', catchAsync(async (req, res) => {
+  const { tenantId } = req.params;
+
+  // Fetch target tenant
+  const { rows: [tenant] } = await query(
+    `SELECT id, name, slug, status, is_active, enabled_features,
+            waba_id, phone_number_id, meta_system_token
+     FROM tenants WHERE id = $1 AND deleted_at IS NULL`,
+    [tenantId]
+  );
+  if (!tenant) throw new AppError('Tenant not found.', 404, 'ERR_VDAJ_TENANT_001');
+  if (tenant.status === 'suspended') {
+    throw new AppError('Cannot impersonate a suspended tenant.', 403, 'ERR_VDAJ_TENANT_003');
+  }
+
+  // Fetch (or create) tenant_admin user for the target tenant
+  const { rows: [adminUser] } = await query(
+    `SELECT id, email, role FROM users
+     WHERE tenant_id = $1 AND role = 'tenant_admin'
+       AND deleted_at IS NULL AND is_active = TRUE
+     LIMIT 1`,
+    [tenantId]
+  );
+  if (!adminUser) {
+    throw new AppError(
+      'Target tenant has no active admin user. Create one first.',
+      409,
+      'ERR_VDAJ_TENANT_002'
+    );
+  }
+
+  // Issue scoped impersonation token
+  const impersonationToken = jwt.sign(
+    {
+      sub:                adminUser.id,
+      role:               'tenant_admin',
+      tenantId:           tenantId,
+      is_impersonating:   true,
+      original_user_id:   req.user.id,
+      original_role:      'super_admin',
+    },
+    process.env.JWT_SECRET,
+    { expiresIn: '4h' }  // Short-lived: 4 hours max
+  );
+
+  // Set impersonation cookie (overwrites existing session)
+  res.cookie(
+    process.env.JWT_COOKIE_NAME || 'vdaj_access_token',
+    impersonationToken,
+    { ...COOKIE_OPTIONS, maxAge: 4 * 60 * 60 * 1000 }
+  );
+
+  return sendSuccess(res, {
+    tenant: {
+      id:     tenant.id,
+      name:   tenant.name,
+      slug:   tenant.slug,
+      status: tenant.status,
+      enabledFeatures: tenant.enabled_features || [],
+    },
+    impersonatingAs: adminUser.email,
+    expiresIn: '4h',
+  }, `Impersonating ${tenant.name}. Session expires in 4 hours.`);
+}));
 
 // ── GET /admin/tenants ──────────────────────────────────────────
 // Returns all tenants with: WABA status, user count, feature flags,

@@ -1,20 +1,26 @@
 /**
- * VDAJ Services — Super Admin: Tenants Management Page
+ * VDAJ Services — Super Admin: Tenants Management Page (Phase 3)
  * Route: /admin/tenants  (super_admin only)
  *
- * Features:
- * - Premium data grid with health indicators
- * - "Add New Client" slide-over modal with feature toggles
- * - Feature flag editor (checkbox panel) per tenant
- * - Suspend / Reactivate toggle
- * - Impersonate button (UI shell — Phase 2 logic)
- * - Temp password reveal on tenant creation
+ * Phase 1 features retained:
+ *  - Tenant directory grid with health indicators
+ *  - "Add New Client" modal with feature toggles
+ *  - Feature flag editor panel per tenant
+ *  - Suspend / Reactivate toggle
+ *
+ * Phase 3 additions:
+ *  - Platform-wide KPI overview cards (live from GET /admin/overview)
+ *  - Working impersonation via POST /admin/impersonate/:tenantId
+ *  - Confirm modal for suspend/activate and impersonate
+ *  - WABA Quality distribution badges in overview
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { clsx } from 'clsx';
-import { superAdminApi } from '../../lib/api';
-import { showSuccess } from '../../components/atoms/Toast/Toast.jsx';
+import { useNavigate } from 'react-router-dom';
+import { superAdminApi, authApi } from '../../lib/api';
+import { showSuccess, showError } from '../../components/atoms/Toast/Toast.jsx';
+import useAuthStore from '../../store/authStore';
 
 // ── Constants ─────────────────────────────────────────────────
 const ALL_FEATURES = [
@@ -36,6 +42,11 @@ function fmtDate(iso) {
   return new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
+function fmtNum(n) {
+  return parseInt(n || 0, 10).toLocaleString();
+}
+
+// ── Reusable Badges ───────────────────────────────────────────
 function StatusPill({ status }) {
   const cfg = {
     active:    { label: 'Active',    bg: 'rgba(29,158,117,0.12)', color: '#1D9E75' },
@@ -52,18 +63,126 @@ function StatusPill({ status }) {
   );
 }
 
+function QualityBadge({ rating }) {
+  const cfg = {
+    GREEN:  { label: 'Green',   color: '#1D9E75', bg: 'rgba(29,158,117,0.12)' },
+    YELLOW: { label: 'Yellow',  color: '#f59e0b', bg: 'rgba(245,158,11,0.12)' },
+    RED:    { label: 'Red',     color: '#f87171', bg: 'rgba(239,68,68,0.12)'  },
+  }[rating] || { label: 'N/A', color: '#6b7280', bg: 'rgba(100,100,100,0.1)' };
+  return (
+    <span className="text-2xs font-bold px-2 py-0.5 rounded-full"
+      style={{ background: cfg.bg, color: cfg.color }}>
+      {cfg.label}
+    </span>
+  );
+}
+
 function WABABadge({ connected }) {
   return (
-    <span className={clsx(
-      'inline-flex items-center gap-1 text-2xs font-semibold px-2 py-0.5 rounded-full',
-      connected
-        ? 'text-teal-400'
-        : 'text-gray-500'
-    )}
-      style={{ background: connected ? 'rgba(20,184,166,0.1)' : 'rgba(100,100,100,0.08)' }}>
+    <span className={clsx('inline-flex items-center gap-1 text-2xs font-semibold px-2 py-0.5 rounded-full')}
+      style={{
+        color:      connected ? '#1D9E75' : '#6b7280',
+        background: connected ? 'rgba(29,158,117,0.1)' : 'rgba(100,100,100,0.08)',
+      }}>
       <span className={clsx('w-1.5 h-1.5 rounded-full', connected ? 'bg-teal-400' : 'bg-gray-500')} />
       {connected ? 'Connected' : 'Not linked'}
     </span>
+  );
+}
+
+// ── Overview Cards ────────────────────────────────────────────
+function OverviewPanel({ overview, loading }) {
+  if (loading) {
+    return (
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        {[...Array(4)].map((_, i) => (
+          <div key={i} className="rounded-2xl p-4 animate-pulse"
+            style={{ background: 'var(--bg-card)', border: '1px solid var(--bg-border)', height: 80 }} />
+        ))}
+      </div>
+    );
+  }
+
+  if (!overview) return null;
+
+  const { tenants, contacts, messages, quality } = overview;
+
+  const cards = [
+    {
+      label: 'Active Clients',
+      value: fmtNum(tenants?.active_tenants),
+      sub:   `${fmtNum(tenants?.total_tenants)} total`,
+      color: '#1D9E75',
+      icon: (
+        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+        </svg>
+      ),
+    },
+    {
+      label: 'Platform Contacts',
+      value: fmtNum(contacts?.total_contacts),
+      sub:   'across all tenants',
+      color: '#AFA9EC',
+      icon: (
+        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+        </svg>
+      ),
+    },
+    {
+      label: 'Messages Today',
+      value: fmtNum(messages?.msgs_today),
+      sub:   `${fmtNum(messages?.monthly_quota)} monthly quota`,
+      color: '#53BDEB',
+      icon: (
+        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+        </svg>
+      ),
+    },
+    {
+      label: 'WABA Quality',
+      value: null, // rendered differently
+      color: '#f59e0b',
+      quality: { green: quality?.green || 0, yellow: quality?.yellow || 0, red: quality?.red || 0 },
+      icon: (
+        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+        </svg>
+      ),
+    },
+  ];
+
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      {cards.map((c) => (
+        <div key={c.label} className="rounded-2xl p-4"
+          style={{ background: 'var(--bg-card)', border: '1px solid var(--bg-border)' }}>
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-2xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+              {c.label}
+            </p>
+            <span className="w-7 h-7 rounded-lg flex items-center justify-center"
+              style={{ background: `${c.color}18`, color: c.color }}>
+              {c.icon}
+            </span>
+          </div>
+          {c.quality ? (
+            <div className="flex items-center gap-2 flex-wrap mt-1">
+              <span className="text-xs font-bold" style={{ color: '#1D9E75' }}>🟢 {c.quality.green}</span>
+              <span className="text-xs font-bold" style={{ color: '#f59e0b' }}>🟡 {c.quality.yellow}</span>
+              <span className="text-xs font-bold" style={{ color: '#f87171' }}>🔴 {c.quality.red}</span>
+            </div>
+          ) : (
+            <>
+              <p className="text-2xl font-black" style={{ color: c.color }}>{c.value}</p>
+              {c.sub && <p className="text-2xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{c.sub}</p>}
+            </>
+          )}
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -84,22 +203,18 @@ function FeaturePanel({ tenantId, initialFeatures, onSave, onClose }) {
       await superAdminApi.updateFeatures(tenantId, [...selected]);
       showSuccess('Feature flags updated.');
       onSave([...selected]);
-    } finally {
-      setSaving(false);
-    }
+    } catch {} finally { setSaving(false); }
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}>
+      style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(6px)' }}>
       <div className="w-full max-w-md rounded-2xl overflow-hidden"
         style={{ background: 'var(--bg-card)', border: '1px solid var(--bg-border)' }}>
         <div className="flex items-center justify-between px-5 py-4 border-b"
           style={{ borderColor: 'var(--bg-border)', background: 'var(--bg-elevated)' }}>
-          <h2 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>
-            Manage Feature Access
-          </h2>
-          <button onClick={onClose} className="opacity-50 hover:opacity-100 transition-opacity"
+          <h2 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Manage Feature Access</h2>
+          <button onClick={onClose} className="opacity-50 hover:opacity-100 transition-opacity text-lg"
             style={{ color: 'var(--text-muted)' }}>✕</button>
         </div>
         <div className="p-5 grid grid-cols-2 gap-3">
@@ -111,8 +226,7 @@ function FeaturePanel({ tenantId, initialFeatures, onSave, onClose }) {
                 border: `1px solid ${selected.has(f.key) ? 'rgba(83,74,183,0.35)' : 'var(--bg-border)'}`,
               }}>
               <input type="checkbox" className="mt-0.5 shrink-0 accent-purple-500"
-                checked={selected.has(f.key)}
-                onChange={() => toggle(f.key)} />
+                checked={selected.has(f.key)} onChange={() => toggle(f.key)} />
               <div>
                 <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>{f.label}</p>
                 <p className="text-2xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{f.desc}</p>
@@ -138,6 +252,35 @@ function FeaturePanel({ tenantId, initialFeatures, onSave, onClose }) {
   );
 }
 
+// ── Confirm Modal ─────────────────────────────────────────────
+function ConfirmModal({ title, message, confirmLabel, confirmStyle, onConfirm, onClose, loading }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(6px)' }}>
+      <div className="w-full max-w-sm rounded-2xl overflow-hidden shadow-2xl"
+        style={{ background: 'var(--bg-card)', border: '1px solid var(--bg-border)' }}>
+        <div className="p-6 space-y-3">
+          <h2 className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>{title}</h2>
+          <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>{message}</p>
+        </div>
+        <div className="flex justify-end gap-3 px-6 py-4 border-t"
+          style={{ borderColor: 'var(--bg-border)', background: 'var(--bg-elevated)' }}>
+          <button onClick={onClose}
+            className="h-9 px-4 rounded-xl text-sm font-semibold hover:opacity-70"
+            style={{ background: 'var(--bg-card)', border: '1px solid var(--bg-border)', color: 'var(--text-secondary)' }}>
+            Cancel
+          </button>
+          <button onClick={onConfirm} disabled={loading}
+            className="h-9 px-5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 disabled:opacity-50"
+            style={confirmStyle || { background: '#534AB7' }}>
+            {loading ? '…' : confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Add Tenant Modal ──────────────────────────────────────────
 function AddTenantModal({ onClose, onCreated }) {
   const [form, setForm] = useState({
@@ -150,13 +293,10 @@ function AddTenantModal({ onClose, onCreated }) {
   const [result, setResult] = useState(null);
 
   const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
-
-  // Auto-generate slug from name
   const handleNameChange = (v) => {
     set('name', v);
     set('slug', v.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''));
   };
-
   const toggleFeature = (key) => {
     setForm((p) => {
       const f = new Set(p.enabledFeatures);
@@ -164,7 +304,6 @@ function AddTenantModal({ onClose, onCreated }) {
       return { ...p, enabledFeatures: [...f] };
     });
   };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -172,35 +311,30 @@ function AddTenantModal({ onClose, onCreated }) {
       const res = await superAdminApi.createTenant(form);
       setResult(res?.data || res);
       onCreated();
-    } finally {
-      setLoading(false);
-    }
+    } catch {} finally { setLoading(false); }
   };
 
-  const inputClass = "w-full h-9 rounded-xl px-3 text-sm outline-none transition-all";
-  const inputStyle = {
-    background: 'var(--bg-elevated)',
-    border: '1px solid var(--bg-border)',
-    color: 'var(--text-primary)',
-  };
+  const inputClass = 'w-full h-9 rounded-xl px-3 text-sm outline-none transition-all';
+  const inputStyle = { background: 'var(--bg-elevated)', border: '1px solid var(--bg-border)', color: 'var(--text-primary)' };
 
   if (result) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
-        style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}>
+        style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(6px)' }}>
         <div className="w-full max-w-sm rounded-2xl p-6 space-y-4"
           style={{ background: 'var(--bg-card)', border: '1px solid var(--bg-border)' }}>
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full flex items-center justify-center"
+            <div className="w-10 h-10 rounded-full flex items-center justify-center text-lg"
               style={{ background: 'rgba(29,158,117,0.15)', color: '#1D9E75' }}>✓</div>
             <div>
               <p className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Tenant Created!</p>
               <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Save these credentials — shown once only.</p>
             </div>
           </div>
-          <div className="rounded-xl p-4 space-y-2" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--bg-border)' }}>
-            <CredRow label="Tenant" value={result.tenant?.name} />
-            <CredRow label="Admin Email" value={result.adminUser?.email} />
+          <div className="rounded-xl p-4 space-y-2"
+            style={{ background: 'var(--bg-elevated)', border: '1px solid var(--bg-border)' }}>
+            <CredRow label="Tenant"        value={result.tenant?.name} />
+            <CredRow label="Admin Email"   value={result.adminUser?.email} />
             <CredRow label="Temp Password" value={result.adminUser?.tempPassword} highlight />
           </div>
           <p className="text-2xs text-center" style={{ color: 'var(--text-muted)' }}>
@@ -208,9 +342,7 @@ function AddTenantModal({ onClose, onCreated }) {
           </p>
           <button onClick={onClose}
             className="w-full h-9 rounded-xl text-sm font-semibold text-white"
-            style={{ background: '#534AB7' }}>
-            Done
-          </button>
+            style={{ background: '#534AB7' }}>Done</button>
         </div>
       </div>
     );
@@ -218,7 +350,7 @@ function AddTenantModal({ onClose, onCreated }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4"
-      style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}>
+      style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(6px)' }}>
       <form onSubmit={handleSubmit}
         className="w-full max-w-lg rounded-2xl overflow-hidden"
         style={{ background: 'var(--bg-card)', border: '1px solid var(--bg-border)' }}>
@@ -229,12 +361,11 @@ function AddTenantModal({ onClose, onCreated }) {
             <h2 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Add New Client</h2>
             <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>Creates tenant + admin account</p>
           </div>
-          <button type="button" onClick={onClose} className="opacity-50 hover:opacity-100 transition-opacity">✕</button>
+          <button type="button" onClick={onClose} className="text-lg opacity-50 hover:opacity-100 transition-opacity">✕</button>
         </div>
 
         {/* Body */}
         <div className="p-5 space-y-4 max-h-[70vh] overflow-y-auto">
-          {/* Business Details */}
           <p className="text-2xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Business Details</p>
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -259,11 +390,11 @@ function AddTenantModal({ onClose, onCreated }) {
             <div>
               <label className="text-2xs font-semibold mb-1 block" style={{ color: 'var(--text-secondary)' }}>Country</label>
               <input className={inputClass} style={inputStyle}
-                value={form.countryCode} onChange={(e) => set('countryCode', e.target.value.toUpperCase().slice(0,2))} placeholder="IN" maxLength={2} />
+                value={form.countryCode} onChange={(e) => set('countryCode', e.target.value.toUpperCase().slice(0,2))}
+                placeholder="IN" maxLength={2} />
             </div>
           </div>
 
-          {/* Admin Account */}
           <p className="text-2xs font-bold uppercase tracking-wider pt-2" style={{ color: 'var(--text-muted)' }}>Admin Account</p>
           <div>
             <label className="text-2xs font-semibold mb-1 block" style={{ color: 'var(--text-secondary)' }}>Admin Email *</label>
@@ -283,7 +414,6 @@ function AddTenantModal({ onClose, onCreated }) {
             </div>
           </div>
 
-          {/* Feature Flags */}
           <p className="text-2xs font-bold uppercase tracking-wider pt-2" style={{ color: 'var(--text-muted)' }}>Service Access</p>
           <div className="grid grid-cols-2 gap-2">
             {ALL_FEATURES.map((f) => (
@@ -294,8 +424,7 @@ function AddTenantModal({ onClose, onCreated }) {
                   border: `1px solid ${form.enabledFeatures.includes(f.key) ? 'rgba(83,74,183,0.3)' : 'var(--bg-border)'}`,
                 }}>
                 <input type="checkbox" className="accent-purple-500"
-                  checked={form.enabledFeatures.includes(f.key)}
-                  onChange={() => toggleFeature(f.key)} />
+                  checked={form.enabledFeatures.includes(f.key)} onChange={() => toggleFeature(f.key)} />
                 <span className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>{f.label}</span>
               </label>
             ))}
@@ -323,18 +452,13 @@ function AddTenantModal({ onClose, onCreated }) {
 
 function CredRow({ label, value, highlight }) {
   const [copied, setCopied] = useState(false);
-  const copy = () => {
-    navigator.clipboard.writeText(value || '');
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
-  };
+  const copy = () => { navigator.clipboard.writeText(value || ''); setCopied(true); setTimeout(() => setCopied(false), 1500); };
   return (
     <div className="flex items-center justify-between gap-3">
       <span className="text-2xs font-semibold shrink-0" style={{ color: 'var(--text-muted)' }}>{label}</span>
       <span className={clsx('font-mono text-xs truncate', highlight ? 'font-bold' : '')}
         style={{ color: highlight ? '#AFA9EC' : 'var(--text-primary)' }}>{value}</span>
-      <button onClick={copy} className="text-2xs shrink-0 opacity-60 hover:opacity-100"
-        style={{ color: 'var(--text-muted)' }}>
+      <button onClick={copy} className="text-2xs shrink-0 opacity-60 hover:opacity-100" style={{ color: 'var(--text-muted)' }}>
         {copied ? '✓' : '⎘'}
       </button>
     </div>
@@ -343,33 +467,83 @@ function CredRow({ label, value, highlight }) {
 
 // ── Main Page ─────────────────────────────────────────────────
 export default function SuperAdminTenantsPage() {
-  const [tenants,        setTenants]        = useState([]);
-  const [loading,        setLoading]        = useState(true);
-  const [showAdd,        setShowAdd]        = useState(false);
-  const [featurePanel,   setFeaturePanel]   = useState(null); // { id, features }
-  const [suspending,     setSuspending]     = useState(null); // id
+  const navigate = useNavigate();
+  const { startImpersonation, setAuth } = useAuthStore();
 
-  const load = useCallback(async () => {
+  const [tenants,      setTenants]      = useState([]);
+  const [overview,     setOverview]     = useState(null);
+  const [loading,      setLoading]      = useState(true);
+  const [ovLoading,    setOvLoading]    = useState(true);
+  const [showAdd,      setShowAdd]      = useState(false);
+  const [featurePanel, setFeaturePanel] = useState(null);
+
+  // Confirm modal state
+  const [confirm, setConfirm] = useState(null);
+  // { type: 'suspend'|'activate'|'impersonate', tenant, loading }
+
+  // ── Loaders ─────────────────────────────────────────────────
+  const loadTenants = useCallback(async () => {
     setLoading(true);
     try {
       const res = await superAdminApi.listTenants();
       setTenants(res?.data || []);
-    } finally {
-      setLoading(false);
-    }
+    } catch {} finally { setLoading(false); }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  const loadOverview = useCallback(async () => {
+    setOvLoading(true);
+    try {
+      const res = await superAdminApi.overview();
+      setOverview(res?.data || null);
+    } catch {} finally { setOvLoading(false); }
+  }, []);
 
-  const handleSuspend = async (tenant) => {
-    const willSuspend = tenant.status === 'active';
-    setSuspending(tenant.id);
+  useEffect(() => {
+    loadTenants();
+    loadOverview();
+  }, [loadTenants, loadOverview]);
+
+  // ── Suspend / Activate ──────────────────────────────────────
+  const handleSuspendConfirm = async () => {
+    if (!confirm) return;
+    const { tenant, type } = confirm;
+    const willSuspend = type === 'suspend';
+    setConfirm((c) => ({ ...c, loading: true }));
     try {
       await superAdminApi.suspendTenant(tenant.id, willSuspend);
       showSuccess(`Tenant ${willSuspend ? 'suspended' : 'reactivated'}.`);
-      load();
-    } finally {
-      setSuspending(null);
+      loadTenants();
+      loadOverview();
+    } catch {} finally { setConfirm(null); }
+  };
+
+  // ── Impersonation ───────────────────────────────────────────
+  const handleImpersonateConfirm = async () => {
+    if (!confirm) return;
+    const { tenant } = confirm;
+    setConfirm((c) => ({ ...c, loading: true }));
+    try {
+      const res = await superAdminApi.impersonate(tenant.id);
+      const data = res?.data;
+
+      // Re-fetch /auth/me to get the impersonation session user populated
+      const meRes = await authApi.me({ silent: true });
+      setAuth(meRes.data?.user, meRes.data?.tenant || null);
+
+      // Set impersonation overlay state
+      startImpersonation({
+        id:   data.tenant.id,
+        name: data.tenant.name,
+        slug: data.tenant.slug,
+      });
+
+      showSuccess(`Now viewing ${tenant.name} as Admin.`);
+      setConfirm(null);
+
+      // Redirect to tenant's dashboard
+      navigate('/dashboard');
+    } catch (err) {
+      setConfirm((c) => ({ ...c, loading: false }));
     }
   };
 
@@ -378,6 +552,20 @@ export default function SuperAdminTenantsPage() {
     setFeaturePanel(null);
   };
 
+  // ── Confirm dispatch ────────────────────────────────────────
+  const openSuspendConfirm = (tenant) =>
+    setConfirm({ type: tenant.status === 'active' ? 'suspend' : 'activate', tenant, loading: false });
+
+  const openImpersonateConfirm = (tenant) =>
+    setConfirm({ type: 'impersonate', tenant, loading: false });
+
+  const onConfirm = () => {
+    if (!confirm) return;
+    if (confirm.type === 'impersonate') handleImpersonateConfirm();
+    else handleSuspendConfirm();
+  };
+
+  // ── Stats ───────────────────────────────────────────────────
   const stats = {
     total:     tenants.length,
     active:    tenants.filter((t) => t.status === 'active').length,
@@ -406,30 +594,29 @@ export default function SuperAdminTenantsPage() {
         </button>
       </div>
 
-      {/* Stats Row */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        {[
-          { label: 'Total Clients',  value: stats.total,     color: '#AFA9EC' },
-          { label: 'Active',         value: stats.active,    color: '#1D9E75' },
-          { label: 'Suspended',      value: stats.suspended, color: '#f87171' },
-          { label: 'WABA Connected', value: stats.waba,      color: '#53BDEB' },
-        ].map((s) => (
-          <div key={s.label} className="rounded-2xl p-4"
-            style={{ background: 'var(--bg-card)', border: '1px solid var(--bg-border)' }}>
-            <p className="text-2xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>{s.label}</p>
-            <p className="text-3xl font-black mt-1" style={{ color: s.color }}>{s.value}</p>
-          </div>
-        ))}
-      </div>
+      {/* Platform Overview */}
+      <OverviewPanel overview={overview} loading={ovLoading} />
 
-      {/* Table */}
+      {/* Tenant Directory Grid */}
       <div className="rounded-2xl overflow-hidden"
         style={{ border: '1px solid var(--bg-border)', background: 'var(--bg-card)' }}>
+        {/* Table header */}
+        <div className="px-5 py-3 border-b flex items-center gap-3"
+          style={{ borderColor: 'var(--bg-border)', background: 'var(--bg-elevated)' }}>
+          <p className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+            All Clients
+          </p>
+          <span className="text-2xs px-2 py-0.5 rounded-full font-bold"
+            style={{ background: 'rgba(83,74,183,0.1)', color: '#AFA9EC' }}>
+            {stats.total}
+          </span>
+        </div>
+
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
               <tr style={{ background: 'var(--bg-elevated)', borderBottom: '1px solid var(--bg-border)' }}>
-                {['Client', 'Admin', 'Plan', 'Status', 'WABA', 'Users', 'Features', 'Joined', 'Actions'].map((h) => (
+                {['Client', 'Admin', 'Plan', 'Status', 'WABA', 'Quality', 'Tier', 'Today\'s Msgs', 'Users', 'Features', 'Joined', 'Actions'].map((h) => (
                   <th key={h} className="px-4 py-3 text-left text-2xs font-bold uppercase tracking-wider whitespace-nowrap"
                     style={{ color: 'var(--text-muted)' }}>{h}</th>
                 ))}
@@ -437,9 +624,9 @@ export default function SuperAdminTenantsPage() {
             </thead>
             <tbody className="divide-y" style={{ borderColor: 'var(--bg-border)' }}>
               {loading ? (
-                [...Array(5)].map((_, i) => (
+                [...Array(4)].map((_, i) => (
                   <tr key={i} className="animate-pulse">
-                    {[180, 140, 70, 80, 100, 50, 120, 90, 140].map((w, j) => (
+                    {[180, 140, 70, 80, 100, 70, 50, 80, 50, 120, 90, 160].map((w, j) => (
                       <td key={j} className="px-4 py-3.5">
                         <div className="h-3 rounded" style={{ width: w, background: 'var(--bg-elevated)' }} />
                       </td>
@@ -448,7 +635,7 @@ export default function SuperAdminTenantsPage() {
                 ))
               ) : tenants.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="py-16 text-center" style={{ color: 'var(--text-muted)' }}>
+                  <td colSpan={12} className="py-16 text-center" style={{ color: 'var(--text-muted)' }}>
                     <div className="flex flex-col items-center gap-3">
                       <span className="text-4xl opacity-10">🏢</span>
                       <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>No clients yet</p>
@@ -458,8 +645,7 @@ export default function SuperAdminTenantsPage() {
                 </tr>
               ) : (
                 tenants.map((t) => (
-                  <tr key={t.id}
-                    className="transition-colors"
+                  <tr key={t.id} className="transition-colors"
                     onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-elevated)'}
                     onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
 
@@ -477,7 +663,7 @@ export default function SuperAdminTenantsPage() {
                       </div>
                     </td>
 
-                    {/* Admin email */}
+                    {/* Admin */}
                     <td className="px-4 py-3.5">
                       <span style={{ color: 'var(--text-secondary)' }}>{t.admin_email || '—'}</span>
                     </td>
@@ -500,6 +686,23 @@ export default function SuperAdminTenantsPage() {
                       <WABABadge connected={t.waba_connected} />
                     </td>
 
+                    {/* Quality */}
+                    <td className="px-4 py-3.5 whitespace-nowrap">
+                      <QualityBadge rating={t.quality_rating} />
+                    </td>
+
+                    {/* Tier */}
+                    <td className="px-4 py-3.5 text-center font-bold"
+                      style={{ color: 'var(--text-primary)' }}>
+                      {t.messaging_tier ? `T${t.messaging_tier}` : '—'}
+                    </td>
+
+                    {/* Today's Msgs */}
+                    <td className="px-4 py-3.5 text-right font-mono font-bold"
+                      style={{ color: 'var(--text-primary)' }}>
+                      {(t.msgs_sent_today || 0).toLocaleString()}
+                    </td>
+
                     {/* Users */}
                     <td className="px-4 py-3.5 text-center font-bold"
                       style={{ color: 'var(--text-primary)' }}>
@@ -512,15 +715,15 @@ export default function SuperAdminTenantsPage() {
                         onClick={() => setFeaturePanel({ id: t.id, features: t.enabled_features || [] })}
                         className="flex items-center gap-1.5 hover:opacity-80 transition-opacity">
                         <div className="flex gap-1 flex-wrap max-w-[120px]">
-                          {(t.enabled_features || []).slice(0, 4).map((f) => (
+                          {(t.enabled_features || []).slice(0, 3).map((f) => (
                             <span key={f} className="text-2xs px-1.5 py-0.5 rounded font-medium"
                               style={{ background: 'rgba(83,74,183,0.1)', color: '#AFA9EC' }}>
                               {f}
                             </span>
                           ))}
-                          {(t.enabled_features || []).length > 4 && (
+                          {(t.enabled_features || []).length > 3 && (
                             <span className="text-2xs" style={{ color: 'var(--text-muted)' }}>
-                              +{t.enabled_features.length - 4}
+                              +{t.enabled_features.length - 3}
                             </span>
                           )}
                         </div>
@@ -529,31 +732,31 @@ export default function SuperAdminTenantsPage() {
                     </td>
 
                     {/* Joined */}
-                    <td className="px-4 py-3.5 whitespace-nowrap"
-                      style={{ color: 'var(--text-secondary)' }}>
+                    <td className="px-4 py-3.5 whitespace-nowrap" style={{ color: 'var(--text-secondary)' }}>
                       {fmtDate(t.created_at)}
                     </td>
 
                     {/* Actions */}
                     <td className="px-4 py-3.5 whitespace-nowrap">
                       <div className="flex items-center gap-2">
-                        {/* Impersonate — UI shell, Phase 2 */}
+                        {/* Impersonate */}
                         <button
-                          title="Impersonate (Phase 2)"
-                          className="h-7 px-2.5 rounded-lg text-2xs font-semibold transition-all hover:opacity-80 opacity-40 cursor-not-allowed"
+                          onClick={() => openImpersonateConfirm(t)}
+                          disabled={t.status !== 'active'}
+                          title={t.status !== 'active' ? 'Cannot impersonate a suspended tenant' : 'Login as this tenant'}
+                          className="h-7 px-2.5 rounded-lg text-2xs font-semibold transition-all hover:opacity-80 disabled:opacity-30 disabled:cursor-not-allowed"
                           style={{ background: 'rgba(83,74,183,0.12)', color: '#AFA9EC', border: '1px solid rgba(83,74,183,0.2)' }}>
                           👤 Login as
                         </button>
 
                         {/* Suspend / Activate */}
                         <button
-                          disabled={suspending === t.id}
-                          onClick={() => handleSuspend(t)}
-                          className="h-7 px-2.5 rounded-lg text-2xs font-semibold transition-all hover:opacity-80 disabled:opacity-50"
+                          onClick={() => openSuspendConfirm(t)}
+                          className="h-7 px-2.5 rounded-lg text-2xs font-semibold transition-all hover:opacity-80"
                           style={t.status === 'active'
                             ? { background: 'rgba(239,68,68,0.08)', color: '#f87171', border: '1px solid rgba(239,68,68,0.2)' }
                             : { background: 'rgba(29,158,117,0.08)', color: '#1D9E75', border: '1px solid rgba(29,158,117,0.2)' }}>
-                          {suspending === t.id ? '…' : t.status === 'active' ? 'Suspend' : 'Activate'}
+                          {t.status === 'active' ? 'Suspend' : 'Activate'}
                         </button>
                       </div>
                     </td>
@@ -565,12 +768,9 @@ export default function SuperAdminTenantsPage() {
         </div>
       </div>
 
-      {/* Modals */}
+      {/* ── Modals ── */}
       {showAdd && (
-        <AddTenantModal
-          onClose={() => setShowAdd(false)}
-          onCreated={load}
-        />
+        <AddTenantModal onClose={() => setShowAdd(false)} onCreated={loadTenants} />
       )}
 
       {featurePanel && (
@@ -579,6 +779,38 @@ export default function SuperAdminTenantsPage() {
           initialFeatures={featurePanel.features}
           onSave={(features) => handleFeaturesUpdated(featurePanel.id, features)}
           onClose={() => setFeaturePanel(null)}
+        />
+      )}
+
+      {confirm && (
+        <ConfirmModal
+          title={
+            confirm.type === 'impersonate' ? `Impersonate ${confirm.tenant.name}?` :
+            confirm.type === 'suspend'     ? `Suspend ${confirm.tenant.name}?` :
+                                             `Reactivate ${confirm.tenant.name}?`
+          }
+          message={
+            confirm.type === 'impersonate'
+              ? `You will be redirected to this tenant's dashboard as their admin. A golden banner will appear. Session expires in 4 hours.`
+              : confirm.type === 'suspend'
+              ? `This will immediately block all logins and API calls for this tenant's users.`
+              : `This will restore full platform access for this tenant.`
+          }
+          confirmLabel={
+            confirm.type === 'impersonate' ? '👤 Enter as Admin' :
+            confirm.type === 'suspend'     ? 'Suspend'            :
+                                             'Reactivate'
+          }
+          confirmStyle={
+            confirm.type === 'impersonate'
+              ? { background: 'linear-gradient(135deg,#534AB7,#3B3499)' }
+              : confirm.type === 'suspend'
+              ? { background: 'rgba(239,68,68,0.8)' }
+              : { background: '#1D9E75' }
+          }
+          loading={confirm.loading}
+          onConfirm={onConfirm}
+          onClose={() => setConfirm(null)}
         />
       )}
     </div>
