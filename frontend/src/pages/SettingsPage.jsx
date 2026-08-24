@@ -11,7 +11,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { clsx } from 'clsx';
-import { tenantApi } from '../lib/api';
+import { tenantApi, teamApi } from '../lib/api';
 import { showSuccess, showError } from '../components/atoms/Toast/Toast.jsx';
 import useAuthStore from '../store/authStore';
 
@@ -90,8 +90,10 @@ function QualityBadge({ rating }) {
 // ── Role badge ────────────────────────────────────────────────
 function RoleBadge({ role }) {
   const cfg = {
-    super_admin:  { color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', label: 'Super Admin' },
-    tenant_admin: { color: '#AFA9EC', bg: 'rgba(83,74,183,0.12)',  label: 'Admin' },
+    super_admin:  { color: '#f59e0b', bg: 'rgba(245,158,11,0.12)',  label: 'Super Admin' },
+    tenant_admin: { color: '#AFA9EC', bg: 'rgba(83,74,183,0.12)',   label: 'Admin' },
+    manager:      { color: '#53BDEB', bg: 'rgba(83,189,235,0.12)',  label: 'Manager' },
+    agent:        { color: '#1D9E75', bg: 'rgba(29,158,117,0.12)', label: 'Agent' },
     tenant_user:  { color: '#1D9E75', bg: 'rgba(29,158,117,0.12)', label: 'Agent' },
   };
   const c = cfg[role] || cfg.tenant_user;
@@ -105,20 +107,54 @@ function RoleBadge({ role }) {
 
 // ── Invite Modal ──────────────────────────────────────────────
 function InviteModal({ onClose, onInvited }) {
-  const [form, setForm] = useState({ email: '', firstName: '', lastName: '', role: 'tenant_user' });
+  const [form, setForm] = useState({ email: '', firstName: '', lastName: '', role: 'agent' });
   const [sending, setSending] = useState(false);
+  const [result, setResult]   = useState(null); // { email, tempPassword }
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
   const handleSubmit = async () => {
     if (!form.email) { showError('Email is required.'); return; }
     setSending(true);
     try {
-      const res = await tenantApi.invite(form);
-      showSuccess('Invitation sent!');
-      onInvited(res.data);
-      onClose();
+      const res = await teamApi.invite(form);
+      setResult(res?.data || res);
+      if (onInvited) onInvited(res?.data || res);
     } catch {} finally { setSending(false); }
   };
+
+  if (result) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+        style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)' }}>
+        <div className="w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl"
+          style={{ background: 'var(--bg-card)', border: '1px solid var(--bg-border)' }}>
+          <div className="p-6 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full flex items-center justify-center text-lg"
+                style={{ background: 'rgba(29,158,117,0.15)', color: '#1D9E75' }}>✓</div>
+              <div>
+                <p className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Team Member Created!</p>
+                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Share these credentials — shown once only.</p>
+              </div>
+            </div>
+            <div className="rounded-xl p-4 space-y-2" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--bg-border)' }}>
+              <div className="flex justify-between">
+                <span className="text-2xs text-gray-500">Email</span>
+                <span className="font-mono text-xs" style={{ color: 'var(--text-primary)' }}>{result.email}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-2xs text-gray-500">Temp Password</span>
+                <span className="font-mono text-xs font-bold" style={{ color: '#AFA9EC' }}>{result.tempPassword}</span>
+              </div>
+            </div>
+            <button onClick={onClose}
+              className="w-full h-10 rounded-xl text-sm font-semibold text-white"
+              style={{ background: '#534AB7' }}>Done</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
@@ -132,8 +168,7 @@ function InviteModal({ onClose, onInvited }) {
           <button onClick={onClose}
             className="w-8 h-8 rounded-xl flex items-center justify-center hover:opacity-70"
             style={{ background: 'var(--bg-elevated)' }}>
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24"
-              stroke="currentColor" strokeWidth={2} style={{ color: 'var(--text-muted)' }}>
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} style={{ color: 'var(--text-muted)' }}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
@@ -154,7 +189,8 @@ function InviteModal({ onClose, onInvited }) {
             <select value={form.role} onChange={(e) => set('role', e.target.value)}
               className="h-10 rounded-xl px-3 text-sm outline-none w-full"
               style={{ background: 'var(--bg-elevated)', border: '1px solid var(--bg-border)', color: 'var(--text-primary)' }}>
-              <option value="tenant_user">Agent — can view and reply in inbox</option>
+              <option value="agent">Agent — can view and reply in inbox</option>
+              <option value="manager">Manager — can manage campaigns and team inbox</option>
               <option value="tenant_admin">Admin — full access to all features</option>
             </select>
           </Field>
@@ -169,7 +205,7 @@ function InviteModal({ onClose, onInvited }) {
           <button onClick={handleSubmit} disabled={sending}
             className="h-10 px-5 rounded-xl text-sm font-semibold text-white hover:brightness-110 disabled:opacity-50 transition-all"
             style={{ background: 'linear-gradient(135deg,#534AB7,#3B3499)' }}>
-            {sending ? 'Sending…' : 'Send Invite'}
+            {sending ? 'Creating…' : 'Create Member'}
           </button>
         </div>
       </div>
@@ -276,7 +312,7 @@ export default function SettingsPage() {
   useEffect(() => {
     if (activeTab === 'team' && team.length === 0 && !teamLoading) {
       setTeamLoading(true);
-      tenantApi.team()
+      teamApi.list()
         .then((res) => setTeam(res?.data || []))
         .catch(() => {})
         .finally(() => setTeamLoading(false));
@@ -558,16 +594,39 @@ export default function SettingsPage() {
                   </div>
                   {/* Role */}
                   <RoleBadge role={member.role} />
+                  {/* Active status */}
+                  {!member.is_active && (
+                    <span className="text-2xs px-2 py-0.5 rounded-full font-bold"
+                      style={{ background: 'rgba(239,68,68,0.1)', color: '#f87171' }}>Inactive</span>
+                  )}
                   {/* Joined */}
-                  <p className="text-2xs shrink-0" style={{ color: 'var(--text-muted)' }}>
+                  <p className="text-2xs shrink-0 hidden sm:block" style={{ color: 'var(--text-muted)' }}>
                     Joined {fmtDate(member.created_at)}
                   </p>
                   {/* Current user indicator */}
-                  {member.id === user?.id && (
+                  {member.id === user?.id ? (
                     <span className="text-2xs font-bold px-2 py-0.5 rounded-full shrink-0"
-                      style={{ background: 'rgba(29,158,117,0.12)', color: '#1D9E75' }}>
-                      You
-                    </span>
+                      style={{ background: 'rgba(29,158,117,0.12)', color: '#1D9E75' }}>You</span>
+                  ) : (
+                    /* Remove button */
+                    (user?.role === 'tenant_admin' || user?.role === 'super_admin') && (
+                      <button
+                        onClick={async () => {
+                          if (!window.confirm(`Remove ${member.first_name || member.email} from the team?`)) return;
+                          try {
+                            await teamApi.remove(member.id);
+                            setTeam((t) => t.filter((m) => m.id !== member.id));
+                            showSuccess('Team member removed.');
+                          } catch {}
+                        }}
+                        className="w-7 h-7 rounded-lg flex items-center justify-center transition-all hover:opacity-80 shrink-0"
+                        style={{ background: 'rgba(239,68,68,0.08)', color: '#f87171' }}
+                        title="Remove member">
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    )
                   )}
                 </div>
               ))}

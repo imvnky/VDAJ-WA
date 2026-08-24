@@ -48,6 +48,7 @@ const automationRoutes = require('./routes/automationRoutes');
 const commerceRoutes   = require('./routes/commerceRoutes');
 const billingRoutes    = require('./routes/billingRoutes');
 const superAdminRoutes = require('./routes/superAdminRoutes');
+const teamRoutes       = require('./routes/teamRoutes');
 
 // ── Background workers ─────────────────────────────────────────
 const { startAnalyticsCron, startWABAHealthCron } = require('./workers/analyticsWorker');
@@ -194,6 +195,7 @@ app.use(`${API_PREFIX}/templates`,    templateRoutes);
 app.use(`${API_PREFIX}/inbox`,        inboxRoutes);
 app.use(`${API_PREFIX}/analytics`,    analyticsRoutes);
 app.use(`${API_PREFIX}/automations`,  automationRoutes);
+app.use(`${API_PREFIX}/team`,         teamRoutes);
 
 // ── Sprint 3: Commerce & Billing ───────────────────────────────
 app.use(`${API_PREFIX}/commerce`,     commerceRoutes);

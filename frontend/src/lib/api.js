@@ -120,6 +120,15 @@ export const inboxApi = {
   messages: (id, params) => client.get(`/inbox/conversations/${id}/messages`, { params }),
   reply: (id, body, messageType) => client.post(`/inbox/conversations/${id}/reply`, { body, messageType }),
   resolve: (id, status) => client.patch(`/inbox/conversations/${id}/resolve`, { status }),
+  assign: (id, userId) => client.post(`/inbox/conversations/${id}/assign`, { userId }),
+  updateStatus: (id, status) => client.patch(`/inbox/conversations/${id}/status`, { status }),
+};
+
+// ---- TEAM ----
+export const teamApi = {
+  list: () => client.get('/team'),
+  invite: (data) => client.post('/team/invite', data),
+  remove: (id) => client.delete(`/team/${id}`),
 };
 
 // ---- ANALYTICS ----
