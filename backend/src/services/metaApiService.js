@@ -17,6 +17,14 @@ const AppError = require('../utils/AppError');
 const META_API_BASE = process.env.META_GRAPH_API_URL || 'https://graph.facebook.com';
 const API_VERSION   = process.env.META_API_VERSION   || 'v21.0';
 
+// ── Global token fallback ──────────────────────────────────────
+// Per-tenant meta_system_token is preferred (multi-tenant BSP mode).
+// process.env.META_ACCESS_TOKEN is used as fallback for single-tenant
+// or development setups where WABA Embedded Signup hasn't run yet.
+const getEffectiveToken = (providedToken) =>
+  providedToken || process.env.META_ACCESS_TOKEN || null;
+
+
 // ── Error code mapping ─────────────────────────────────────────
 const mapMetaError = (metaErrorCode) => {
   if (metaErrorCode === 190)                        return 'ERR_META_AUTH';    // Invalid token
@@ -133,6 +141,15 @@ const sendWhatsAppMessage = async ({
   templateVars,
   body: freeTextBody,
 }) => {
+  const token = getEffectiveToken(accessToken);
+  if (!token) {
+    throw new AppError(
+      'No WhatsApp access token available. Connect your WABA in WhatsApp Setup or set META_ACCESS_TOKEN env var.',
+      409,
+      'ERR_META_NOT_CONNECTED'
+    );
+  }
+
   let messagePayload;
 
   if (templateName) {
@@ -154,10 +171,27 @@ const sendWhatsAppMessage = async ({
   return callMetaApi({
     method:      'POST',
     path:        `${phoneNumberId}/messages`,
-    accessToken,
+    accessToken: token,
     body:        messagePayload,
   });
 };
+
+// ─────────────────────────────────────────────────────────────────
+// sendFreeText — Convenience wrapper for plain text inbox replies
+// ─────────────────────────────────────────────────────────────────
+
+/**
+ * Send a plain-text free-form reply within the 24h service window.
+ * @param {object} opts
+ * @param {string} opts.phoneNumberId
+ * @param {string} opts.accessToken
+ * @param {string} opts.to              — E.164 phone number
+ * @param {string} opts.body            — Text content
+ * @returns {Promise<object>}
+ */
+const sendFreeText = ({ phoneNumberId, accessToken, to, body }) =>
+  sendWhatsAppMessage({ phoneNumberId, accessToken, to, body });
+
 
 // ─────────────────────────────────────────────────────────────────
 // createMetaTemplate — Submit a new template to Meta for approval
@@ -373,10 +407,45 @@ const getWABAHealth = async (phoneNumberId, accessToken) => {
   return responseBody;
 };
 
+// ─────────────────────────────────────────────────────────────────
+// resolveMediaUrl — Fetch downloadable URL for a Media object ID
+// ─────────────────────────────────────────────────────────────────
+
+/**
+ * Resolve a Meta media object ID to a short-lived downloadable URL.
+ * Meta's Cloud API delivers media as object IDs in webhook payloads.
+ * Calling this endpoint returns the actual HTTPS download URL.
+ *
+ * The URL is valid for approximately 5 minutes. Download + store
+ * to your own storage (S3/R2/GCS) before expiry for permanent access.
+ *
+ * @param {string} mediaId      — Meta media object ID from webhook
+ * @param {string} accessToken  — System-user token for the tenant
+ * @returns {Promise<{url: string, mime_type: string, file_size: number}>}
+ */
+const resolveMediaUrl = async (mediaId, accessToken) => {
+  const token = getEffectiveToken(accessToken);
+  if (!token) {
+    throw new AppError('Access token required to resolve media URL.', 400, 'ERR_META_006');
+  }
+
+  const result = await callMetaApi({
+    method:      'GET',
+    path:        `${mediaId}`,
+    accessToken: token,
+  });
+
+  logger.debug('Media URL resolved', { mediaId, url: result?.url?.slice(0, 60) });
+  return result; // { url, mime_type, file_size, sha256, id, messaging_product }
+};
+
 module.exports = {
   sendWhatsAppMessage,
+  sendFreeText,
+  resolveMediaUrl,
   createMetaTemplate,
   syncMetaTemplateStatus,
   exchangeEmbeddedSignupToken,
   getWABAHealth,
+  getEffectiveToken,      // exported for use in webhookRoutes + tests
 };

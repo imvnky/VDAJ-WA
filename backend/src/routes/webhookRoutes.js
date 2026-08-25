@@ -4,18 +4,28 @@
  * GET  /webhooks/whatsapp — Meta hub verification challenge
  * POST /webhooks/whatsapp — Inbound messages + delivery status updates
  *
- * FIXES:
- *  1. Inbound messages[] are now parsed, stored in inbox_conversations + inbox_messages.
- *  2. broadcastToTenant() is called for real-time WebSocket push on every inbound message.
- *  3. Outbound status updates (sent/delivered/read/failed) are unchanged and still processed.
+ * Production features:
+ *  1. HMAC-SHA256 signature verification (X-Hub-Signature-256)
+ *  2. Inbound messages parsed for text, image, video, audio, document,
+ *     sticker, location, contacts, reaction, interactive, order.
+ *  3. Media object ID resolved → downloadable URL via Meta Graph API.
+ *  4. inbox_conversations + inbox_messages upserted per tenant.
+ *  5. Delivery status updates applied to BOTH campaign_messages AND
+ *     inbox_messages (direct replies from the Inbox page).
+ *  6. BSP compliance: last_inbound_at, opt-in consent auto-recorded.
+ *  7. Real-time WebSocket broadcast to all tenant agents.
  */
 
 const express = require('express');
-const router = express.Router();
-const crypto = require('crypto');
-const { query } = require('../config/database');
+const router  = express.Router();
+const crypto  = require('crypto');
+const { query }     = require('../config/database');
 const { sendSuccess } = require('../middleware/responseHandler');
-const logger = require('../utils/logger');
+const logger         = require('../utils/logger');
+const fetch = (...args) => import('node-fetch').then(({ default: f }) => f(...args));
+
+const META_API_BASE = process.env.META_GRAPH_API_URL || 'https://graph.facebook.com';
+const API_VERSION   = process.env.META_API_VERSION   || 'v21.0';
 
 // ── GET /webhooks/whatsapp — Meta verification challenge ────────
 router.get('/whatsapp', (req, res) => {
@@ -93,9 +103,57 @@ async function handleInboundMessage(msg, value, broadcastToTenant) {
   const msgType     = msg.type || 'text';
 
   // Extract body/media depending on message type
-  const body     = msg.text?.body || msg.caption || null;
-  const mediaUrl = msg.image?.link || msg.document?.link || msg.video?.link || msg.audio?.link || null;
-  const mediaMime = msg.image?.mime_type || msg.document?.mime_type || msg.video?.mime_type || msg.audio?.mime_type || null;
+  let body     = null;
+  let mediaId  = null;   // Meta media object ID — resolved to URL async
+  let mediaUrl = null;
+  let mediaMime = null;
+
+  switch (msgType) {
+    case 'text':
+      body = msg.text?.body || null;
+      break;
+    case 'image':
+      body      = msg.image?.caption || null;
+      mediaId   = msg.image?.id;
+      mediaMime = msg.image?.mime_type || 'image/jpeg';
+      break;
+    case 'video':
+      body      = msg.video?.caption || null;
+      mediaId   = msg.video?.id;
+      mediaMime = msg.video?.mime_type || 'video/mp4';
+      break;
+    case 'audio':
+      mediaId   = msg.audio?.id;
+      mediaMime = msg.audio?.mime_type || 'audio/ogg';
+      break;
+    case 'document':
+      body      = msg.document?.filename || msg.document?.caption || null;
+      mediaId   = msg.document?.id;
+      mediaMime = msg.document?.mime_type || 'application/octet-stream';
+      break;
+    case 'sticker':
+      mediaId   = msg.sticker?.id;
+      mediaMime = msg.sticker?.mime_type || 'image/webp';
+      break;
+    case 'location':
+      body = `📍 Location: ${msg.location?.name || ''} (${msg.location?.latitude},${msg.location?.longitude})`;
+      break;
+    case 'contacts':
+      body = `👤 Contact: ${msg.contacts?.[0]?.name?.formatted_name || 'Unknown'}`;
+      break;
+    case 'reaction':
+      body = `${msg.reaction?.emoji || '👍'} reaction`;
+      break;
+    case 'interactive':
+      body = msg.interactive?.button_reply?.title ||
+             msg.interactive?.list_reply?.title   || '[interactive]';
+      break;
+    case 'order':
+      body = `🛒 Order received (${msg.order?.product_items?.length || 0} items)`;
+      break;
+    default:
+      body = null;
+  }
 
   // Resolve tenant from the phone_number_id that received the message
   const phoneNumberId = value.metadata?.phone_number_id;
@@ -105,7 +163,8 @@ async function handleInboundMessage(msg, value, broadcastToTenant) {
   }
 
   const { rows: tenantRows } = await query(
-    `SELECT id FROM tenants WHERE phone_number_id = $1 AND deleted_at IS NULL LIMIT 1`,
+    `SELECT id, meta_system_token FROM tenants
+     WHERE phone_number_id = $1 AND deleted_at IS NULL LIMIT 1`,
     [phoneNumberId]
   );
 
@@ -114,8 +173,28 @@ async function handleInboundMessage(msg, value, broadcastToTenant) {
     return;
   }
 
-  const tenantId    = tenantRows[0].id;
-  const displayName = value.contacts?.[0]?.profile?.name || null;
+  const tenantId        = tenantRows[0].id;
+  const tenantToken     = tenantRows[0].meta_system_token ||
+                          process.env.META_ACCESS_TOKEN;   // env fallback for single-tenant setups
+  const displayName     = value.contacts?.[0]?.profile?.name || null;
+
+  // ── Resolve media object ID → downloadable URL ─────────────────
+  // Meta's Cloud API delivers media as object IDs, not direct URLs.
+  // We resolve them immediately before they expire (~5 min window).
+  if (mediaId && tenantToken) {
+    try {
+      const mediaRes = await fetch(
+        `${META_API_BASE}/${API_VERSION}/${mediaId}`,
+        { headers: { Authorization: `Bearer ${tenantToken}` } }
+      );
+      if (mediaRes.ok) {
+        const mediaData = await mediaRes.json();
+        mediaUrl = mediaData?.url || null;
+      }
+    } catch (e) {
+      logger.warn('Media URL resolution failed', { mediaId, error: e.message });
+    }
+  }
 
   // ── Upsert inbox_conversation (unique per tenant + phone) ──────
   const { rows: [conv] } = await query(
@@ -235,6 +314,7 @@ async function handleInboundMessage(msg, value, broadcastToTenant) {
 
 // ─────────────────────────────────────────────────────────────────
 // HANDLER: Outbound delivery status update
+// Applies to BOTH campaign_messages AND inbox_messages
 // ─────────────────────────────────────────────────────────────────
 async function handleStatusUpdate(status) {
   const { id: metaMessageId, status: msgStatus, timestamp } = status;
@@ -243,40 +323,59 @@ async function handleStatusUpdate(status) {
   const dbStatus = statusMap[msgStatus];
   if (!dbStatus) return; // Unknown status — skip
 
-  // Store raw webhook event (best-effort)
+  // ── 1. Campaign message status update ──────────────────────────
+  const timestampCol = `${dbStatus}_at`;
+  try {
+    await query(
+      `UPDATE campaign_messages
+       SET status = $1::message_status,
+           ${timestampCol} = to_timestamp($2),
+           updated_at = NOW()
+       WHERE meta_message_id = $3`,
+      [dbStatus, parseInt(timestamp, 10), metaMessageId]
+    );
+
+    // Increment the matching campaign counter (best-effort)
+    await query(
+      `UPDATE campaigns
+       SET ${dbStatus}_count = ${dbStatus}_count + 1, updated_at = NOW()
+       WHERE id = (
+         SELECT campaign_id FROM campaign_messages WHERE meta_message_id = $1 LIMIT 1
+       )`,
+      [metaMessageId]
+    );
+  } catch (e) {
+    logger.warn('campaign_messages status update skipped', { metaMessageId, error: e.message });
+  }
+
+  // ── 2. Inbox message status update (direct replies) ────────────
+  // When an agent sends a reply from the Inbox, we store the
+  // meta_message_id in inbox_messages. This keeps delivery receipts
+  // visible in the chat thread in real time.
+  try {
+    await query(
+      `UPDATE inbox_messages
+       SET status = $1, updated_at = NOW()
+       WHERE wa_message_id = $2 AND direction = 'outbound'`,
+      [dbStatus, metaMessageId]
+    );
+  } catch (e) {
+    logger.warn('inbox_messages status update skipped', { metaMessageId, error: e.message });
+  }
+
+  // ── 3. Store raw webhook event (best-effort) ───────────────────
   try {
     await query(
       `INSERT INTO webhook_events (tenant_id, event_type, meta_message_id, raw_payload)
        SELECT cm.tenant_id, $1::webhook_event_type, $2, $3::jsonb
-       FROM campaign_messages cm WHERE cm.meta_message_id = $2 LIMIT 1`,
+       FROM campaign_messages cm WHERE cm.meta_message_id = $2
+       LIMIT 1
+       ON CONFLICT DO NOTHING`,
       [`message_${msgStatus}`, metaMessageId, JSON.stringify(status)]
     );
   } catch (e) {
-    // Non-fatal — event logging failure should not abort status update
-    logger.warn('Could not store webhook_event', { metaMessageId, error: e.message });
+    logger.warn('webhook_event insert skipped', { metaMessageId, error: e.message });
   }
-
-  // Update campaign_message status + timestamp
-  const timestampCol = `${dbStatus}_at`;
-  await query(
-    `UPDATE campaign_messages
-     SET status = $1::message_status,
-         ${timestampCol} = to_timestamp($2),
-         updated_at = NOW()
-     WHERE meta_message_id = $3`,
-    [dbStatus, parseInt(timestamp, 10), metaMessageId]
-  );
-
-  // Increment the matching campaign counter
-  const counterCol = `${dbStatus}_count`;
-  await query(
-    `UPDATE campaigns
-     SET ${counterCol} = ${counterCol} + 1, updated_at = NOW()
-     WHERE id = (
-       SELECT campaign_id FROM campaign_messages WHERE meta_message_id = $1 LIMIT 1
-     )`,
-    [metaMessageId]
-  );
 
   logger.debug('Status update processed', { metaMessageId, dbStatus });
 }
