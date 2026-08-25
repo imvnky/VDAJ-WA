@@ -429,8 +429,8 @@ export default function DashboardPage() {
   useEffect(() => {
     const loadCore = async () => {
       try {
-        const promises = [campaignApi.list({ limit: 8 })];
-        if (isSuperAdmin) promises.push(queueApi.stats());
+        const promises = [campaignApi.list({ limit: 8 }, { silent: true })];
+        if (isSuperAdmin) promises.push(queueApi.stats({ silent: true }));
 
         const results = await Promise.allSettled(promises);
         if (results[0]?.status === 'fulfilled') setCampaigns(results[0].value?.data || []);

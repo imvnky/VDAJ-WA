@@ -83,7 +83,7 @@ export const authApi = {
 
 // ---- CAMPAIGNS ----
 export const campaignApi = {
-  list: (params) => client.get('/campaigns', { params }),
+  list: (params, config = {}) => client.get('/campaigns', { params, ...config }),
   get: (id) => client.get(`/campaigns/${id}`),
   create: (data) => client.post('/campaigns', data),
   launch: (id) => client.post(`/campaigns/${id}/launch`),
@@ -128,7 +128,7 @@ export const tenantApi = {
 
 // ---- QUEUE ----
 export const queueApi = {
-  stats: () => client.get('/admin/queue/stats'),
+  stats: (config = {}) => client.get('/admin/queue/stats', config),
   dlq: () => client.get('/admin/queue/dlq'),
   replay: (jobId) => client.post(`/admin/queue/dlq/${jobId}/replay`),
 };

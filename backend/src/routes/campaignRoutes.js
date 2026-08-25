@@ -20,18 +20,29 @@ router.use(authenticate);
 
 // ── GET /campaigns ─────────────────────────────────────────────
 router.get('/', catchAsync(async (req, res) => {
-  const { rows } = await query(
-    `SELECT c.*, u.first_name || ' ' || u.last_name AS created_by_name,
+  const tenantId = req.user.tenantId;
+  const isSuperAdmin = req.user.role === 'super_admin';
+
+  let queryStr = `SELECT c.*, u.first_name || ' ' || u.last_name AS created_by_name,
             mt.name AS template_name, cl.name AS contact_list_name
      FROM campaigns c
      LEFT JOIN users u ON u.id = c.created_by
      LEFT JOIN message_templates mt ON mt.id = c.template_id
      LEFT JOIN contact_lists cl ON cl.id = c.contact_list_id
-     WHERE c.tenant_id = $1 AND c.deleted_at IS NULL
-     ORDER BY c.created_at DESC
-     LIMIT $2 OFFSET $3`,
-    [req.user.tenantId, req.query.limit || 20, req.query.offset || 0]
-  );
+     WHERE c.deleted_at IS NULL`;
+
+  const params = [];
+  if (!isSuperAdmin && tenantId) {
+    queryStr += ` AND c.tenant_id = $1`;
+    params.push(tenantId);
+    queryStr += ` ORDER BY c.created_at DESC LIMIT $2 OFFSET $3`;
+    params.push(parseInt(req.query.limit || 20, 10), parseInt(req.query.offset || 0, 10));
+  } else {
+    queryStr += ` ORDER BY c.created_at DESC LIMIT $1 OFFSET $2`;
+    params.push(parseInt(req.query.limit || 20, 10), parseInt(req.query.offset || 0, 10));
+  }
+
+  const { rows } = await query(queryStr, params);
   return sendSuccess(res, rows, 'Campaigns fetched.');
 }));
 
