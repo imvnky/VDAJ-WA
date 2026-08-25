@@ -1,13 +1,14 @@
-/**
- * VDAJ Services — Centralized API Layer v2
+﻿/**
+ * VDAJ Services â€” Centralized API Layer v2
  * All API calls in one place. Every call uses HTTP-only JWT cookies.
  */
 
 import axios from 'axios';
 import { showError } from '../components/atoms/Toast/Toast.jsx';
 
+// build: 20260825-2017
 // Determine API base URL — VITE_API_BASE_URL is baked in at build time.
-// Fallback chain: env var → production domain → localhost (dev only).
+// Fallback chain: env var â†’ production domain â†’ localhost (dev only).
 const _envBase = import.meta.env.VITE_API_BASE_URL;
 const _isProd  = typeof window !== 'undefined' &&
                  !window.location.hostname.includes('localhost') &&
@@ -183,3 +184,4 @@ export const superAdminApi = {
 
 
 export default client;
+
