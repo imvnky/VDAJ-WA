@@ -6,7 +6,14 @@
 import axios from 'axios';
 import { showError } from '../components/atoms/Toast/Toast.jsx';
 
-let BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api/v1';
+// Determine API base URL — VITE_API_BASE_URL is baked in at build time.
+// Fallback chain: env var → production domain → localhost (dev only).
+const _envBase = import.meta.env.VITE_API_BASE_URL;
+const _isProd  = typeof window !== 'undefined' &&
+                 !window.location.hostname.includes('localhost') &&
+                 !window.location.hostname.includes('127.0.0.1');
+let BASE = _envBase ||
+           (_isProd ? 'https://api.vdajservices.com/api/v1' : 'http://localhost:5000/api/v1');
 if (BASE && !BASE.endsWith('/api/v1')) {
   BASE = BASE.replace(/\/+$/, '') + '/api/v1';
 }
