@@ -53,6 +53,7 @@ router.post('/login', loginValidators, validate, catchAsync(async (req, res) => 
   res.cookie(process.env.JWT_COOKIE_NAME || 'vdaj_access_token', token, COOKIE_OPTIONS);
 
   return sendSuccess(res, {
+    token,
     user: { id: user.id, email: user.email, firstName: user.first_name, lastName: user.last_name, role: user.role, tenantId: user.tenant_id }
   }, 'Login successful.');
 }));

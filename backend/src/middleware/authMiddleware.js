@@ -13,7 +13,14 @@ const { catchAsync } = require('./responseHandler');
 // ============================================================
 
 const authenticate = catchAsync(async (req, res, next) => {
-  const token = req.cookies?.[process.env.JWT_COOKIE_NAME || 'vdaj_access_token'];
+  // Accept token from cookie OR Authorization: Bearer header
+  let token = req.cookies?.[process.env.JWT_COOKIE_NAME || 'vdaj_access_token'];
+  if (!token) {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.slice(7);
+    }
+  }
 
   if (!token) {
     throw new AppError('Authentication token is missing.', 401, 'ERR_VDAJ_AUTH_003');

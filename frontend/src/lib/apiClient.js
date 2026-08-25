@@ -32,6 +32,11 @@ const apiClient = axios.create({
 
 apiClient.interceptors.request.use((config) => {
   config.headers['X-Request-ID'] = crypto.randomUUID();
+  // Attach Bearer token when cookies are blocked (cross-origin)
+  const token = sessionStorage.getItem('vdaj_token');
+  if (token && !config.headers.Authorization) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
   return config;
 });
 

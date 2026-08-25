@@ -44,8 +44,7 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const res = await authApi.login(form.email, form.password);
-      // res = { success, message, data: { user } } (Axios interceptor unwraps res.data)
-      setAuth(res.data.user, res.data.tenant || null);
+      setAuth(res.data.user, res.data.tenant || null, res.data.token);
       showSuccess('Welcome back!');
       navigate('/dashboard');
     } catch {

@@ -8,6 +8,7 @@ import { create } from 'zustand';
 const useAuthStore = create((set) => ({
   user:            null,
   tenant:          null,
+  token:           typeof window !== 'undefined' ? sessionStorage.getItem('vdaj_token') : null,
   isAuthenticated: false,
   isLoading:       true,
 
@@ -15,15 +16,19 @@ const useAuthStore = create((set) => ({
   isImpersonating:    false,
   impersonatedTenant: null, // { id, name, slug }
 
-  setAuth: (user, tenant) =>
-    set({ user, tenant, isAuthenticated: true, isLoading: false }),
+  setAuth: (user, tenant, token) => {
+    if (token) sessionStorage.setItem('vdaj_token', token);
+    set({ user, tenant, isAuthenticated: true, isLoading: false, ...(token ? { token } : {}) });
+  },
 
-  clearAuth: () =>
+  clearAuth: () => {
+    sessionStorage.removeItem('vdaj_token');
     set({
-      user: null, tenant: null,
+      user: null, tenant: null, token: null,
       isAuthenticated: false, isLoading: false,
       isImpersonating: false, impersonatedTenant: null,
-    }),
+    });
+  },
 
   setLoading: (val) => set({ isLoading: val }),
 
