@@ -6,7 +6,12 @@
 import axios from 'axios';
 import { showApiError } from '../components/atoms/Toast/Toast';
 
-let BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api/v1';
+const _envBase = import.meta.env.VITE_API_BASE_URL;
+const _isProd  = typeof window !== 'undefined' &&
+                 !window.location.hostname.includes('localhost') &&
+                 !window.location.hostname.includes('127.0.0.1');
+let BASE = _envBase ||
+           (_isProd ? 'https://api.vdajservices.com/api/v1' : 'http://localhost:5000/api/v1');
 if (BASE && !BASE.endsWith('/api/v1')) {
   BASE = BASE.replace(/\/+$/, '') + '/api/v1';
 }
