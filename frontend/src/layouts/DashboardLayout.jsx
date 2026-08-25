@@ -80,7 +80,7 @@ const NAV_ITEMS = [
 
 // ─── Main Layout ───────────────────────────────────────────────
 export default function DashboardLayout() {
-  const { user, clearAuth } = useAuthStore();
+  const { user, tenant, clearAuth } = useAuthStore();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
   const { theme } = useTheme();
