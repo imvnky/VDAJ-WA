@@ -4,6 +4,41 @@
  */
 
 import React, { useEffect } from 'react';
+import { Component } from 'react';
+
+// ── Error Boundary ───────────────────────────────────────────
+class ErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error, info) {
+    console.error('[ErrorBoundary]', error, info);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0f0f1a', padding: '2rem' }}>
+          <div style={{ maxWidth: 600, width: '100%', background: '#1a1a2e', border: '1px solid #ef4444', borderRadius: 16, padding: '2rem' }}>
+            <h1 style={{ color: '#ef4444', fontSize: '1.25rem', fontWeight: 700, marginBottom: 8 }}>⚠️ Something went wrong</h1>
+            <p style={{ color: '#94a3b8', fontSize: '0.875rem', marginBottom: 16 }}>A runtime error occurred. Copy the details below and report it:</p>
+            <pre style={{ background: '#0f0f1a', color: '#fbbf24', padding: '1rem', borderRadius: 8, fontSize: '0.75rem', overflowX: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+              {this.state.error?.toString()}
+            </pre>
+            <button onClick={() => window.location.href = '/login'}
+              style={{ marginTop: 16, padding: '0.5rem 1.5rem', background: '#534AB7', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600 }}>
+              Back to Login
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { authApi } from './lib/api';
 import useAuthStore from './store/authStore';
@@ -87,13 +122,14 @@ export default function App() {
         }
       })
       .catch(() => {
-        const { isAuthenticated } = useAuthStore.getState();
-        if (!isAuthenticated) clearAuth();
+        // Always clear auth on /me failure so isLoading never gets stuck at true
+        clearAuth();
       });
   }, []); // eslint-disable-line
 
 
   return (
+    <ErrorBoundary>
     <BrowserRouter>
       <VdajToaster />
       <Routes>
@@ -134,6 +170,7 @@ export default function App() {
         <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>
+    </ErrorBoundary>
   );
 }
 
