@@ -122,8 +122,14 @@ export default function App() {
         }
       })
       .catch(() => {
-        // Always clear auth on /me failure so isLoading never gets stuck at true
-        clearAuth();
+        // Only clear auth if user wasn't already authenticated by login flow
+        // But always ensure isLoading is set to false
+        const { isAuthenticated } = useAuthStore.getState();
+        if (!isAuthenticated) {
+          clearAuth(); // sets isLoading=false + isAuthenticated=false
+        } else {
+          useAuthStore.getState().setLoading(false);
+        }
       });
   }, []); // eslint-disable-line
 

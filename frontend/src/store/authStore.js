@@ -35,3 +35,8 @@ const useAuthStore = create((set) => ({
 }));
 
 export default useAuthStore;
+
+// Expose store for the API interceptor to check auth state
+if (typeof window !== 'undefined') {
+  window.__vdaj_auth_store = useAuthStore;
+}

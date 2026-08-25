@@ -1,4 +1,4 @@
-﻿/**
+/**
  * VDAJ Services â€” Centralized API Layer v2
  * All API calls in one place. Every call uses HTTP-only JWT cookies.
  */
@@ -49,9 +49,15 @@ client.interceptors.response.use(
   (res) => res.data,
   (err) => {
     const silent = err.config?.silent;
-    if (!silent && err.response?.status === 401 && !window.location.pathname.startsWith('/login')) {
-      window.location.href = '/login?session=expired';
-      return Promise.reject(err);
+    // On 401, redirect to login ONLY if not silent and not already on login page
+    if (err.response?.status === 401 && !silent && !window.location.pathname.startsWith('/login')) {
+      // Check if user was already authenticated by login flow before redirecting
+      // This prevents the /auth/me revalidation race from overriding a successful login
+      const authStore = typeof window !== 'undefined' && window.__vdaj_auth_store;
+      if (!authStore || !authStore.getState().isAuthenticated) {
+        window.location.href = '/login?session=expired';
+        return Promise.reject(err);
+      }
     }
     if (!silent) {
       const d = err.response?.data;
