@@ -39,7 +39,7 @@ router.get('/overview', catchAsync(async (req, res) => {
        COUNT(DISTINCT snapshot_date)::int     AS days_tracked
      FROM analytics_snapshots
      WHERE (CAST($1 AS UUID) IS NULL OR tenant_id = $1)
-       AND snapshot_date >= CURRENT_DATE - ($2 * INTERVAL '1 day')`,
+       AND snapshot_date >= CURRENT_DATE - make_interval(days => $2)`,
     [tid, days]
   );
 
@@ -49,17 +49,17 @@ router.get('/overview', catchAsync(async (req, res) => {
   if (!o || parseInt(o.total_sent, 10) === 0) {
     const { rows: liveRows } = await query(
       `SELECT
-         COALESCE(COUNT(*) FILTER (WHERE status IN ('sent','delivered','read')), 0)::int AS total_sent,
-         COALESCE(COUNT(*) FILTER (WHERE status = 'delivered'),                  0)::int AS total_delivered,
-         COALESCE(COUNT(*) FILTER (WHERE status = 'read'),                       0)::int AS total_read,
-         COALESCE(COUNT(*) FILTER (WHERE status = 'failed'),                     0)::int AS total_failed,
+         COALESCE(COUNT(*) FILTER (WHERE cm.status IN ('sent','delivered','read')), 0)::int AS total_sent,
+         COALESCE(COUNT(*) FILTER (WHERE cm.status = 'delivered'),                  0)::int AS total_delivered,
+         COALESCE(COUNT(*) FILTER (WHERE cm.status = 'read'),                       0)::int AS total_read,
+         COALESCE(COUNT(*) FILTER (WHERE cm.status = 'failed'),                     0)::int AS total_failed,
          0::int AS total_opt_outs,
          0::int AS total_new_contacts,
          0::int AS days_tracked
        FROM campaign_messages cm
        JOIN campaigns c ON c.id = cm.campaign_id
        WHERE (CAST($1 AS UUID) IS NULL OR cm.tenant_id = $1)
-         AND cm.created_at >= NOW() - ($2 * INTERVAL '1 day')`,
+         AND cm.created_at >= NOW() - make_interval(days => $2)`,
       [tid, days]
     );
     o = liveRows[0] || {};
@@ -159,7 +159,7 @@ router.get('/trend', catchAsync(async (req, res) => {
             ELSE 0 END AS read_rate
      FROM analytics_snapshots
      WHERE (CAST($1 AS UUID) IS NULL OR tenant_id = $1)
-       AND snapshot_date >= CURRENT_DATE - ($2 * INTERVAL '1 day')
+       AND snapshot_date >= CURRENT_DATE - make_interval(days => $2)
      ORDER BY snapshot_date ASC`,
     [tid, days]
   );
@@ -193,7 +193,7 @@ router.get('/trend', catchAsync(async (req, res) => {
             ELSE 0 END                                     AS read_rate
      FROM campaign_messages cm
      WHERE (CAST($1 AS UUID) IS NULL OR cm.tenant_id = $1)
-       AND cm.sent_at   >= NOW() - ($2 * INTERVAL '1 day')
+       AND cm.sent_at   >= NOW() - make_interval(days => $2)
        AND cm.sent_at   IS NOT NULL
      GROUP BY cm.sent_at::date
      ORDER BY cm.sent_at::date ASC`,
