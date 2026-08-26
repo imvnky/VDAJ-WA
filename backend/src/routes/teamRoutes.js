@@ -30,8 +30,10 @@ router.use(authenticate, requireTenant);
 // Any authenticated tenant user can list team members (for
 // the assignment dropdown in Inbox). No role restriction here.
 router.get('/', catchAsync(async (req, res) => {
-  const { rows } = await query(
-    `SELECT
+  const tenantId = req.user.tenantId;
+  const isSuperAdmin = req.user.role === 'super_admin';
+
+  let queryStr = `SELECT
        u.id,
        u.email,
        u.first_name,
@@ -41,18 +43,24 @@ router.get('/', catchAsync(async (req, res) => {
        u.last_login_at,
        u.created_at
      FROM users u
-     WHERE u.tenant_id = $1
-       AND u.deleted_at IS NULL
-     ORDER BY
+     WHERE u.deleted_at IS NULL`;
+
+  const params = [];
+  if (!isSuperAdmin && tenantId) {
+    queryStr += ` AND u.tenant_id = $1`;
+    params.push(tenantId);
+  }
+
+  queryStr += ` ORDER BY
        CASE u.role
          WHEN 'tenant_admin' THEN 1
          WHEN 'manager'      THEN 2
          WHEN 'agent'        THEN 3
          ELSE 4
        END,
-       u.first_name ASC`,
-    [req.user.tenantId]
-  );
+       u.first_name ASC`;
+
+  const { rows } = await query(queryStr, params);
   return sendSuccess(res, rows, 'Team members fetched.');
 }));
 

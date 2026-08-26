@@ -24,12 +24,18 @@ router.use(authenticate, requireTenant);
 
 // ── GET /templates ─────────────────────────────────────────────
 router.get('/', catchAsync(async (req, res) => {
-  const { rows } = await query(
-    `SELECT * FROM message_templates
-     WHERE tenant_id = $1 AND deleted_at IS NULL
-     ORDER BY created_at DESC`,
-    [req.user.tenantId]
-  );
+  const tenantId = req.user.tenantId;
+  const isSuperAdmin = req.user.role === 'super_admin';
+
+  let queryStr = `SELECT * FROM message_templates WHERE deleted_at IS NULL`;
+  const params = [];
+  if (!isSuperAdmin && tenantId) {
+    queryStr += ` AND tenant_id = $1`;
+    params.push(tenantId);
+  }
+  queryStr += ` ORDER BY created_at DESC`;
+
+  const { rows } = await query(queryStr, params);
   return sendSuccess(res, rows, 'Templates fetched.');
 }));
 

@@ -465,13 +465,14 @@ export default function InboxPage() {
 
   // ── WebSocket ─────────────────────────────────────────────
   useEffect(() => {
-    if (!user?.tenantId) return;
+    if (!user?.tenantId && user?.role !== 'super_admin') return;
     let ws;
     let retryTimeout;
 
     const connect = () => {
       try {
-        ws = new WebSocket(`${WS_BASE}/ws/inbox?tenantId=${user.tenantId}`);
+        const tenantQuery = user?.tenantId ? `tenantId=${user.tenantId}` : 'tenantId=all';
+        ws = new WebSocket(`${WS_BASE}/ws/inbox?${tenantQuery}`);
         wsRef.current = ws;
         ws.onopen  = () => setWsStatus('connected');
         ws.onclose = () => { setWsStatus('disconnected'); retryTimeout = setTimeout(connect, 5000); };

@@ -55,8 +55,13 @@ router.get('/conversations', catchAsync(async (req, res) => {
   if (!filter && req.user.role === 'agent') filter = 'mine';
   if (!filter) filter = 'all';
 
-  const params = [req.user.tenantId];
-  let conditions = [`c.tenant_id = $1`, `c.deleted_at IS NULL`];
+  const params = [];
+  const conditions = [`c.deleted_at IS NULL`];
+
+  if (req.user.tenantId) {
+    params.push(req.user.tenantId);
+    conditions.push(`c.tenant_id = $${params.length}`);
+  }
 
   if (statusFilter) {
     params.push(statusFilter);
@@ -70,7 +75,6 @@ router.get('/conversations', catchAsync(async (req, res) => {
   } else if (filter === 'unassigned') {
     conditions.push(`c.assigned_to IS NULL`);
   }
-  // filter === 'all' → no restriction
 
   if (search) {
     params.push(`%${search}%`);
