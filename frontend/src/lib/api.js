@@ -94,14 +94,14 @@ export const campaignApi = {
 
 // ---- CONTACTS ----
 export const contactApi = {
-  list: (params) => client.get('/contacts', { params }),
+  list: (params, config = {}) => client.get('/contacts', { params, ...config }),
   get: (id) => client.get(`/contacts/${id}`),
   create: (data) => client.post('/contacts', data),
   bulkImport: (contacts, listId, opt_in_source, opt_in_proof) =>
     client.post('/contacts/bulk', { contacts, listId, opt_in_source, opt_in_proof }),
   updateTags: (id, tags) => client.patch(`/contacts/${id}/tags`, { tags }),
   optOut: (id) => client.patch(`/contacts/${id}/opt-out`),
-  lists: () => client.get('/contacts/lists'),
+  lists: (config = {}) => client.get('/contacts/lists', config),
   createList: (data) => client.post('/contacts/lists', data),
 };
 

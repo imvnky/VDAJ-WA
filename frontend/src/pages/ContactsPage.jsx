@@ -175,7 +175,7 @@ export default function ContactsPage() {
         page: p, limit: LIMIT,
         search: s || undefined,
         tag: t || undefined,
-      });
+      }, { silent: true });
       const rows = res.data || [];
       setContacts(rows);
       setTotal(res.meta?.total || 0);
@@ -190,7 +190,7 @@ export default function ContactsPage() {
   useEffect(() => { load(); }, [load]);
 
   useEffect(() => {
-    contactApi.lists().then((r) => setLists(r.data || [])).catch(() => {});
+    contactApi.lists({ silent: true }).then((r) => setLists(r.data || [])).catch(() => {});
   }, []);
 
   // Debounce search

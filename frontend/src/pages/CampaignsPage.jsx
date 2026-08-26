@@ -222,9 +222,9 @@ export default function CampaignsPage() {
     const load = async () => {
       try {
         const [campRes, listRes, tmplRes] = await Promise.allSettled([
-          campaignApi.list({ limit: 50 }),
-          contactApi.lists(),
-          templateApi.list(),
+          campaignApi.list({ limit: 50 }, { silent: true }),
+          contactApi.lists({ silent: true }),
+          templateApi.list({ silent: true }),
         ]);
         if (campRes.status === 'fulfilled') setCampaigns(campRes.value?.data || []);
         if (listRes.status === 'fulfilled') setContactLists(listRes.value?.data || []);

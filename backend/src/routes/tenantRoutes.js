@@ -30,17 +30,12 @@ router.get('/me', catchAsync(async (req, res) => {
   if (req.user.role === 'super_admin') {
     tenantId = req.query.tenantId || null;
     if (!tenantId) {
-      // super_admin has no tenant of their own — require explicit param
-      throw new AppError(
-        'super_admin must provide ?tenantId= to use this endpoint.',
-        400,
-        'ERR_VDAJ_VAL_005'
-      );
+      return sendSuccess(res, null, 'super_admin platform user has no default tenant profile.');
     }
   } else {
     tenantId = req.user.tenantId;
     if (!tenantId) {
-      throw new AppError('User is not associated with a tenant.', 400, 'ERR_VDAJ_TENANT_003');
+      return sendSuccess(res, null, 'User is not associated with a tenant.');
     }
   }
 
@@ -125,21 +120,16 @@ router.get('/me', catchAsync(async (req, res) => {
 // Returns quality rating, messaging tier, daily limit, and usage.
 // Available to all authenticated tenant roles; super_admin must pass ?tenantId=.
 router.get('/me/waba-health', catchAsync(async (req, res) => {
-  // Reuse the same tenantId resolution logic as GET /tenants/me
   let tenantId;
   if (req.user.role === 'super_admin') {
     tenantId = req.query.tenantId || null;
     if (!tenantId) {
-      throw new AppError(
-        'super_admin must provide ?tenantId= to use this endpoint.',
-        400,
-        'ERR_VDAJ_VAL_005'
-      );
+      return sendSuccess(res, null, 'super_admin platform user has no default WABA health profile.');
     }
   } else {
     tenantId = req.user.tenantId;
     if (!tenantId) {
-      throw new AppError('User is not associated with a tenant.', 400, 'ERR_VDAJ_TENANT_003');
+      return sendSuccess(res, null, 'User is not associated with a tenant.');
     }
   }
 
@@ -242,8 +232,8 @@ router.patch('/:id/status', authorize('super_admin'), catchAsync(async (req, res
 
 // ── GET /tenants/me/team — List users for this tenant ──────────
 router.get('/me/team', catchAsync(async (req, res) => {
-  const tenantId = req.user.tenantId;
-  if (!tenantId) throw new AppError('Not associated with a tenant.', 400, 'ERR_VDAJ_TENANT_003');
+  const tenantId = req.user.tenantId || req.query.tenantId;
+  if (!tenantId) return sendSuccess(res, [], 'No tenant associated.');
 
   const { rows } = await query(
     `SELECT id, first_name, last_name, email, role, created_at, last_login_at
@@ -257,7 +247,7 @@ router.get('/me/team', catchAsync(async (req, res) => {
 
 // ── POST /tenants/me/invite — Invite a team member ─────────────
 router.post('/me/invite', catchAsync(async (req, res) => {
-  const tenantId = req.user.tenantId;
+  const tenantId = req.user.tenantId || req.body.tenantId;
   if (!tenantId) throw new AppError('Not associated with a tenant.', 400, 'ERR_VDAJ_TENANT_003');
 
   const { email, role = 'tenant_user', firstName = '', lastName = '' } = req.body;
@@ -284,13 +274,12 @@ router.post('/me/invite', catchAsync(async (req, res) => {
     [tenantId, email.toLowerCase().trim(), firstName.trim(), lastName.trim(), role, hashed]
   );
 
-  // TODO: send invite email with password reset link
-  return sendSuccess(res, user, 'Team member invited. They will receive an email shortly.');
+  return sendCreated(res, { ...user, tempPassword }, 'Team member invited.');
 }));
 
 // ── PATCH /tenants/me — Update tenant account settings ─────────
 router.patch('/me', catchAsync(async (req, res) => {
-  const tenantId = req.user.tenantId;
+  const tenantId = req.user.tenantId || req.body.tenantId;
   if (!tenantId) throw new AppError('Not associated with a tenant.', 400, 'ERR_VDAJ_TENANT_003');
 
   const { name, timezone, country_code } = req.body;
@@ -311,8 +300,10 @@ router.patch('/me', catchAsync(async (req, res) => {
 
 // ── GET /tenants/me/compliance — Consent & quality audit ────────
 router.get('/me/compliance', catchAsync(async (req, res) => {
-  const tenantId = req.user.tenantId;
-  if (!tenantId) throw new AppError('Not associated with a tenant.', 400, 'ERR_VDAJ_TENANT_003');
+  const tenantId = req.user.tenantId || req.query.tenantId;
+  if (!tenantId) {
+    return sendSuccess(res, { optInBreakdown: [], totalOptedOut: 0, qualityRating: 'GREEN' }, 'No tenant associated.');
+  }
 
   // Opt-in breakdown by source
   const { rows: optInBreakdown } = await query(

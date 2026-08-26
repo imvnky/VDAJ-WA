@@ -24,7 +24,7 @@ router.use(authenticate, requireTenant);
 
 // ── GET /analytics/overview ────────────────────────────────────
 router.get('/overview', catchAsync(async (req, res) => {
-  const tid  = req.user.tenantId;
+  const tid  = req.user.tenantId || null;
   const days = Math.min(parseInt(req.query.days || 30, 10), 365);
 
   // ── Primary: pre-aggregated snapshots ─────────────────────────
@@ -38,8 +38,8 @@ router.get('/overview', catchAsync(async (req, res) => {
        COALESCE(SUM(new_contacts),    0)::int AS total_new_contacts,
        COUNT(DISTINCT snapshot_date)::int     AS days_tracked
      FROM analytics_snapshots
-     WHERE tenant_id    = $1
-       AND snapshot_date >= CURRENT_DATE - ($2 || ' days')::INTERVAL`,
+     WHERE (CAST($1 AS UUID) IS NULL OR tenant_id = $1)
+       AND snapshot_date >= CURRENT_DATE - ($2 * INTERVAL '1 day')`,
     [tid, days]
   );
 
@@ -58,11 +58,11 @@ router.get('/overview', catchAsync(async (req, res) => {
          0::int AS days_tracked
        FROM campaign_messages cm
        JOIN campaigns c ON c.id = cm.campaign_id
-       WHERE cm.tenant_id  = $1
-         AND cm.created_at >= NOW() - ($2 || ' days')::INTERVAL`,
+       WHERE (CAST($1 AS UUID) IS NULL OR cm.tenant_id = $1)
+         AND cm.created_at >= NOW() - ($2 * INTERVAL '1 day')`,
       [tid, days]
     );
-    o = liveRows[0];
+    o = liveRows[0] || {};
   }
 
   // ── Campaign summary ───────────────────────────────────────────
@@ -73,7 +73,7 @@ router.get('/overview', catchAsync(async (req, res) => {
        COUNT(*) FILTER (WHERE status = 'running')::int      AS running,
        COUNT(*) FILTER (WHERE status = 'draft')::int        AS draft
      FROM campaigns
-     WHERE tenant_id = $1 AND deleted_at IS NULL`,
+     WHERE (CAST($1 AS UUID) IS NULL OR tenant_id = $1) AND deleted_at IS NULL`,
     [tid]
   );
 
@@ -84,15 +84,15 @@ router.get('/overview', catchAsync(async (req, res) => {
        COUNT(*) FILTER (WHERE status = 'active')::int       AS active_contacts,
        COUNT(*) FILTER (WHERE status = 'opted_out')::int    AS opted_out
      FROM contacts
-     WHERE tenant_id = $1`,
+     WHERE (CAST($1 AS UUID) IS NULL OR tenant_id = $1)`,
     [tid]
   );
 
   // ── Derived rates ──────────────────────────────────────────────
-  const totalSent      = parseInt(o.total_sent, 10);
-  const totalDelivered = parseInt(o.total_delivered, 10);
-  const totalRead      = parseInt(o.total_read, 10);
-  const totalOptOuts   = parseInt(o.total_opt_outs, 10);
+  const totalSent      = parseInt(o.total_sent || 0, 10);
+  const totalDelivered = parseInt(o.total_delivered || 0, 10);
+  const totalRead      = parseInt(o.total_read || 0, 10);
+  const totalOptOuts   = parseInt(o.total_opt_outs || 0, 10);
 
   const deliveryRate = totalSent > 0
     ? parseFloat(((totalDelivered / totalSent) * 100).toFixed(1))
@@ -104,7 +104,7 @@ router.get('/overview', catchAsync(async (req, res) => {
     ? parseFloat(((totalOptOuts / totalSent) * 100).toFixed(2))
     : 0;
   const failureRate = totalSent > 0
-    ? parseFloat(((parseInt(o.total_failed, 10) / totalSent) * 100).toFixed(1))
+    ? parseFloat(((parseInt(o.total_failed || 0, 10) / totalSent) * 100).toFixed(1))
     : 0;
 
   return sendSuccess(res, {
@@ -112,32 +112,32 @@ router.get('/overview', catchAsync(async (req, res) => {
       totalSent,
       totalDelivered,
       totalRead,
-      totalFailed:      parseInt(o.total_failed, 10),
+      totalFailed:      parseInt(o.total_failed || 0, 10),
       totalOptOuts,
-      totalNewContacts: parseInt(o.total_new_contacts, 10),
-      daysTracked:      parseInt(o.days_tracked, 10),
+      totalNewContacts: parseInt(o.total_new_contacts || 0, 10),
+      daysTracked:      parseInt(o.days_tracked || 0, 10),
       deliveryRate,
       readRate,
       optOutRate,
       failureRate,
     },
     campaigns: {
-      total:     parseInt(camps.total_campaigns, 10),
-      completed: camps.completed,
-      running:   camps.running,
-      draft:     camps.draft,
+      total:     parseInt(camps?.total_campaigns || 0, 10),
+      completed: camps?.completed || 0,
+      running:   camps?.running || 0,
+      draft:     camps?.draft || 0,
     },
     contacts: {
-      total:    parseInt(contacts.total_contacts, 10),
-      active:   contacts.active_contacts,
-      optedOut: contacts.opted_out,
+      total:    parseInt(contacts?.total_contacts || 0, 10),
+      active:   contacts?.active_contacts || 0,
+      optedOut: contacts?.opted_out || 0,
     },
   });
 }));
 
 // ── GET /analytics/trend ───────────────────────────────────────
 router.get('/trend', catchAsync(async (req, res) => {
-  const tid  = req.user.tenantId;
+  const tid  = req.user.tenantId || null;
   const days = Math.min(parseInt(req.query.days || 30, 10), 365);
 
   // ── Primary: snapshot-based trend ─────────────────────────────
@@ -158,8 +158,8 @@ router.get('/trend', catchAsync(async (req, res) => {
             THEN ROUND((msgs_read::numeric / msgs_delivered) * 100, 1)
             ELSE 0 END AS read_rate
      FROM analytics_snapshots
-     WHERE tenant_id    = $1
-       AND snapshot_date >= CURRENT_DATE - ($2 || ' days')::INTERVAL
+     WHERE (CAST($1 AS UUID) IS NULL OR tenant_id = $1)
+       AND snapshot_date >= CURRENT_DATE - ($2 * INTERVAL '1 day')
      ORDER BY snapshot_date ASC`,
     [tid, days]
   );
@@ -192,8 +192,8 @@ router.get('/trend', catchAsync(async (req, res) => {
             )
             ELSE 0 END                                     AS read_rate
      FROM campaign_messages cm
-     WHERE cm.tenant_id  = $1
-       AND cm.sent_at   >= NOW() - ($2 || ' days')::INTERVAL
+     WHERE (CAST($1 AS UUID) IS NULL OR cm.tenant_id = $1)
+       AND cm.sent_at   >= NOW() - ($2 * INTERVAL '1 day')
        AND cm.sent_at   IS NOT NULL
      GROUP BY cm.sent_at::date
      ORDER BY cm.sent_at::date ASC`,

@@ -42,9 +42,9 @@ router.use(authenticate);
 // ── GET /billing/subscription — Authenticated tenant ──────────
 // Returns current subscription, tier limits, and live usage counters.
 router.get('/subscription', catchAsync(async (req, res) => {
-  const tenantId = req.user.tenantId;
+  const tenantId = req.user.tenantId || req.query.tenantId;
   if (!tenantId) {
-    throw new AppError('Tenant context required.', 400, 'ERR_VDAJ_TENANT_003');
+    return sendSuccess(res, null, 'super_admin platform user has no subscription context.');
   }
 
   // Active or trialing subscription with full tier details
