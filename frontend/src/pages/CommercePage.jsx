@@ -9,6 +9,7 @@ import { showSuccess, showError } from '../components/atoms/Toast/Toast.jsx';
 import Button, { PrimaryButton, GhostButton } from '../components/atoms/Button/Button.jsx';
 import Input, { Select } from '../components/atoms/Input/Input.jsx';
 import client from '../lib/api';
+import { ErrorState, parseApiError } from '../components/atoms/ErrorState/ErrorState.jsx';
 
 // Commerce API (direct calls)
 const commerceApi = {
@@ -168,9 +169,13 @@ export default function CommercePage() {
   const [connecting, setConnecting] = useState(false);
   const [showAddProduct, setShowAddProduct] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
 
   useEffect(() => {
-    commerceApi.getCatalogs().then((r) => setCatalogs(r?.data || [])).catch(() => {}).finally(() => setLoading(false));
+    client.get('/commerce/catalogs', { silent: true })
+      .then((r) => setCatalogs(r?.data || []))
+      .catch((err) => setLoadError(parseApiError(err)))
+      .finally(() => setLoading(false));
   }, []);
 
   const connectCatalog = async () => {
@@ -268,7 +273,23 @@ export default function CommercePage() {
             </div>
           )}
 
-          {!activeCatalog && !loading && catalogs.length === 0 && (
+          {!activeCatalog && !loading && loadError && (
+            <ErrorState
+              title="Failed to load catalogs"
+              message={loadError.message}
+              httpCode={loadError.httpCode}
+              errorCode={loadError.errorCode}
+              onRetry={() => {
+                setLoadError(null);
+                setLoading(true);
+                client.get('/commerce/catalogs', { silent: true })
+                  .then((r) => setCatalogs(r?.data || []))
+                  .catch((err) => setLoadError(parseApiError(err)))
+                  .finally(() => setLoading(false));
+              }}
+            />
+          )}
+          {!activeCatalog && !loading && !loadError && catalogs.length === 0 && (
             <div className="glass-card flex flex-col items-center py-16 text-center">
               <span className="text-5xl mb-4">🏪</span>
               <p className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>No catalog connected</p>

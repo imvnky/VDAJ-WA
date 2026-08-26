@@ -28,6 +28,7 @@ const ERROR_CODES = {
   ERR_VDAJ_VAL_003: 'File type is not permitted.',
   ERR_VDAJ_VAL_004: 'File size exceeds the maximum limit.',
   ERR_VDAJ_VAL_005: 'Required field is missing.',
+  ERR_VDAJ_VAL_006: 'Invalid value for enum field. Check the allowed values.',
 
   // ---- META / WHATSAPP API ----
   ERR_META_AUTH: 'Meta system token is invalid or expired. Re-authorize via Embedded Signup.',

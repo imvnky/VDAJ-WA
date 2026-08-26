@@ -14,6 +14,7 @@ import { queueApi } from '../lib/api';
 import { showSuccess } from '../components/atoms/Toast/Toast.jsx';
 import Button from '../components/atoms/Button/Button.jsx';
 import useAuthStore from '../store/authStore';
+import { ErrorState, parseApiError } from '../components/atoms/ErrorState/ErrorState.jsx';
 
 // ── Stat Box ───────────────────────────────────────────────────
 function StatBox({ label, value, valueStyle }) {
@@ -116,20 +117,25 @@ export default function AdminQueuePage() {
   const [stats, setStats]               = useState(null);
   const [dlqJobs, setDlqJobs]           = useState([]);
   const [loading, setLoading]           = useState(true);
+  const [loadError, setLoadError]       = useState(null);
   const [replayLoading, setReplayLoading] = useState({});
   const [lastRefresh, setLastRefresh]   = useState(null);
 
   const isSuperAdmin = user?.role === 'super_admin';
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (isManual = false) => {
     if (!isSuperAdmin) return;
+    if (isManual) setLoadError(null);
     try {
       const [statsRes, dlqRes] = await Promise.allSettled([
-        queueApi.stats(),
-        queueApi.dlq(),
+        queueApi.stats({ silent: true }),
+        queueApi.dlq({ silent: true }),
       ]);
       if (statsRes.status === 'fulfilled') setStats(statsRes.value?.data || null);
       if (dlqRes.status  === 'fulfilled') setDlqJobs(dlqRes.value?.data || []);
+      if (statsRes.status === 'rejected' && dlqRes.status === 'rejected') {
+        setLoadError(parseApiError(statsRes.reason));
+      }
       setLastRefresh(new Date());
     } finally {
       setLoading(false);
@@ -190,6 +196,14 @@ export default function AdminQueuePage() {
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
             {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-24" />)}
           </div>
+        ) : loadError ? (
+          <ErrorState
+            title="Failed to load queue stats"
+            message={loadError.message}
+            httpCode={loadError.httpCode}
+            errorCode={loadError.errorCode}
+            onRetry={() => load(true)}
+          />
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
             <StatBox label="Waiting"   value={mq?.waiting}   valueStyle={{ color: '#AFA9EC' }} />

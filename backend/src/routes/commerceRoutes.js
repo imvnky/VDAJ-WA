@@ -21,16 +21,22 @@ router.use(authenticate, requireTenant);
 // ── GET /commerce/catalogs ─────────────────────────────────────
 // Returns all Meta catalogs linked by this tenant, ordered by newest first.
 router.get('/catalogs', catchAsync(async (req, res) => {
-  const { rows } = await query(
-    `SELECT
-       id, meta_catalog_id, name,
-       is_verified, product_count,
-       created_at, updated_at
-     FROM commerce_catalogs
-     WHERE tenant_id = $1
-     ORDER BY created_at DESC`,
-    [req.user.tenantId]
-  );
+  let rows = [];
+  try {
+    const result = await query(
+      `SELECT
+         id, meta_catalog_id, name,
+         is_verified, product_count,
+         created_at, updated_at
+       FROM commerce_catalogs
+       WHERE tenant_id = $1
+       ORDER BY created_at DESC`,
+      [req.user.tenantId]
+    );
+    rows = result.rows;
+  } catch (err) {
+    if (err.code !== '42P01') throw err; // Only swallow "table does not exist"
+  }
   return sendSuccess(res, rows, 'Catalogs fetched.');
 }));
 

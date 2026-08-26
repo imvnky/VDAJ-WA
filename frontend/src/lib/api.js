@@ -89,7 +89,7 @@ export const campaignApi = {
   launch: (id) => client.post(`/campaigns/${id}/launch`),
   pause: (id) => client.patch(`/campaigns/${id}/pause`),
   delete: (id) => client.delete(`/campaigns/${id}`),
-  messages: (params) => client.get('/campaigns/messages', { params }),
+  messages: (params, config = {}) => client.get('/campaigns/messages', { params, ...config }),
 };
 
 // ---- CONTACTS ----
@@ -129,7 +129,7 @@ export const tenantApi = {
 // ---- QUEUE ----
 export const queueApi = {
   stats: (config = {}) => client.get('/admin/queue/stats', config),
-  dlq: () => client.get('/admin/queue/dlq'),
+  dlq: (config = {}) => client.get('/admin/queue/dlq', config),
   replay: (jobId) => client.post(`/admin/queue/dlq/${jobId}/replay`),
 };
 
@@ -152,18 +152,18 @@ export const teamApi = {
 
 // ---- ANALYTICS ----
 export const analyticsApi = {
-  overview: () => client.get('/analytics/overview'),
-  trend: (days = 30) => client.get('/analytics/trend', { params: { days } }),
-  campaigns: () => client.get('/analytics/campaigns'),
+  overview: (config = {}) => client.get('/analytics/overview', config),
+  trend: (days = 30, config = {}) => client.get('/analytics/trend', { params: { days }, ...config }),
+  campaigns: (config = {}) => client.get('/analytics/campaigns', config),
 };
 
 // ---- AUTOMATIONS ----
 export const automationApi = {
-  list: () => client.get('/automations'),
+  list: (config = {}) => client.get('/automations', config),
   create: (data) => client.post('/automations', data),
   update: (id, data) => client.put(`/automations/${id}`, data),
   delete: (id) => client.delete(`/automations/${id}`),
-  getAiConfig: () => client.get('/automations/ai-config'),
+  getAiConfig: (config = {}) => client.get('/automations/ai-config', config),
   saveAiConfig: (data) => client.put('/automations/ai-config', data),
 };
 

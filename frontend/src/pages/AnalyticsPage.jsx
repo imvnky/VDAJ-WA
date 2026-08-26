@@ -11,6 +11,7 @@ import {
   ResponsiveContainer, Legend
 } from 'recharts';
 import { analyticsApi } from '../lib/api';
+import { ErrorState, parseApiError } from '../components/atoms/ErrorState/ErrorState.jsx';
 
 // ── Circular Progress Ring ────────────────────────────────────
 function CircleRing({ pct = 0, size = 80, stroke = 7, color = '#534AB7', label, value }) {
@@ -103,18 +104,24 @@ export default function AnalyticsPage() {
   const [overview, setOverview] = useState(null);
   const [trend, setTrend] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [trendDays, setTrendDays] = useState(30);
 
   useEffect(() => {
     const load = async () => {
       setLoading(true);
+      setError(null);
       try {
         const [ov, tr] = await Promise.allSettled([
-          analyticsApi.overview(),
-          analyticsApi.trend(trendDays),
+          analyticsApi.overview({ silent: true }),
+          analyticsApi.trend(trendDays, { silent: true }),
         ]);
         if (ov.status === 'fulfilled') setOverview(ov.value?.data || null);
         if (tr.status === 'fulfilled') setTrend(tr.value?.data || []);
+        // If both failed, set an error state
+        if (ov.status === 'rejected' && tr.status === 'rejected') {
+          setError(parseApiError(ov.reason));
+        }
       } finally { setLoading(false); }
     };
     load();
@@ -162,6 +169,14 @@ export default function AnalyticsPage() {
           </div>
           <Skeleton className="h-72" />
         </div>
+      ) : error ? (
+        <ErrorState
+          title="Analytics unavailable"
+          message={error.message}
+          httpCode={error.httpCode}
+          errorCode={error.errorCode}
+          onRetry={() => setTrendDays((d) => d)}
+        />
       ) : !hasData ? (
         <EmptyAnalytics />
       ) : (

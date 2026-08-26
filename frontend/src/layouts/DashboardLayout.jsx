@@ -219,6 +219,33 @@ export default function DashboardLayout() {
             </button>
           </div>
         </div>
+
+        {/* Legal Footer — required for Meta App Review */}
+        <div className="px-4 pb-3 shrink-0">
+          <div className="flex items-center gap-2 flex-wrap" style={{ fontSize: 10 }}>
+            <a
+              href="/legal/privacy"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:opacity-100 transition-opacity"
+              style={{ color: isColorful ? 'rgba(255,255,255,0.35)' : 'var(--text-muted)', textDecoration: 'none', opacity: 0.7 }}
+            >
+              Privacy
+            </a>
+            <span style={{ color: isColorful ? 'rgba(255,255,255,0.2)' : 'var(--bg-border)' }}>·</span>
+            <a
+              href="/legal/terms"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:opacity-100 transition-opacity"
+              style={{ color: isColorful ? 'rgba(255,255,255,0.35)' : 'var(--text-muted)', textDecoration: 'none', opacity: 0.7 }}
+            >
+              Terms
+            </a>
+            <span style={{ color: isColorful ? 'rgba(255,255,255,0.2)' : 'var(--bg-border)' }}>·</span>
+            <span style={{ color: isColorful ? 'rgba(255,255,255,0.25)' : 'var(--text-muted)', opacity: 0.6 }}>VDAJ Services LLP</span>
+          </div>
+        </div>
       </aside>
 
       {/* ── MAIN CONTENT ── */}

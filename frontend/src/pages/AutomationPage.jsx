@@ -401,9 +401,9 @@ function FlowCanvas({ flowId }) {
   const [reactFlowInstance, setReactFlowInstance] = useState(null);
   const { theme } = useTheme();
 
-  // Load flows list
+  // Load flows list — silent to avoid toast flood on page load
   useEffect(() => {
-    automationApi.list().then((r) => setFlowList(r?.data || [])).catch(() => {});
+    automationApi.list({ silent: true }).then((r) => setFlowList(r?.data || [])).catch(() => {});
   }, []);
 
   // Load active flow nodes/edges from saved data

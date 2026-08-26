@@ -65,6 +65,8 @@ import AnalyticsPage      from './pages/AnalyticsPage';
 import CommercePage       from './pages/CommercePage';
 import SuperAdminTenantsPage from './pages/admin/SuperAdminTenantsPage';
 import SuperAdminUsersPage   from './pages/admin/SuperAdminUsersPage';
+import PrivacyPolicyPage  from './pages/PrivacyPolicyPage';
+import TermsOfServicePage from './pages/TermsOfServicePage';
 
 // ── Loading Spinner ───────────────────────────────────────────
 function FullPageLoader() {
@@ -140,8 +142,11 @@ export default function App() {
       <VdajToaster />
       <Routes>
         {/* Public */}
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/"      element={<RootRedirect />} />
+        <Route path="/login"          element={<LoginPage />} />
+        <Route path="/"               element={<RootRedirect />} />
+        {/* Legal — public, no auth required for Meta App Review */}
+        <Route path="/legal/privacy"  element={<PrivacyPolicyPage />} />
+        <Route path="/legal/terms"    element={<TermsOfServicePage />} />
 
         {/* Protected */}
         <Route element={<RequireAuth />}>

@@ -44,6 +44,9 @@ router.get('/whatsapp', (req, res) => {
 // ── POST /webhooks/whatsapp — Main handler ──────────────────────
 router.post('/whatsapp', (req, res) => {
 
+  // Always ack Meta immediately with receipt header for App Review traceability
+  res.set('X-VDAJ-Webhook-Received', new Date().toISOString());
+
   // Validate Meta HMAC-SHA256 signature
   const signature = req.headers['x-hub-signature-256'];
   const rawBody   = req.body; // raw Buffer — set in server.js
@@ -53,7 +56,11 @@ router.post('/whatsapp', (req, res) => {
       .createHmac('sha256', process.env.META_APP_SECRET)
       .update(rawBody)
       .digest('hex')}`;
-    if (!crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) {
+    // Buffer length must match before timingSafeEqual (throws if lengths differ)
+    const sigBuf = Buffer.from(signature);
+    const expBuf = Buffer.from(expected);
+    if (sigBuf.length !== expBuf.length ||
+        !crypto.timingSafeEqual(sigBuf, expBuf)) {
       logger.warn('Webhook HMAC signature mismatch — ignoring payload.');
       return res.status(200).json({ status: 'ignored' }); // Always 200 to Meta
     }

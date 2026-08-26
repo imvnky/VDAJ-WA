@@ -28,17 +28,22 @@ router.get('/stats', catchAsync(async (req, res) => {
 
 // ---- GET /admin/queue/dlq — List dead-letter jobs ----
 router.get('/dlq', authorize('super_admin'), catchAsync(async (req, res) => {
-  const jobs = await deadLetterQueue.getJobs(['waiting', 'completed', 'failed']);
-  const simplified = jobs.map((j) => ({
-    id: j.id,
-    campaignId: j.data.campaignId,
-    tenantId: j.data.tenantId,
-    chunkIndex: j.data.chunkIndex,
-    messageCount: j.data.messages?.length,
-    failedAt: j.data.failedAt,
-    originalError: j.data.error,
-    state: j.finishedOn ? 'completed' : 'waiting',
-  }));
+  let simplified = [];
+  try {
+    const jobs = await deadLetterQueue.getJobs(['waiting', 'completed', 'failed']);
+    simplified = jobs.map((j) => ({
+      id: j.id,
+      campaignId: j.data.campaignId,
+      tenantId: j.data.tenantId,
+      chunkIndex: j.data.chunkIndex,
+      messageCount: j.data.messages?.length,
+      failedAt: j.data.failedAt,
+      originalError: j.data.error,
+      state: j.finishedOn ? 'completed' : 'waiting',
+    }));
+  } catch (err) {
+    // Gracefully handle Redis connection issues — return empty DLQ
+  }
   return sendSuccess(res, simplified, 'Dead-letter jobs fetched.');
 }));
 

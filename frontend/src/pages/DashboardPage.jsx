@@ -465,10 +465,10 @@ export default function DashboardPage() {
 
     const load = async () => {
       try {
-        // Fetch current and previous period in parallel
+        // Fetch current and previous period in parallel — silent to avoid toast on load
         const [curr, prev] = await Promise.allSettled([
-          analyticsApi.trend(dateRange),
-          analyticsApi.trend(dateRange * 2), // double window covers both periods
+          analyticsApi.trend(dateRange, { silent: true }),
+          analyticsApi.trend(dateRange * 2, { silent: true }), // double window covers both periods
         ]);
 
         if (curr.status === 'fulfilled') {
@@ -488,11 +488,11 @@ export default function DashboardPage() {
     load();
   }, [dateRange, isSuperAdmin]);
 
-  // ── Live queue refresh (super_admin) ──────────────────────────────────────
+  // ── Live queue refresh (super_admin) — silent ─────────────────────────────
   useEffect(() => {
     if (!isSuperAdmin) return;
     const timer = setInterval(() => {
-      queueApi.stats().then((r) => setQueueStats(r?.data || null)).catch(() => {});
+      queueApi.stats({ silent: true }).then((r) => setQueueStats(r?.data || null)).catch(() => {});
     }, 15_000);
     return () => clearInterval(timer);
   }, [isSuperAdmin]);

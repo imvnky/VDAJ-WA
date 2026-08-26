@@ -90,6 +90,10 @@ const globalErrorHandler = (err, req, res, next) => { // eslint-disable-line no-
   else if (err.code === '23505') error = handlePgUniqueViolation(err);   // PG unique violation
   else if (err.code === '23503') error = handlePgForeignKeyViolation();   // PG foreign key
   else if (err.code === '23502') error = handlePgNotNullViolation(err);   // PG not-null
+  else if (err.code === '22P02') error = new AppError(               // PG invalid ENUM cast
+    `Invalid value for enum field: ${err.message.match(/invalid input value for enum \S+: "([^"]+)"/)?.[1] || 'unknown'}`,
+    400, 'ERR_VDAJ_VAL_006'
+  );
 
   const statusCode = error.statusCode || 500;
   const errorCode = error.errorCode || 'ERR_VDAJ_SRV_001';

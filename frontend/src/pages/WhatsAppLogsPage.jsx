@@ -11,6 +11,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { clsx } from 'clsx';
 import { campaignApi } from '../lib/api';
+import { ErrorState, parseApiError } from '../components/atoms/ErrorState/ErrorState.jsx';
 
 // ── Status config ─────────────────────────────────────────────
 const STATUS_CFG = {
@@ -108,17 +109,19 @@ export default function WhatsAppLogsPage() {
   // Campaign list for selector
   const [campaigns, setCampaigns] = useState([]);
 
-  // Load campaigns for filter dropdown
+  // Load campaigns for filter dropdown — silent to avoid toast on load
   useEffect(() => {
-    campaignApi.list({ limit: 100, offset: 0 })
+    campaignApi.list({ limit: 100, offset: 0 }, { silent: true })
       .then((r) => setCampaigns(r?.data || []))
       .catch(() => {});
   }, []);
 
   // Fetch messages
+  const [fetchError, setFetchError] = useState(null);
   const fetchMessages = useCallback(async (reset = true) => {
     const currentOffset = reset ? 0 : offset;
     reset ? setLoading(true) : setLoadingMore(true);
+    if (reset) setFetchError(null);
 
     try {
       const params = {
@@ -130,7 +133,7 @@ export default function WhatsAppLogsPage() {
         ...(dateTo         && { date_to:     dateTo }),
       };
 
-      const res = await campaignApi.messages(params);
+      const res = await campaignApi.messages(params, { silent: true });
       const rows = res?.data?.messages || res?.messages || [];
       const tot  = res?.data?.total    || res?.total    || 0;
 
@@ -142,8 +145,8 @@ export default function WhatsAppLogsPage() {
         setOffset(currentOffset + PAGE_SIZE);
       }
       setTotal(tot);
-    } catch {
-      // Silently handle; API interceptor already shows toast
+    } catch (err) {
+      if (reset) setFetchError(parseApiError(err));
     } finally {
       setLoading(false);
       setLoadingMore(false);
@@ -291,6 +294,18 @@ export default function WhatsAppLogsPage() {
             <tbody className="divide-y" style={{ borderColor: 'var(--bg-border)' }}>
               {loading ? (
                 [...Array(10)].map((_, i) => <Skeleton key={i} />)
+              ) : fetchError ? (
+                <tr>
+                  <td colSpan={8} className="py-8">
+                    <ErrorState
+                      title="Failed to load message logs"
+                      message={fetchError.message}
+                      httpCode={fetchError.httpCode}
+                      errorCode={fetchError.errorCode}
+                      onRetry={() => fetchMessages(true)}
+                    />
+                  </td>
+                </tr>
               ) : messages.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="py-16 text-center"

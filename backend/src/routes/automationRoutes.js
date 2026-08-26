@@ -15,14 +15,21 @@ router.use(authenticate, requireTenant);
 
 // ---- GET /automations ----
 router.get('/', catchAsync(async (req, res) => {
-  const { rows } = await query(
-    `SELECT a.*, u.first_name || ' ' || u.last_name AS created_by_name
-     FROM automations a
-     LEFT JOIN users u ON a.created_by = u.id
-     WHERE a.tenant_id = $1
-     ORDER BY a.created_at DESC`,
-    [req.user.tenantId]
-  );
+  let rows = [];
+  try {
+    const result = await query(
+      `SELECT a.*, u.first_name || ' ' || u.last_name AS created_by_name
+       FROM automations a
+       LEFT JOIN users u ON a.created_by = u.id
+       WHERE a.tenant_id = $1
+       ORDER BY a.created_at DESC`,
+      [req.user.tenantId]
+    );
+    rows = result.rows;
+  } catch (err) {
+    // Table may not exist yet — return empty list gracefully
+    if (err.code !== '42P01') throw err; // Re-throw if not "table does not exist"
+  }
   return sendSuccess(res, rows);
 }));
 
@@ -73,11 +80,17 @@ router.delete('/:id', catchAsync(async (req, res) => {
 
 // ---- GET /automations/ai-config ----
 router.get('/ai-config', catchAsync(async (req, res) => {
-  const { rows } = await query(
-    'SELECT * FROM ai_responder_configs WHERE tenant_id = $1',
-    [req.user.tenantId]
-  );
-  return sendSuccess(res, rows[0] || null);
+  let config = null;
+  try {
+    const { rows } = await query(
+      'SELECT * FROM ai_responder_configs WHERE tenant_id = $1',
+      [req.user.tenantId]
+    );
+    config = rows[0] || null;
+  } catch (err) {
+    if (err.code !== '42P01') throw err;
+  }
+  return sendSuccess(res, config);
 }));
 
 // ---- PUT /automations/ai-config ----
