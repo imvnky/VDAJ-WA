@@ -485,7 +485,7 @@ export default function SuperAdminTenantsPage() {
   const loadTenants = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await superAdminApi.listTenants();
+      const res = await superAdminApi.listTenants({ silent: true });
       setTenants(res?.data || []);
     } catch {} finally { setLoading(false); }
   }, []);
@@ -493,7 +493,7 @@ export default function SuperAdminTenantsPage() {
   const loadOverview = useCallback(async () => {
     setOvLoading(true);
     try {
-      const res = await superAdminApi.overview();
+      const res = await superAdminApi.overview({ silent: true });
       setOverview(res?.data || null);
     } catch {} finally { setOvLoading(false); }
   }, []);

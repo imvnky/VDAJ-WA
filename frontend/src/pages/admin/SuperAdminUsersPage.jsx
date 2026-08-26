@@ -221,12 +221,12 @@ export default function SuperAdminUsersPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [usersRes, tenantsRes] = await Promise.all([
-        superAdminApi.listUsers(),
-        superAdminApi.listTenants(),
+      const [usersRes, tenantsRes] = await Promise.allSettled([
+        superAdminApi.listUsers({ silent: true }),
+        superAdminApi.listTenants({ silent: true }),
       ]);
-      setUsers(usersRes?.data || []);
-      setTenants(tenantsRes?.data || []);
+      if (usersRes.status   === 'fulfilled') setUsers(usersRes.value?.data || []);
+      if (tenantsRes.status === 'fulfilled') setTenants(tenantsRes.value?.data || []);
     } finally {
       setLoading(false);
     }

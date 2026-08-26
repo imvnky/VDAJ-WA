@@ -343,14 +343,14 @@ export default function TemplatesPage() {
   const [prefill, setPrefill]     = useState(null);  // template to pre-fill modal for resubmit
 
   useEffect(() => {
-    templateApi.list()
+    templateApi.list({ silent: true })
       .then((r) => setTemplates(r?.data || []))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
 
   const handleSync = () => {
-    templateApi.list().then((r) => setTemplates(r?.data || [])).catch(() => {});
+    templateApi.list({ silent: true }).then((r) => setTemplates(r?.data || [])).catch(() => {});
   };
 
   const openResubmit = (template) => {
