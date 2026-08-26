@@ -107,7 +107,7 @@ export const contactApi = {
 
 // ---- TEMPLATES ----
 export const templateApi = {
-  list: () => client.get('/templates'),
+  list: (config = {}) => client.get('/templates', config),
   get: (id) => client.get(`/templates/${id}`),
   create: (data) => client.post('/templates', data),
   sync: (id) => client.post(`/templates/${id}/sync`),
@@ -135,7 +135,7 @@ export const queueApi = {
 
 // ---- INBOX ----
 export const inboxApi = {
-  conversations: (params) => client.get('/inbox/conversations', { params }),
+  conversations: (params, config = {}) => client.get('/inbox/conversations', { params, ...config }),
   messages: (id, params) => client.get(`/inbox/conversations/${id}/messages`, { params }),
   reply: (id, body, messageType) => client.post(`/inbox/conversations/${id}/reply`, { body, messageType }),
   resolve: (id, status) => client.patch(`/inbox/conversations/${id}/resolve`, { status }),
@@ -145,7 +145,7 @@ export const inboxApi = {
 
 // ---- TEAM ----
 export const teamApi = {
-  list: () => client.get('/team'),
+  list: (config = {}) => client.get('/team', config),
   invite: (data) => client.post('/team/invite', data),
   remove: (id) => client.delete(`/team/${id}`),
 };

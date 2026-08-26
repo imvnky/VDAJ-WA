@@ -436,7 +436,7 @@ export default function InboxPage() {
 
   // ── Load team members (for assignment dropdown) ───────────
   useEffect(() => {
-    teamApi.list()
+    teamApi.list({ silent: true })
       .then((res) => setAgents(res?.data || []))
       .catch(() => {});
   }, []);
@@ -452,7 +452,7 @@ export default function InboxPage() {
       if (statusTab !== 'all') params.status = statusTab;
       if (searchText.trim())   params.search  = searchText.trim();
 
-      const res = await inboxApi.conversations(params);
+      const res = await inboxApi.conversations(params, { silent: true });
       setConversations(res?.data || []);
     } catch {} finally { setLoading(false); }
   }, [filterTab, statusTab, searchText]);
@@ -460,7 +460,7 @@ export default function InboxPage() {
   useEffect(() => { loadConversations(); }, [loadConversations]);
 
   useEffect(() => {
-    templateApi.list().then((r) => setTemplates(r?.data || [])).catch(() => {});
+    templateApi.list({ silent: true }).then((r) => setTemplates(r?.data || [])).catch(() => {});
   }, []);
 
   // ── WebSocket ─────────────────────────────────────────────

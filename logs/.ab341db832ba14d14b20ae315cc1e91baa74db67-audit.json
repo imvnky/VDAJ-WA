@@ -1,0 +1,15 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 60
+    },
+    "auditLog": "D:\\VDAJ_Services\\Whatsapp-API\\logs\\.ab341db832ba14d14b20ae315cc1e91baa74db67-audit.json",
+    "files": [
+        {
+            "date": 1787748730267,
+            "name": "D:\\VDAJ_Services\\Whatsapp-API\\logs\\vdaj-error-2026-08-26.log",
+            "hash": "ab1ae3f618373b2ffff5837ae22f5967ff47a75226916c39643b165eb0f24b4d"
+        }
+    ],
+    "hashType": "sha256"
+}

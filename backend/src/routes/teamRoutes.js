@@ -52,7 +52,7 @@ router.get('/', catchAsync(async (req, res) => {
   }
 
   queryStr += ` ORDER BY
-       CASE u.role
+       CASE u.role::text
          WHEN 'tenant_admin' THEN 1
          WHEN 'manager'      THEN 2
          WHEN 'agent'        THEN 3
