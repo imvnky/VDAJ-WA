@@ -19,9 +19,10 @@
 const express = require('express');
 const router  = express.Router();
 const crypto  = require('crypto');
-const { query }     = require('../config/database');
-const { sendSuccess } = require('../middleware/responseHandler');
-const logger         = require('../utils/logger');
+const { query }           = require('../config/database');
+const { sendSuccess }     = require('../middleware/responseHandler');
+const logger              = require('../utils/logger');
+const { optOutInterceptor } = require('../workers/optOutInterceptor');
 const fetch = (...args) => import('node-fetch').then(({ default: f }) => f(...args));
 
 const META_API_BASE = process.env.META_GRAPH_API_URL || 'https://graph.facebook.com';
@@ -299,6 +300,20 @@ async function handleInboundMessage(msg, value, broadcastToTenant) {
     from: fromPhone,
     type: msgType,
   });
+
+  // ── BSP Compliance: real-time opt-out detection ───────────────────
+  // Process STOP/UNSUBSCRIBE/OPT-OUT keywords immediately in the webhook
+  // handler — do not defer to the message queue. Meta requires opt-out
+  // signals to be honoured promptly. This sets a Redis block key, updates
+  // the contact status, logs to opt_out_events, and resolves the conversation.
+  if (msgType === 'text' && body) {
+    await optOutInterceptor({
+      tenantId,
+      phoneE164:   conv.phone_e164,
+      messageBody: body,
+      waMessageId,
+    });
+  }
 
   // ── WebSocket broadcast to all agents watching this tenant ─────
   if (typeof broadcastToTenant === 'function') {

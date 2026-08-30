@@ -1,0 +1,21 @@
+{
+  // Tell VS Code's CSS validator to ignore Tailwind-specific at-rules.
+  // These are NOT real errors — @tailwind and @apply are valid Tailwind CSS directives
+  // processed by PostCSS/Vite at build time. VS Code's built-in CSS linter doesn't
+  // know about them, so it reports false-positive warnings.
+  "css.lint.unknownAtRules": "ignore",
+  "scss.lint.unknownAtRules": "ignore",
+
+  // Tailwind IntelliSense: tell it where to find the config
+  "tailwindCSS.configFile": "${workspaceFolder}/frontend/tailwind.config.js",
+
+  // Associate .css files that use Tailwind with the right language
+  "files.associations": {
+    "*.css": "css"
+  },
+
+  // Recommended: install Tailwind CSS IntelliSense extension for full support
+  "extensions.recommendations": [
+    "bradlc.vscode-tailwindcss"
+  ]
+}
