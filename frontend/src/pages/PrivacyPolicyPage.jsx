@@ -121,13 +121,13 @@ export default function PrivacyPolicyPage() {
             <li><strong>Deletion:</strong> Request deletion of your data (subject to legal retention obligations)</li>
             <li><strong>Opt-Out:</strong> End-users may reply "STOP" to any WhatsApp message to opt out. We process opt-outs within 24 hours.</li>
           </ul>
-          <p>To exercise these rights, contact: <a href="mailto:privacy@vdajservices.com" style={{ color: '#AFA9EC' }}>privacy@vdajservices.com</a></p>
+          <p>To exercise these rights, contact: <a href="mailto:info@vdajservices.com" style={{ color: '#AFA9EC' }}>info@vdajservices.com</a></p>
         </Section>
 
         <Section title="8. Contact Information">
           <p><strong>VDAJ Services LLP</strong><br />
           Data Controller & Processor<br />
-          Email: <a href="mailto:privacy@vdajservices.com" style={{ color: '#AFA9EC' }}>privacy@vdajservices.com</a><br />
+          Email: <a href="mailto:info@vdajservices.com" style={{ color: '#AFA9EC' }}>info@vdajservices.com</a><br />
           Website: <a href="https://vdajservices.com" style={{ color: '#AFA9EC' }}>https://vdajservices.com</a></p>
         </Section>
 
