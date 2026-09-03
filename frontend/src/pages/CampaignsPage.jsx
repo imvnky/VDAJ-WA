@@ -624,32 +624,45 @@ export default function CampaignsPage() {
                       )}
                     </div>
 
-                    {/* Numerical stats row */}
-                    <div className="flex items-center gap-6 mt-3 flex-wrap">
-                      {[
-                        { label: 'Total',     val: c.total_count,     color: '#0F172A' },
-                        { label: 'Sent',      val: c.sent_count,      pct: sentPct,  color: '#2563EB' },
-                        { label: 'Delivered', val: c.delivered_count, pct: delPct,   color: '#16A34A' },
-                        { label: 'Read',      val: c.read_count,      pct: readPct,  color: '#0284C7' },
-                        { label: 'Failed',    val: c.failed_count,    pct: null,     color: '#DC2626' },
-                      ].map((s) => (
-                        <div key={s.label} className="flex flex-col">
-                          <span className="text-2xs text-[#9494A8] font-bold uppercase tracking-wider">{s.label}</span>
-                          <div className="flex items-baseline gap-1 mt-0.5">
-                            <span
-                              className="text-base font-black tabular-nums"
-                              style={{ color: (s.val ?? 0) > 0 ? s.color : '#9494A8' }}
-                            >
-                              {(s.val ?? 0).toLocaleString()}
-                            </span>
-                            {s.pct !== null && (s.val ?? 0) > 0 && (
-                              <span className="text-2xs font-bold" style={{ color: s.color, opacity: 0.8 }}>
-                                ({s.pct}%)
-                              </span>
-                            )}
-                          </div>
+                    {/* Executive Metric Cards Grid */}
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 mt-3.5">
+                      <div className="bg-[#F8FAFC] px-3.5 py-2.5 rounded-xl border border-gray-100">
+                        <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Total Contacts</span>
+                        <span className="text-base font-black text-[#0F172A] tabular-nums mt-0.5 block">{(c.total_count || 0).toLocaleString()}</span>
+                      </div>
+                      <div className="bg-blue-50/70 px-3.5 py-2.5 rounded-xl border border-blue-100/80">
+                        <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wider block">Sent</span>
+                        <div className="flex items-baseline gap-1 mt-0.5">
+                          <span className="text-base font-black text-blue-700 tabular-nums">{(c.sent_count || 0).toLocaleString()}</span>
+                          {typeof sentPct === 'number' && sentPct > 0 && (
+                            <span className="text-2xs font-bold text-blue-600">({sentPct}%)</span>
+                          )}
                         </div>
-                      ))}
+                      </div>
+                      <div className="bg-emerald-50/70 px-3.5 py-2.5 rounded-xl border border-emerald-100/80">
+                        <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider block">Delivered</span>
+                        <div className="flex items-baseline gap-1 mt-0.5">
+                          <span className="text-base font-black text-emerald-700 tabular-nums">{(c.delivered_count || 0).toLocaleString()}</span>
+                          {typeof delPct === 'number' && delPct > 0 && (
+                            <span className="text-2xs font-bold text-emerald-600">({delPct}%)</span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="bg-sky-50/70 px-3.5 py-2.5 rounded-xl border border-sky-100/80">
+                        <span className="text-[10px] font-bold text-sky-600 uppercase tracking-wider block">Read</span>
+                        <div className="flex items-baseline gap-1 mt-0.5">
+                          <span className="text-base font-black text-sky-700 tabular-nums">{(c.read_count || 0).toLocaleString()}</span>
+                          {typeof readPct === 'number' && readPct > 0 && (
+                            <span className="text-2xs font-bold text-sky-600">({readPct}%)</span>
+                          )}
+                        </div>
+                      </div>
+                      <div className={`px-3.5 py-2.5 rounded-xl border ${(c.failed_count || 0) > 0 ? 'bg-red-50/80 border-red-200' : 'bg-gray-50 border-gray-100'}`}>
+                        <span className={`text-[10px] font-bold uppercase tracking-wider block ${(c.failed_count || 0) > 0 ? 'text-red-600' : 'text-gray-500'}`}>Failed</span>
+                        <span className={`text-base font-black tabular-nums mt-0.5 block ${(c.failed_count || 0) > 0 ? 'text-red-700' : 'text-gray-700'}`}>
+                          {(c.failed_count || 0).toLocaleString()}
+                        </span>
+                      </div>
                     </div>
 
                     {/* Progress bar + View details action */}

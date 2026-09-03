@@ -5,7 +5,7 @@
  * Provides deep visibility into message dispatch, delivery states, and error analytics.
  */
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { campaignApi } from '../../lib/api';
 import { PrimaryButton, SecondaryButton, GhostButton } from '../atoms/Button/Button.jsx';
 import { showSuccess, showError } from '../atoms/Toast/Toast.jsx';
@@ -83,6 +83,14 @@ export default function CampaignDetailView({ campaignId, onBack, onNewCampaign }
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState('all'); // all, executed, queued, failed
   const [searchTerm, setSearchTerm] = useState('');
+  const recipientTableRef = useRef(null);
+
+  const handleCardFilter = (tab) => {
+    setActiveTab(tab);
+    setTimeout(() => {
+      recipientTableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 50);
+  };
 
   // Load campaign + recipient messages
   const loadData = useCallback(async (isSilent = false) => {
@@ -332,10 +340,16 @@ export default function CampaignDetailView({ campaignId, onBack, onNewCampaign }
         </div>
       </div>
 
-      {/* ── 8 Executive KPI Metric Cards (Screenshot 3 Matching) ────────── */}
+      {/* ── 8 Executive KPI Metric Cards (Interactive Filters) ────────── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {/* Card 1: TOTAL CONTACTS */}
-        <div className="bg-white rounded-2xl p-5 border border-[#E6E4F5] shadow-xs flex flex-col justify-between">
+        <div
+          onClick={() => handleCardFilter('all')}
+          title="Click to view all recipients"
+          className={`bg-white rounded-2xl p-5 border shadow-xs flex flex-col justify-between cursor-pointer transition-all hover:shadow-md hover:-translate-y-0.5 active:scale-[0.99] ${
+            activeTab === 'all' ? 'border-[#534AB7] ring-2 ring-[#534AB7]/20 bg-[#FBFBFF]' : 'border-[#E6E4F5]'
+          }`}
+        >
           <div className="flex items-center justify-between">
             <span className="text-2xs font-bold uppercase tracking-wider text-gray-400">Total Contacts</span>
             <div className="w-7 h-7 rounded-full bg-sky-50 text-sky-600 flex items-center justify-center font-bold">
@@ -351,7 +365,11 @@ export default function CampaignDetailView({ campaignId, onBack, onNewCampaign }
         </div>
 
         {/* Card 2: SINGLE TICK SENT (Meta Dispatched) */}
-        <div className="bg-white rounded-2xl p-5 border border-[#E6E4F5] shadow-xs flex flex-col justify-between">
+        <div
+          onClick={() => handleCardFilter('all')}
+          title="Click to view sent messages"
+          className="bg-white rounded-2xl p-5 border border-[#E6E4F5] shadow-xs flex flex-col justify-between cursor-pointer transition-all hover:shadow-md hover:-translate-y-0.5 active:scale-[0.99]"
+        >
           <div className="flex items-center justify-between">
             <span className="text-2xs font-bold uppercase tracking-wider text-gray-400">Total Single Tick Sent</span>
             <div className="w-7 h-7 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
@@ -365,7 +383,13 @@ export default function CampaignDetailView({ campaignId, onBack, onNewCampaign }
         </div>
 
         {/* Card 3: DOUBLE TICK DELIVERED (Handset Received) */}
-        <div className="bg-white rounded-2xl p-5 border border-[#E6E4F5] shadow-xs flex flex-col justify-between">
+        <div
+          onClick={() => handleCardFilter('executed')}
+          title="Click to view delivered recipients"
+          className={`bg-white rounded-2xl p-5 border shadow-xs flex flex-col justify-between cursor-pointer transition-all hover:shadow-md hover:-translate-y-0.5 active:scale-[0.99] ${
+            activeTab === 'executed' ? 'border-emerald-500 ring-2 ring-emerald-500/20 bg-emerald-50/20' : 'border-[#E6E4F5]'
+          }`}
+        >
           <div className="flex items-center justify-between">
             <span className="text-2xs font-bold uppercase tracking-wider text-gray-400">Total Double Tick Delivered</span>
             <div className="w-7 h-7 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
@@ -379,7 +403,13 @@ export default function CampaignDetailView({ campaignId, onBack, onNewCampaign }
         </div>
 
         {/* Card 4: TOTAL READ (Blue Ticks) */}
-        <div className="bg-white rounded-2xl p-5 border border-[#E6E4F5] shadow-xs flex flex-col justify-between">
+        <div
+          onClick={() => handleCardFilter('executed')}
+          title="Click to view read recipients"
+          className={`bg-white rounded-2xl p-5 border shadow-xs flex flex-col justify-between cursor-pointer transition-all hover:shadow-md hover:-translate-y-0.5 active:scale-[0.99] ${
+            activeTab === 'executed' ? 'border-sky-500 ring-2 ring-sky-500/20 bg-sky-50/20' : 'border-[#E6E4F5]'
+          }`}
+        >
           <div className="flex items-center justify-between">
             <span className="text-2xs font-bold uppercase tracking-wider text-gray-400">Total Read</span>
             <div className="w-7 h-7 rounded-full bg-sky-50 text-sky-600 flex items-center justify-center font-bold">
@@ -393,7 +423,13 @@ export default function CampaignDetailView({ campaignId, onBack, onNewCampaign }
         </div>
 
         {/* Card 5: PROCESSING / QUEUED */}
-        <div className="bg-white rounded-2xl p-5 border border-[#E6E4F5] shadow-xs flex flex-col justify-between">
+        <div
+          onClick={() => handleCardFilter('queued')}
+          title="Click to view processing queue"
+          className={`bg-white rounded-2xl p-5 border shadow-xs flex flex-col justify-between cursor-pointer transition-all hover:shadow-md hover:-translate-y-0.5 active:scale-[0.99] ${
+            activeTab === 'queued' ? 'border-amber-500 ring-2 ring-amber-500/20 bg-amber-50/20' : 'border-[#E6E4F5]'
+          }`}
+        >
           <div className="flex items-center justify-between">
             <span className="text-2xs font-bold uppercase tracking-wider text-gray-400">Processing</span>
             <div className="w-7 h-7 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
@@ -407,7 +443,11 @@ export default function CampaignDetailView({ campaignId, onBack, onNewCampaign }
         </div>
 
         {/* Card 6: TOTAL META ACCEPTED */}
-        <div className="bg-white rounded-2xl p-5 border border-[#E6E4F5] shadow-xs flex flex-col justify-between">
+        <div
+          onClick={() => handleCardFilter('executed')}
+          title="Click to view accepted messages"
+          className="bg-white rounded-2xl p-5 border border-[#E6E4F5] shadow-xs flex flex-col justify-between cursor-pointer transition-all hover:shadow-md hover:-translate-y-0.5 active:scale-[0.99]"
+        >
           <div className="flex items-center justify-between">
             <span className="text-2xs font-bold uppercase tracking-wider text-gray-400">Total Meta Accepted</span>
             <div className="w-7 h-7 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
@@ -421,7 +461,13 @@ export default function CampaignDetailView({ campaignId, onBack, onNewCampaign }
         </div>
 
         {/* Card 7: TOTAL FAILED */}
-        <div className="bg-white rounded-2xl p-5 border border-[#E6E4F5] shadow-xs flex flex-col justify-between">
+        <div
+          onClick={() => handleCardFilter('failed')}
+          title="Click to view failed recipients"
+          className={`bg-white rounded-2xl p-5 border shadow-xs flex flex-col justify-between cursor-pointer transition-all hover:shadow-md hover:-translate-y-0.5 active:scale-[0.99] ${
+            activeTab === 'failed' ? 'border-[#DC2626] ring-2 ring-red-500/20 bg-red-50/30' : 'border-[#E6E4F5]'
+          }`}
+        >
           <div className="flex items-center justify-between">
             <span className="text-2xs font-bold uppercase tracking-wider text-gray-400">Total Failed</span>
             <div className="w-7 h-7 rounded-full bg-red-50 text-red-600 flex items-center justify-center font-bold">
@@ -439,7 +485,11 @@ export default function CampaignDetailView({ campaignId, onBack, onNewCampaign }
         </div>
 
         {/* Card 8: OVERALL MESSAGE STATUS */}
-        <div className="bg-white rounded-2xl p-5 border border-[#E6E4F5] shadow-xs flex flex-col justify-between">
+        <div
+          onClick={() => handleCardFilter('all')}
+          title="Click to view all messages"
+          className="bg-white rounded-2xl p-5 border border-[#E6E4F5] shadow-xs flex flex-col justify-between cursor-pointer transition-all hover:shadow-md hover:-translate-y-0.5 active:scale-[0.99]"
+        >
           <div className="flex items-center justify-between">
             <span className="text-2xs font-bold uppercase tracking-wider text-gray-400">Overall Message Status</span>
             <div className="w-7 h-7 rounded-full bg-teal-50 text-teal-600 flex items-center justify-center font-bold">
@@ -499,7 +549,7 @@ export default function CampaignDetailView({ campaignId, onBack, onNewCampaign }
       </div>
 
       {/* ── Recipient Delivery Log Table ──────────────────────────────── */}
-      <div className="bg-white rounded-2xl border border-[#E6E4F5] shadow-xs overflow-hidden">
+      <div ref={recipientTableRef} className="bg-white rounded-2xl border border-[#E6E4F5] shadow-xs overflow-hidden scroll-mt-6">
         {/* Table Toolbar */}
         <div className="p-4 border-b border-[#E6E4F5] flex flex-wrap items-center justify-between gap-4 bg-[#F8FAFC]">
           {/* Tabs */}

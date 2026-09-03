@@ -66,7 +66,7 @@ router.post('/', campaignValidators, validate, catchAsync(async (req, res) => {
 // Query params: status, campaign_id, date_from, date_to, limit, offset
 router.get('/messages', catchAsync(async (req, res) => {
   const isSuperAdmin = req.user.role === 'super_admin';
-  const tenantId = req.user.tenantId || req.tenant?.id;
+  const tenantId = req.user.tenantId || req.tenant?.id || null;
   const {
     status,
     campaign_id,
@@ -76,10 +76,14 @@ router.get('/messages', catchAsync(async (req, res) => {
     offset = 0,
   } = req.query;
 
-  const filters = ['(cm.tenant_id = $1 OR $2 = TRUE)'];
-  const params  = [tenantId, isSuperAdmin];
-  let   pidx    = 3;
+  const filters = [];
+  const params  = [];
+  let   pidx    = 1;
 
+  if (!isSuperAdmin && tenantId) {
+    filters.push(`cm.tenant_id = $${pidx++}`);
+    params.push(tenantId);
+  }
   if (status) {
     filters.push(`cm.status = $${pidx++}`);
     params.push(status);
@@ -100,7 +104,7 @@ router.get('/messages', catchAsync(async (req, res) => {
     params.push(end.toISOString());
   }
 
-  const WHERE = filters.join(' AND ');
+  const WHERE = filters.length > 0 ? filters.join(' AND ') : '1=1';
 
   // Main data query
   const { rows } = await query(

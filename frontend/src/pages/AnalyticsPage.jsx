@@ -128,15 +128,21 @@ export default function AnalyticsPage() {
   }, [trendDays]);
 
   const m = overview?.messages;
-  const hasData = trend.length > 0 || m?.total_sent > 0;
+  const totalSent = m?.total_sent ?? m?.totalSent ?? 0;
+  const totalDelivered = m?.total_delivered ?? m?.totalDelivered ?? 0;
+  const totalRead = m?.total_read ?? m?.totalRead ?? 0;
+  const totalFailed = m?.total_failed ?? m?.totalFailed ?? 0;
+  const totalOptOuts = m?.total_opt_outs ?? m?.totalOptOuts ?? 0;
+  const totalCampaigns = overview?.campaigns?.total_campaigns ?? overview?.campaigns?.total ?? 0;
+  const hasData = trend.length > 0 || totalSent > 0 || totalFailed > 0 || totalCampaigns > 0;
 
   // Format trend data for Recharts
   const chartData = trend.map((t) => ({
     date: new Date(t.date).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' }),
-    Sent: t.msgs_sent,
-    Delivered: t.msgs_delivered,
-    Read: t.msgs_read,
-    Failed: t.msgs_failed,
+    Sent: t.msgs_sent || 0,
+    Delivered: t.msgs_delivered || 0,
+    Read: t.msgs_read || 0,
+    Failed: t.msgs_failed || 0,
   }));
 
   return (
@@ -183,10 +189,10 @@ export default function AnalyticsPage() {
         <>
           {/* KPI Cards */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <MetricCard label="Messages Sent" value={m?.total_sent?.toLocaleString()} icon="📤" color="#534AB7" sub="Last 30 days" />
-            <MetricCard label="Delivery Rate" value={`${m?.deliveryRate ?? 0}%`} icon="✅" color="#1D9E75" sub={`${m?.total_delivered?.toLocaleString()} delivered`} />
-            <MetricCard label="Read Rate" value={`${m?.readRate ?? 0}%`} icon="👁️" color="#AFA9EC" sub={`${m?.total_read?.toLocaleString()} read`} />
-            <MetricCard label="Opt-Outs" value={m?.total_opt_outs?.toLocaleString()} icon="🚫" color="#f87171" sub={`${m?.optOutRate ?? 0}% rate`} />
+            <MetricCard label="Messages Sent" value={totalSent.toLocaleString()} icon="📤" color="#534AB7" sub="Last 30 days" />
+            <MetricCard label="Delivery Rate" value={`${m?.deliveryRate ?? 0}%`} icon="✅" color="#1D9E75" sub={`${totalDelivered.toLocaleString()} delivered`} />
+            <MetricCard label="Read Rate" value={`${m?.readRate ?? 0}%`} icon="👁️" color="#AFA9EC" sub={`${totalRead.toLocaleString()} read`} />
+            <MetricCard label="Opt-Outs" value={totalOptOuts.toLocaleString()} icon="🚫" color="#f87171" sub={`${m?.optOutRate ?? 0}% rate`} />
           </div>
 
           {/* Circular Progress Rings */}
