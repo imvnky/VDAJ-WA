@@ -10,9 +10,8 @@
 const express = require('express');
 const router  = express.Router();
 const { query } = require('../config/database');
+const { sendSuccess, catchAsync } = require('../middleware/responseHandler');
 const { authenticate } = require('../middleware/authMiddleware');
-const { catchAsync }   = require('../utils/catchAsync');
-const { sendSuccess }  = require('../utils/responseHandler');
 
 router.use(authenticate);
 
