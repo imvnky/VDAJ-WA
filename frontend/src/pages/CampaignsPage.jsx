@@ -30,15 +30,28 @@ function StatusBadge({ status }) {
 }
 
 // ---- WhatsApp Message Preview ----
-function WhatsAppPreview({ text }) {
-  // Convert markdown to styled spans
-  const render = (raw) => {
-    if (!raw) return <span className="text-gray-400 text-xs italic">Your message will appear here…</span>;
-    const parts = [];
-    let i = 0;
+function WhatsAppPreview({ template, variables = {} }) {
+  const now = new Date();
+  const time = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  // Interpolate variables into template body
+  const getInterpolatedBody = () => {
+    if (!template) {
+      return 'Please select a template to preview the message…';
+    }
+    let body = template.body_text || template.body || '';
+    Object.entries(variables).forEach(([key, val]) => {
+      const regex = new RegExp(`\\{\\{${key}\\}\\}`, 'g');
+      body = body.replace(regex, val?.trim() ? `*${val.trim()}*` : `{{${key}}}`);
+    });
+    return body;
+  };
+
+  const renderText = (raw) => {
+    if (!raw) return <span className="text-gray-400 text-xs italic">Select a template to preview…</span>;
     const tokens = raw.split(/(\*[^*]+\*|_[^_]+_|~[^~]+~|```[^`]+```)/g);
     return tokens.map((t, idx) => {
-      if (t.startsWith('*') && t.endsWith('*')) return <strong key={idx}>{t.slice(1, -1)}</strong>;
+      if (t.startsWith('*') && t.endsWith('*')) return <strong key={idx} className="font-semibold text-white">{t.slice(1, -1)}</strong>;
       if (t.startsWith('_') && t.endsWith('_')) return <em key={idx}>{t.slice(1, -1)}</em>;
       if (t.startsWith('~') && t.endsWith('~')) return <s key={idx}>{t.slice(1, -1)}</s>;
       if (t.startsWith('```') && t.endsWith('```')) return <code key={idx} className="font-mono bg-black/20 rounded px-1">{t.slice(3, -3)}</code>;
@@ -46,50 +59,52 @@ function WhatsAppPreview({ text }) {
     });
   };
 
-  const now = new Date();
-  const time = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
   return (
-    <div className="flex flex-col h-full bg-[#0B141A] rounded-2xl overflow-hidden border border-white/10">
+    <div className="flex flex-col h-full bg-[#0B141A] rounded-2xl overflow-hidden border border-white/10 shadow-lg">
       {/* WA Header */}
-      <div className="flex items-center gap-3 px-4 py-3 bg-[#1F2C34]">
-        <div className="w-9 h-9 rounded-full bg-brand-gradient flex items-center justify-center text-xs font-bold text-white shrink-0">C</div>
-        <div>
-          <p className="text-sm font-semibold text-white">Customer</p>
-          <p className="text-2xs text-white/40">Online</p>
+      <div className="flex items-center gap-3 px-4 py-3 bg-[#1F2C34] border-b border-white/5">
+        <div className="w-8 h-8 rounded-full bg-[#534AB7] flex items-center justify-center text-xs font-bold text-white shrink-0">
+          V
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-semibold text-white truncate">VDAJ Services LLP</p>
+          <p className="text-[10px] text-[#00A884]">Official Business Account</p>
         </div>
       </div>
 
       {/* Chat Area */}
       <div
-        className="flex-1 p-4 overflow-y-auto"
+        className="flex-1 p-3.5 overflow-y-auto min-h-[320px] flex flex-col justify-end"
         style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.02'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E\")" }}
       >
-        {/* Message bubble */}
         <div className="flex justify-end">
-          <div className="max-w-[85%] bg-[#005C4B] rounded-2xl rounded-tr-sm px-3.5 py-2.5 shadow">
-            <p className="text-sm text-white leading-relaxed whitespace-pre-wrap break-words">
-              {render(text)}
-            </p>
-            <div className="flex items-center justify-end gap-1 mt-1.5">
-              <span className="text-2xs text-white/40">{time}</span>
-              <svg className="w-3.5 h-3.5 text-[#53BDEB]" viewBox="0 0 16 11" fill="currentColor">
+          <div className="max-w-[92%] bg-[#005C4B] rounded-2xl rounded-tr-sm p-3 shadow-md">
+            {/* Header Text if any */}
+            {template?.header_text && (
+              <p className="text-xs font-bold text-white mb-1.5 border-b border-white/10 pb-1">
+                {template.header_text}
+              </p>
+            )}
+
+            {/* Body */}
+            <div className="text-xs text-white/90 leading-relaxed whitespace-pre-wrap break-words">
+              {renderText(getInterpolatedBody())}
+            </div>
+
+            {/* Footer */}
+            {template?.footer_text && (
+              <p className="text-[10px] text-white/50 mt-2 italic border-t border-white/10 pt-1">
+                {template.footer_text}
+              </p>
+            )}
+
+            <div className="flex items-center justify-end gap-1 mt-1">
+              <span className="text-[9px] text-white/40">{time}</span>
+              <svg className="w-3 h-3 text-[#53BDEB]" viewBox="0 0 16 11" fill="currentColor">
                 <path d="M11.071.653a.45.45 0 0 0-.63 0L4.995 6.099l-2.1-2.1a.45.45 0 0 0-.63.63l2.415 2.414a.45.45 0 0 0 .63 0L11.07 1.29a.45.45 0 0 0 0-.637zM15.05.653a.45.45 0 0 0-.63 0L8.974 6.099l-.6-.6a.45.45 0 0 0-.63.63l.914.914a.45.45 0 0 0 .63 0L15.05 1.29a.45.45 0 0 0 0-.637z" />
               </svg>
             </div>
           </div>
-        </div>
-      </div>
-
-      {/* WA Input Bar */}
-      <div className="flex items-center gap-2 px-3 py-2 bg-[#1F2C34]">
-        <div className="flex-1 h-9 rounded-full bg-[#2A3942] flex items-center px-4">
-          <span className="text-xs text-white/20">Type a message</span>
-        </div>
-        <div className="w-9 h-9 rounded-full bg-[#00A884] flex items-center justify-center">
-          <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
-          </svg>
         </div>
       </div>
     </div>
@@ -98,110 +113,343 @@ function WhatsAppPreview({ text }) {
 
 // ---- Composer Modal ----
 function ComposerModal({ onClose, onCreated, contactLists, templates }) {
-  const [form, setForm] = useState({ name: '', templateId: '', contactListId: '', body: '', scheduledAt: '' });
+  const [form, setForm] = useState({
+    name: '',
+    templateId: '',
+    contactListId: '',
+    variables: {},
+    sendTiming: 'now', // 'now' | 'schedule'
+    scheduledAt: '',
+    interactive: false,
+  });
+  const [activeTab, setActiveTab] = useState('preview'); // 'preview' | 'excel_guide'
   const [loading, setLoading] = useState(false);
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
+  // Find currently selected template
+  const selectedTemplate = templates.find((t) => t.id === form.templateId);
+
+  // Extract variables like {{1}}, {{2}} from template body
+  const detectedVariables = React.useMemo(() => {
+    if (!selectedTemplate?.body_text) return [];
+    const matches = [...selectedTemplate.body_text.matchAll(/\{\{(\w+)\}\}/g)];
+    const unique = Array.from(new Set(matches.map((m) => m[1])));
+    return unique;
+  }, [selectedTemplate]);
+
+  const handleVariableChange = (varKey, val) => {
+    setForm((f) => ({
+      ...f,
+      variables: { ...f.variables, [varKey]: val },
+    }));
+  };
+
   const handleCreate = async () => {
-    if (!form.name.trim()) { showError('Campaign name is required.', 'ERR_VDAJ_VAL_005'); return; }
+    if (!form.name.trim()) {
+      showError('Campaign name is required.', 'ERR_VDAJ_VAL_005');
+      return;
+    }
+    if (!form.templateId) {
+      showError('Please select an approved WhatsApp template for this campaign.', 'ERR_VDAJ_VAL_006');
+      return;
+    }
+    if (!form.contactListId) {
+      showError('Please select a contact audience list.', 'ERR_VDAJ_VAL_007');
+      return;
+    }
+
     setLoading(true);
     try {
       const res = await campaignApi.create({
         name: form.name,
-        templateId: form.templateId || undefined,
-        contactListId: form.contactListId || undefined,
-        scheduledAt: form.scheduledAt ? new Date(form.scheduledAt).toISOString() : undefined,
+        templateId: form.templateId,
+        contactListId: form.contactListId,
+        templateVariables: form.variables,
+        scheduledAt: form.sendTiming === 'schedule' && form.scheduledAt ? new Date(form.scheduledAt).toISOString() : undefined,
       });
-      showSuccess('Campaign created!');
+      showSuccess('Campaign created successfully!');
       onCreated(res.data);
       onClose();
     } catch {
-      // Toast fired by interceptor
+      // Toast fired by API interceptor
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in">
-      <div className="w-full max-w-4xl max-h-[90vh] flex flex-col glass-card animate-scale-in overflow-hidden">
-        {/* Modal Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-surface-border shrink-0">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+      <div className="w-full max-w-5xl max-h-[92vh] flex flex-col bg-[#FFFFFF] border border-[#E2E8F0] rounded-2xl shadow-2xl animate-scale-in overflow-hidden">
+        {/* ── MODAL HEADER (High Contrast MNC Grade) ── */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[#E2E8F0] bg-[#FFFFFF] shrink-0">
           <div>
-            <h2 className="text-lg font-bold text-aura-white">New Campaign</h2>
-            <p className="text-xs text-aura-white/40">Compose your message and configure your audience.</p>
+            <h2 className="text-lg font-bold text-[#0F172A] tracking-tight">New WhatsApp Campaign</h2>
+            <p className="text-xs text-[#64748B]">Broadcast Meta-approved template messages to your contacts.</p>
           </div>
-          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-surface-card text-aura-white/40 hover:text-aura-white transition-colors">
+          <button
+            onClick={onClose}
+            className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#F1F5F9] text-[#64748B] hover:text-[#0F172A] transition-colors"
+          >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
 
-        {/* Modal Body */}
-        <div className="flex flex-1 overflow-hidden">
-          {/* Left: Form */}
-          <div className="flex-1 p-6 overflow-y-auto space-y-4 border-r border-surface-border">
-            <Input
-              label="Campaign Name"
-              placeholder="e.g. Diwali Offer Blast"
-              value={form.name}
-              onChange={(e) => set('name', e.target.value)}
-              required
-            />
-
-            <Select
-              label="Contact List (Audience)"
-              placeholder="Select a contact list…"
-              value={form.contactListId}
-              onChange={(e) => set('contactListId', e.target.value)}
-              options={contactLists.map((l) => ({ value: l.id, label: `${l.name} (${l.contact_count} contacts)` }))}
-              helperText="Which group of people to send this campaign to."
-            />
-
-            <Select
-              label="Message Template"
-              placeholder="Select a template…"
-              value={form.templateId}
-              onChange={(e) => set('templateId', e.target.value)}
-              options={templates.map((t) => ({ value: t.id, label: `${t.name} (${t.language})` }))}
-            />
-
-            <div>
-              <Textarea
-                label="Message Body"
-                placeholder="Use *bold*, _italic_, ~strikethrough~, ```code``` — just like WhatsApp!"
-                value={form.body}
-                onChange={(e) => set('body', e.target.value)}
-                helperText="Raw markdown — sent directly to Meta API. Live preview on the right →"
-                className="font-mono text-xs"
+        {/* ── MODAL BODY ── */}
+        <div className="flex flex-col lg:flex-row flex-1 overflow-hidden">
+          {/* Left: Form Controls */}
+          <div className="flex-1 p-6 overflow-y-auto space-y-5 border-r border-[#E2E8F0]">
+            {/* 1. Campaign Details */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-[#0F172A] uppercase tracking-wider">
+                Campaign Details
+              </label>
+              <Input
+                placeholder="e.g. May Enquiry Blast"
+                value={form.name}
+                onChange={(e) => set('name', e.target.value)}
+                required
               />
             </div>
 
-            <Input
-              label="Schedule (optional)"
-              type="datetime-local"
-              value={form.scheduledAt}
-              onChange={(e) => set('scheduledAt', e.target.value)}
-              helperText="Leave blank to save as Draft. Stored in UTC, shown in your local time."
-            />
+            {/* 2. Template Selection */}
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-[#0F172A] uppercase tracking-wider">
+                Message Template *
+              </label>
+              <Select
+                placeholder="— choose an approved template —"
+                value={form.templateId}
+                onChange={(e) => set('templateId', e.target.value)}
+                options={templates.map((t) => ({
+                  value: t.id,
+                  label: `${t.name} (${t.language || 'en'}) — ${t.category || 'marketing'}`,
+                }))}
+              />
+
+              {/* Template Preview Box if selected */}
+              {selectedTemplate ? (
+                <div className="mt-3 p-3.5 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl text-xs space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-[#534AB7]">
+                      Template Preview
+                    </span>
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#E6F7F1] text-[#065F46] border border-[#A7F3D0]">
+                      {selectedTemplate.status || 'Active'}
+                    </span>
+                  </div>
+                  <p className="text-[#334155] leading-relaxed whitespace-pre-wrap font-sans">
+                    {selectedTemplate.body_text}
+                  </p>
+                  {selectedTemplate.footer_text && (
+                    <p className="text-[11px] text-[#64748B] italic pt-1 border-t border-[#E2E8F0]">
+                      Footer: {selectedTemplate.footer_text}
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <p className="text-xs text-[#64748B]">
+                  Per WhatsApp Business policies, outbound campaigns must use an approved Meta template.
+                </p>
+              )}
+
+              {/* Dynamic Variable Inputs */}
+              {detectedVariables.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-[#E2E8F0] space-y-3">
+                  <label className="text-xs font-bold text-[#0F172A]">
+                    Template Variables ({detectedVariables.length})
+                  </label>
+                  <p className="text-[11px] text-[#64748B]">
+                    Provide fallback default values. Contacts with custom attributes will use their personalized values.
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {detectedVariables.map((vKey) => (
+                      <div key={vKey}>
+                        <label className="block text-[11px] font-medium text-[#475569] mb-1">
+                          Variable {vKey} ({`{{${vKey}}}`})
+                        </label>
+                        <input
+                          type="text"
+                          placeholder={`Enter value for variable ${vKey}`}
+                          value={form.variables[vKey] || ''}
+                          onChange={(e) => handleVariableChange(vKey, e.target.value)}
+                          className="w-full px-3 py-2 text-xs bg-[#FFFFFF] border border-[#CBD5E1] rounded-lg text-[#0F172A] placeholder-[#94A3B8] focus:border-[#534AB7] focus:outline-none"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* 3. Recipients (Audience) */}
+            <div className="space-y-1.5 pt-2 border-t border-[#E2E8F0]">
+              <label className="text-xs font-semibold text-[#0F172A] uppercase tracking-wider">
+                Recipients (Contact Audience) *
+              </label>
+              <Select
+                placeholder="Select a contact audience list…"
+                value={form.contactListId}
+                onChange={(e) => set('contactListId', e.target.value)}
+                options={contactLists.map((l) => ({
+                  value: l.id,
+                  label: `${l.name} (${l.contact_count || 0} active contacts)`,
+                }))}
+              />
+              <p className="text-[11px] text-[#64748B]">
+                Upload CSV lists with <code className="text-[#534AB7] font-mono">phone</code>, <code className="text-[#534AB7] font-mono">name</code>, and optional variable columns in the <strong>Contacts</strong> page.
+              </p>
+            </div>
+
+            {/* 4. Interactive Campaign Toggle */}
+            <div className="p-3.5 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl flex items-center justify-between gap-4">
+              <div>
+                <p className="text-xs font-semibold text-[#0F172A]">Interactive Campaign</p>
+                <p className="text-[11px] text-[#64748B] leading-tight mt-0.5">
+                  When enabled, customers who click template buttons trigger an automated bot reply flow.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => set('interactive', !form.interactive)}
+                className={clsx(
+                  'w-11 h-6 rounded-full transition-colors relative shrink-0 p-0.5',
+                  form.interactive ? 'bg-[#534AB7]' : 'bg-[#CBD5E1]'
+                )}
+              >
+                <div
+                  className={clsx(
+                    'w-5 h-5 rounded-full bg-white transition-transform shadow-sm',
+                    form.interactive ? 'translate-x-5' : 'translate-x-0'
+                  )}
+                />
+              </button>
+            </div>
+
+            {/* 5. When to Send */}
+            <div className="space-y-2 pt-2 border-t border-[#E2E8F0]">
+              <label className="text-xs font-semibold text-[#0F172A] uppercase tracking-wider">
+                When to Send
+              </label>
+              <div className="flex items-center gap-6">
+                <label className="flex items-center gap-2 cursor-pointer text-xs font-medium text-[#0F172A]">
+                  <input
+                    type="radio"
+                    name="sendTiming"
+                    checked={form.sendTiming === 'now'}
+                    onChange={() => set('sendTiming', 'now')}
+                    className="text-[#534AB7] focus:ring-[#534AB7]"
+                  />
+                  <span>Send Immediately</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer text-xs font-medium text-[#0F172A]">
+                  <input
+                    type="radio"
+                    name="sendTiming"
+                    checked={form.sendTiming === 'schedule'}
+                    onChange={() => set('sendTiming', 'schedule')}
+                    className="text-[#534AB7] focus:ring-[#534AB7]"
+                  />
+                  <span>Schedule for Later</span>
+                </label>
+              </div>
+
+              {form.sendTiming === 'schedule' && (
+                <div className="mt-2">
+                  <Input
+                    label="Scheduled Date & Time"
+                    type="datetime-local"
+                    value={form.scheduledAt}
+                    onChange={(e) => set('scheduledAt', e.target.value)}
+                    helperText="Stored in UTC, shown in your local time."
+                  />
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* Right: WhatsApp Preview */}
-          <div className="w-72 shrink-0 p-4 flex flex-col gap-3">
-            <p className="text-xs font-semibold text-aura-white/40 uppercase tracking-wider">Live Preview</p>
-            <div className="flex-1">
-              <WhatsAppPreview text={form.body} />
+          {/* Right: Live Preview & Excel Format */}
+          <div className="w-full lg:w-80 shrink-0 p-5 bg-[#F8FAFC] flex flex-col gap-3">
+            {/* Tab switch */}
+            <div className="flex items-center bg-[#E2E8F0] p-1 rounded-lg text-xs font-semibold">
+              <button
+                type="button"
+                onClick={() => setActiveTab('preview')}
+                className={clsx(
+                  'flex-1 py-1 rounded-md transition-all',
+                  activeTab === 'preview' ? 'bg-[#FFFFFF] text-[#0F172A] shadow-sm' : 'text-[#64748B]'
+                )}
+              >
+                Live Preview
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('excel_guide')}
+                className={clsx(
+                  'flex-1 py-1 rounded-md transition-all',
+                  activeTab === 'excel_guide' ? 'bg-[#FFFFFF] text-[#0F172A] shadow-sm' : 'text-[#64748B]'
+                )}
+              >
+                Excel Format
+              </button>
             </div>
+
+            {/* Tab Content */}
+            {activeTab === 'preview' ? (
+              <div className="flex-1 flex flex-col">
+                <WhatsAppPreview template={selectedTemplate} variables={form.variables} />
+              </div>
+            ) : (
+              <div className="bg-[#FFFFFF] border border-[#E2E8F0] rounded-xl p-4 text-xs space-y-3 shadow-sm">
+                <div>
+                  <h4 className="font-bold text-[#0F172A] mb-1">Excel / CSV Format</h4>
+                  <p className="text-[11px] text-[#64748B]">
+                    First row must be column headers. <code className="text-[#534AB7] font-mono">phone</code> is required.
+                  </p>
+                </div>
+
+                <div className="overflow-x-auto border border-[#E2E8F0] rounded-lg">
+                  <table className="w-full text-[11px] text-left">
+                    <thead className="bg-[#F8FAFC] text-[#475569] font-bold border-b border-[#E2E8F0]">
+                      <tr>
+                        <th className="p-1.5 font-mono">PHONE</th>
+                        <th className="p-1.5 font-mono">NAME</th>
+                        <th className="p-1.5 font-mono">VAR1</th>
+                        <th className="p-1.5 font-mono">VAR2</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#E2E8F0] text-[#334155]">
+                      <tr>
+                        <td className="p-1.5 font-mono text-[10px]">919876543210</td>
+                        <td className="p-1.5">Rajesh</td>
+                        <td className="p-1.5">Rajesh</td>
+                        <td className="p-1.5">10%</td>
+                      </tr>
+                      <tr>
+                        <td className="p-1.5 font-mono text-[10px]">919864008174</td>
+                        <td className="p-1.5">Priya</td>
+                        <td className="p-1.5">Priya</td>
+                        <td className="p-1.5">20%</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <p className="text-[11px] text-[#64748B] leading-relaxed">
+                  <span className="text-[#534AB7] font-semibold">var1</span> fills <code className="font-mono">{"{{1}}"}</code>, <span className="text-[#534AB7] font-semibold">var2</span> fills <code className="font-mono">{"{{2}}"}</code>. Per-row values override form defaults.
+                </p>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Modal Footer */}
-        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-surface-border shrink-0">
+        {/* ── MODAL FOOTER ── */}
+        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-[#E2E8F0] bg-[#FFFFFF] shrink-0">
           <GhostButton onClick={onClose}>Cancel</GhostButton>
           <PrimaryButton onClick={handleCreate} loading={loading}>
-            Save Campaign
+            {form.sendTiming === 'now' ? 'Launch Campaign' : 'Schedule Campaign'}
           </PrimaryButton>
         </div>
       </div>
