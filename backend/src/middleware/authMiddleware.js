@@ -67,23 +67,50 @@ const authenticate = catchAsync(async (req, res, next) => {
     originalUserId:   decoded.original_user_id  || null,
   };
 
-  // Attach tenant context (null for super_admin)
-  if (user.tenant_id) {
-    if (!user.tenant_active) {
+  // Attach tenant context (fallback to primary active tenant if not explicitly assigned, e.g. super_admin)
+  let activeTenantId = user.tenant_id;
+  let activeTenant = user.t_id ? {
+    id:             user.t_id,
+    name:           user.tenant_name,
+    wabaId:         user.waba_id,
+    phoneNumberId:  user.phone_number_id,
+    metaSystemToken: user.meta_system_token,
+    timezone:        user.timezone,
+    maxMessagesPerDay:   user.max_messages_per_day,
+    monthlyMessageQuota: user.monthly_message_quota,
+    enabledFeatures: user.enabled_features || [],
+  } : null;
+
+  if (!activeTenantId) {
+    const { rows: [primaryT] } = await query(
+      `SELECT id, name, is_active, waba_id, phone_number_id, meta_system_token, timezone,
+              max_messages_per_day, monthly_message_quota, enabled_features
+       FROM tenants
+       WHERE deleted_at IS NULL
+       ORDER BY created_at ASC LIMIT 1`
+    );
+    if (primaryT) {
+      activeTenantId = primaryT.id;
+      req.user.tenantId = primaryT.id;
+      activeTenant = {
+        id:             primaryT.id,
+        name:           primaryT.name,
+        wabaId:         primaryT.waba_id,
+        phoneNumberId:  primaryT.phone_number_id,
+        metaSystemToken: primaryT.meta_system_token,
+        timezone:        primaryT.timezone,
+        maxMessagesPerDay:   primaryT.max_messages_per_day,
+        monthlyMessageQuota: primaryT.monthly_message_quota,
+        enabledFeatures: primaryT.enabled_features || [],
+      };
+    }
+  }
+
+  if (activeTenant) {
+    if (user.tenant_id && !user.tenant_active) {
       throw new AppError('Tenant is inactive.', 403, 'ERR_VDAJ_TENANT_002');
     }
-    req.tenant = {
-      id:             user.t_id,
-      name:           user.tenant_name,
-      wabaId:         user.waba_id,
-      phoneNumberId:  user.phone_number_id,
-      metaSystemToken: user.meta_system_token,
-      timezone:        user.timezone,
-      maxMessagesPerDay:   user.max_messages_per_day,
-      monthlyMessageQuota: user.monthly_message_quota,
-      // Feature flags — used by frontend for RBAC sidebar gating
-      enabledFeatures: user.enabled_features || [],
-    };
+    req.tenant = activeTenant;
   }
 
   next();

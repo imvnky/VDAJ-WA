@@ -97,12 +97,27 @@ router.post('/bulk', catchAsync(async (req, res) => {
   const {
     contacts:    rawContacts,
     listId,
+    newListName,
+    tags          = [],
     opt_in_source = 'import',          // default: bulk import
     opt_in_proof  = 'Bulk CSV import', // fallback proof text
   } = req.body;
 
   if (!Array.isArray(rawContacts) || rawContacts.length === 0) {
     throw new AppError('contacts array is required and must not be empty.', 400, 'ERR_VDAJ_VAL_001');
+  }
+
+  // Resolve tenant ID safely (handles super_admin gracefully)
+  let tenantId = req.user.tenantId || req.tenant?.id;
+  if (!tenantId) {
+    const { rows: [firstTenant] } = await query(
+      `SELECT id FROM tenants WHERE deleted_at IS NULL ORDER BY created_at ASC LIMIT 1`
+    );
+    tenantId = firstTenant?.id;
+  }
+
+  if (!tenantId) {
+    throw new AppError('Tenant workspace could not be identified.', 400, 'ERR_VDAJ_TENANT_001');
   }
 
   const MAX_BULK = 5000;
@@ -113,6 +128,11 @@ router.post('/bulk', catchAsync(async (req, res) => {
       'ERR_VDAJ_CONT_004'
     );
   }
+
+  // Parse tags array
+  const cleanTags = Array.isArray(tags)
+    ? tags.map((t) => String(t).trim()).filter(Boolean)
+    : String(tags || '').split(',').map((t) => t.trim()).filter(Boolean);
 
   // ── Server-side E.164 validation + sanitization ───────────
   const E164_REGEX = /^\+[1-9]\d{7,14}$/;
@@ -153,12 +173,23 @@ router.post('/bulk', catchAsync(async (req, res) => {
   let newContactIds = [];
 
   await withTransaction(async (client) => {
+    // ── Create or resolve target listId ───────────────────────
+    let targetListId = listId || null;
 
-    // ── Validate listId belongs to this tenant (if provided) ──
-    if (listId) {
+    if (!targetListId && newListName?.trim()) {
+      const { rows: [createdList] } = await client.query(
+        `INSERT INTO contact_lists (tenant_id, name, description, created_by)
+         VALUES ($1, $2, $3, $4)
+         RETURNING id`,
+        [tenantId, newListName.trim(), 'Created during contact import', req.user.id]
+      );
+      if (createdList) {
+        targetListId = createdList.id;
+      }
+    } else if (targetListId) {
       const { rows: listRows } = await client.query(
         `SELECT id FROM contact_lists WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL`,
-        [listId, req.user.tenantId]
+        [targetListId, tenantId]
       );
       if (!listRows.length) {
         throw new AppError('Contact list not found.', 404, 'ERR_VDAJ_CONT_002');
@@ -166,14 +197,14 @@ router.post('/bulk', catchAsync(async (req, res) => {
     }
 
     // ── Bulk upsert using UNNEST (single round-trip to DB) ────
-    // xmax = 0 means the row was inserted (not updated via UPDATE path of ON CONFLICT)
     const { rows: upserted } = await client.query(
       `INSERT INTO contacts
-         (tenant_id, phone_e164, first_name, last_name, email, custom_vars)
+         (tenant_id, phone_e164, first_name, last_name, email, custom_vars, tags)
        SELECT
          $1,
          phone, first_name, last_name, email,
-         custom_vars::jsonb
+         custom_vars::jsonb,
+         $7::text[]
        FROM UNNEST(
          $2::text[], $3::text[], $4::text[], $5::text[], $6::text[]
        ) AS t(phone, first_name, last_name, email, custom_vars)
@@ -183,15 +214,21 @@ router.post('/bulk', catchAsync(async (req, res) => {
            last_name   = COALESCE(EXCLUDED.last_name,   contacts.last_name),
            email       = COALESCE(EXCLUDED.email,       contacts.email),
            custom_vars = contacts.custom_vars || EXCLUDED.custom_vars,
+           tags        = CASE
+                           WHEN array_length($7::text[], 1) > 0
+                           THEN array(SELECT DISTINCT UNNEST(COALESCE(contacts.tags, '{}'::text[]) || $7::text[]))
+                           ELSE contacts.tags
+                         END,
            updated_at  = NOW()
        RETURNING id, (xmax = 0) AS is_new`,
       [
-        req.user.tenantId,
+        tenantId,
         phones,
         firstNames,
         lastNames,
         emails,
         customVarsArr,
+        cleanTags,
       ]
     );
 
@@ -200,12 +237,12 @@ router.post('/bulk', catchAsync(async (req, res) => {
     newContactIds  = upserted.map((r) => r.id);
 
     // ── Add all contacts to the specified list ─────────────────
-    if (listId && newContactIds.length > 0) {
+    if (targetListId && newContactIds.length > 0) {
       await client.query(
         `INSERT INTO contact_list_members (contact_list_id, contact_id)
          SELECT $1, UNNEST($2::uuid[])
          ON CONFLICT DO NOTHING`,
-        [listId, newContactIds]
+        [targetListId, newContactIds]
       );
     }
 
@@ -224,7 +261,7 @@ router.post('/bulk', catchAsync(async (req, res) => {
                updated_at    = NOW()
          WHERE id = ANY($1::uuid[])
            AND tenant_id = $2`,
-        [newContactIds, req.user.tenantId, opt_in_source, proof]
+        [newContactIds, tenantId, opt_in_source, proof]
       );
 
       // Insert audit records into opt_in_events (one row per newly inserted contact)
@@ -237,7 +274,7 @@ router.post('/bulk', catchAsync(async (req, res) => {
            FROM contacts c
            WHERE c.id = ANY($2::uuid[]) AND c.tenant_id = $1`,
           [
-            req.user.tenantId,
+            tenantId,
             newlyInsertedIds,
             opt_in_source,
             proof,

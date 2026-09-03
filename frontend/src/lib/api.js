@@ -97,8 +97,8 @@ export const contactApi = {
   list: (params, config = {}) => client.get('/contacts', { params, ...config }),
   get: (id) => client.get(`/contacts/${id}`),
   create: (data) => client.post('/contacts', data),
-  bulkImport: (contacts, listId, opt_in_source, opt_in_proof) =>
-    client.post('/contacts/bulk', { contacts, listId, opt_in_source, opt_in_proof }),
+  bulkImport: (contacts, listId, opt_in_source, opt_in_proof, tags, newListName) =>
+    client.post('/contacts/bulk', { contacts, listId, opt_in_source, opt_in_proof, tags, newListName }),
   updateTags: (id, tags) => client.patch(`/contacts/${id}/tags`, { tags }),
   optOut: (id) => client.patch(`/contacts/${id}/opt-out`),
   lists: (config = {}) => client.get('/contacts/lists', config),

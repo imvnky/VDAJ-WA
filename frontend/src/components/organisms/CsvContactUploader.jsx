@@ -1,14 +1,9 @@
 /**
- * VDAJ Services — CSV Contact Uploader
- * Sprint 2: Full drag-and-drop modal with PapaParse, column auto-mapping,
- * E.164 sanitisation, preview table with valid/invalid pills,
- * and single-shot bulk API import.
- *
- * Props:
- *   isOpen    {boolean}
- *   onClose   {() => void}
- *   onImported {(result: {inserted, updated, invalidCount}) => void}
- *   lists     {Array<{id, name}>}  — optional contact lists for assignment
+ * VDAJ Services — Enterprise CSV Contact Uploader
+ * ────────────────────────────────────────────────────────────
+ * High-performance contact importer with automatic column detection,
+ * sample CSV template generator, audience grouping, multi-tagging,
+ * and Meta BSP compliance consent logging.
  */
 
 import React, { useState, useRef, useCallback, useEffect } from 'react';
@@ -17,7 +12,6 @@ import { contactApi } from '../../lib/api';
 import { showSuccess, showError, showWarning } from '../atoms/Toast/Toast.jsx';
 
 // ── E.164 Sanitiser ───────────────────────────────────────────
-// Auto-strips spaces, dashes, parentheses, dots. Prepends '+' if missing.
 function sanitizeE164(raw) {
   if (!raw) return null;
   let p = String(raw).trim().replace(/[\s\-().]/g, '');
@@ -26,7 +20,6 @@ function sanitizeE164(raw) {
 }
 
 // ── Column auto-mapper ────────────────────────────────────────
-// Returns { phoneIdx, firstNameIdx, lastNameIdx, emailIdx, customIdxs }
 function detectColumns(headers) {
   const find = (keywords) =>
     headers.findIndex((h) => keywords.some((kw) => h.includes(kw)));
@@ -35,14 +28,12 @@ function detectColumns(headers) {
     phoneIdx:     find(['phone', 'mobile', 'number', 'tel', 'whatsapp']),
     firstNameIdx: find(['first', 'fname']),
     lastNameIdx:  find(['last', 'lname', 'surname']),
-    // 'name' alone maps to firstName when no first/last split
     nameIdx:      find(['name']),
     emailIdx:     find(['email', 'mail']),
   };
 }
 
-// ── PapaParse-style CSV parser (no dependency) ────────────────
-// Handles quoted fields, CRLF, trailing commas.
+// ── PapaParse-style CSV parser ────────────────────────────────
 function parseCSVText(text) {
   const lines = text.trim().split(/\r?\n/);
   if (lines.length < 1) return [];
@@ -82,7 +73,7 @@ function parseCSVText(text) {
   return { headers, rows };
 }
 
-// ── Parse + map CSV text → {valid, invalid, headers} ─────────
+// ── Process CSV text → {valid, invalid, headers} ──────────────
 function processCSV(text) {
   const { headers, rows } = parseCSVText(text);
   const col = detectColumns(headers);
@@ -97,7 +88,6 @@ function processCSV(text) {
 
     const phone = sanitizeE164(rawPhone);
 
-    // Derive name — prefer first/last split, fall back to 'name' column
     let firstName = col.firstNameIdx >= 0 ? row.__rawCols[col.firstNameIdx] : '';
     let lastName  = col.lastNameIdx  >= 0 ? row.__rawCols[col.lastNameIdx]  : '';
 
@@ -109,7 +99,6 @@ function processCSV(text) {
 
     const email = col.emailIdx >= 0 ? row.__rawCols[col.emailIdx] : '';
 
-    // Collect any unmapped columns into customVars
     const reservedIdx = new Set([
       col.phoneIdx, col.firstNameIdx, col.lastNameIdx, col.nameIdx, col.emailIdx,
     ].filter((i) => i >= 0));
@@ -138,74 +127,113 @@ function processCSV(text) {
   return { valid, invalid, headers };
 }
 
-// ── Status Pill ───────────────────────────────────────────────
 function Pill({ ok, children }) {
   return (
     <span className={clsx(
       'inline-flex items-center gap-1 text-2xs font-semibold px-2 py-0.5 rounded-full',
       ok
-        ? 'bg-[#1D9E75]/15 text-[#1D9E75] border border-[#1D9E75]/25'
-        : 'bg-red-500/15 text-red-400 border border-red-500/25'
+        ? 'bg-[#E8F9F4] text-[#148059] border border-[#A3E4D0]'
+        : 'bg-red-50 text-red-700 border border-red-200'
     )}>
       {ok ? '✓' : '✗'} {children}
     </span>
   );
 }
 
-// ── Upload icon ───────────────────────────────────────────────
-const UploadIcon = ({ active }) => (
-  <svg className={clsx('w-10 h-10 mx-auto mb-3 transition-colors duration-200',
-    active ? 'text-[#534AB7]' : 'text-[#5A5A6E]/40 dark:text-white/20')}
-    fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-    <path strokeLinecap="round" strokeLinejoin="round"
-      d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-  </svg>
-);
+function UploadIcon({ active }) {
+  return (
+    <div
+      className={clsx(
+        'w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-3 transition-all duration-200',
+        active ? 'bg-[#534AB7] text-white scale-110' : 'bg-[#F3F2FD] text-[#534AB7]'
+      )}
+    >
+      <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+        <path strokeLinecap="round" strokeLinejoin="round"
+          d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+      </svg>
+    </div>
+  );
+}
 
-// ── Main Component ────────────────────────────────────────────
-// Consent source options (BSP-compliant)
 const OPT_IN_SOURCES = [
-  { value: 'web_form',        label: 'They shared number via web / landing page form' },
-  { value: 'click_to_chat',   label: 'WhatsApp click-to-chat button on our website' },
   { value: 'manual',          label: 'Offline / verbal consent (store visit, call)' },
-  { value: 'transactional',   label: 'Purchased product/service (transactional only)' },
+  { value: 'web_form',        label: 'Website opt-in / contact form' },
+  { value: 'transactional',   label: 'Purchased product/service (transactional)' },
   { value: 'inbound_message', label: 'Inbound WhatsApp message from them' },
+  { value: 'import',          label: 'General client database (explicit consent obtained)' },
 ];
 
 export default function CsvContactUploader({ isOpen, onClose, onImported, lists = [] }) {
-  const [step, setStep]             = useState('drop'); // drop | preview | importing | done
-  const [dragging, setDragging]     = useState(false);
-  const [filename, setFilename]     = useState('');
-  const [valid, setValid]           = useState([]);
-  const [invalid, setInvalid]       = useState([]);
+  const [step, setStep]                 = useState('drop'); // drop | preview | done
+  const [dragging, setDragging]         = useState(false);
+  const [filename, setFilename]         = useState('');
+  const [valid, setValid]               = useState([]);
+  const [invalid, setInvalid]           = useState([]);
+  const [listOption, setListOption]     = useState('existing'); // 'existing' | 'new' | 'none'
   const [selectedList, setSelectedList] = useState('');
-  const [optInSource, setOptInSource]   = useState('');
-  const [importing, setImporting]   = useState(false);
-  const [result, setResult]         = useState(null);
+  const [newListName, setNewListName]   = useState('');
+  const [tagsInput, setTagsInput]       = useState('');
+  const [optInSource, setOptInSource]   = useState('manual');
+  const [importing, setImporting]       = useState(false);
+  const [result, setResult]             = useState(null);
   const inputRef = useRef();
 
-  // Reset when closed
+  // Reset when opened/closed
   useEffect(() => {
     if (!isOpen) {
-      setStep('drop'); setDragging(false); setFilename('');
-      setValid([]); setInvalid([]); setResult(null); setImporting(false);
-      setOptInSource('');
+      setStep('drop');
+      setDragging(false);
+      setFilename('');
+      setValid([]);
+      setInvalid([]);
+      setResult(null);
+      setImporting(false);
+      setListOption(lists.length > 0 ? 'existing' : 'new');
+      setSelectedList(lists[0]?.id || '');
+      setNewListName('');
+      setTagsInput('');
+      setOptInSource('manual');
+    } else {
+      if (lists.length > 0 && !selectedList) {
+        setSelectedList(lists[0].id);
+      }
     }
-  }, [isOpen]);
+  }, [isOpen, lists]);
 
-  // Lock body scroll when open
+  // Lock body scroll
   useEffect(() => {
     if (isOpen) document.body.style.overflow = 'hidden';
     return () => { document.body.style.overflow = ''; };
   }, [isOpen]);
 
+  // ── Download Sample CSV Template ────────────────────────────
+  const handleDownloadTemplate = () => {
+    const headers = 'phone,first_name,last_name,email,var1,var2';
+    const sample1 = '+919876543210,Rajesh,Sharma,rajesh@example.com,VIP,Special Offer';
+    const sample2 = '+919864008174,Priya,Patel,priya@example.com,Customer,20% Discount';
+    const csvContent = `${headers}\n${sample1}\n${sample2}\n`;
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'vdaj_contacts_template.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showSuccess('Sample contacts template downloaded (.csv)');
+  };
+
   const handleFile = useCallback((file) => {
     if (!file) return;
     if (!file.name.toLowerCase().endsWith('.csv')) {
-      showError('Please upload a .csv file.'); return;
+      showError('Please upload a .csv file.');
+      return;
     }
-    if (file.size > 5 * 1024 * 1024) {
-      showError('CSV file must be under 5 MB.'); return;
+    if (file.size > 10 * 1024 * 1024) {
+      showError('CSV file must be under 10 MB.');
+      return;
     }
 
     const reader = new FileReader();
@@ -216,7 +244,7 @@ export default function CsvContactUploader({ isOpen, onClose, onImported, lists 
       setInvalid(inv);
       setStep('preview');
       if (inv.length > 0) {
-        showWarning(`${inv.length} row${inv.length !== 1 ? 's' : ''} had unreadable phone numbers and will be skipped.`);
+        showWarning(`${inv.length} row${inv.length !== 1 ? 's' : ''} had invalid phone numbers and will be skipped.`);
       }
       if (v.length === 0) {
         showError('No valid phone numbers found in this file.');
@@ -227,28 +255,40 @@ export default function CsvContactUploader({ isOpen, onClose, onImported, lists 
   }, []);
 
   const handleDrop = useCallback((e) => {
-    e.preventDefault(); setDragging(false);
+    e.preventDefault();
+    setDragging(false);
     handleFile(e.dataTransfer.files[0]);
   }, [handleFile]);
 
   const handleImport = async () => {
     if (!valid.length) return;
-    if (!optInSource) { showError('Please select how these contacts gave consent.'); return; }
+    if (!optInSource) {
+      showError('Please select how these contacts gave consent.', 'ERR_VDAJ_VAL_001');
+      return;
+    }
+
     setImporting(true);
     try {
       const proofText = `CSV import · source: ${optInSource} · file: ${filename}`;
+      const targetListId = listOption === 'existing' ? selectedList || undefined : undefined;
+      const targetNewList = listOption === 'new' ? newListName.trim() || undefined : undefined;
+      const tagsArray = tagsInput.split(',').map((t) => t.trim()).filter(Boolean);
+
       const res = await contactApi.bulkImport(
         valid,
-        selectedList || undefined,
+        targetListId,
         optInSource,
-        proofText
+        proofText,
+        tagsArray,
+        targetNewList
       );
+
       setResult(res.data);
       setStep('done');
       showSuccess(`Import complete — ${res.data.inserted} new, ${res.data.updated} updated.`);
       onImported?.(res.data);
     } catch {
-      // Error toast fired by Axios interceptor
+      // Toast fired by Axios interceptor
     } finally {
       setImporting(false);
     }
@@ -258,295 +298,336 @@ export default function CsvContactUploader({ isOpen, onClose, onImported, lists 
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)' }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/60 backdrop-blur-sm animate-fade-in"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div
-        className="w-full max-w-2xl rounded-3xl overflow-hidden shadow-2xl animate-scale-in"
-        style={{
-          background: 'var(--bg-card)',
-          border: '1px solid var(--bg-border)',
-        }}
-      >
+      <div className="w-full max-w-2xl bg-[#FFFFFF] border border-[#E2E8F0] rounded-3xl shadow-2xl animate-scale-in overflow-hidden max-h-[92vh] flex flex-col">
         {/* ── Header ─────────────────────────────────────────── */}
-        <div className="flex items-center justify-between px-6 py-4 border-b"
-          style={{ borderColor: 'var(--bg-border)' }}>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[#E2E8F0] bg-[#FFFFFF] shrink-0">
           <div>
-            <h2 className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>
+            <h2 className="text-base font-bold text-[#0F172A] tracking-tight">
               Import Contacts from CSV
             </h2>
-            <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
-              Max 5,000 contacts per file · phone, first_name, last_name, email
+            <p className="text-xs text-[#64748B] mt-0.5">
+              Max 5,000 contacts per upload · E.164 phone numbers with country code
             </p>
           </div>
-          <button onClick={onClose}
-            className="w-8 h-8 rounded-xl flex items-center justify-center transition-colors hover:opacity-70"
-            style={{ background: 'var(--bg-elevated)' }}>
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24"
-              stroke="currentColor" strokeWidth={2} style={{ color: 'var(--text-muted)' }}>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-[#F1F5F9] text-[#64748B] hover:text-[#0F172A] transition-colors"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
 
         {/* ── Body ───────────────────────────────────────────── */}
-        <div className="p-6 space-y-5">
-
-          {/* ── Step: Drop ────────────────────────────────── */}
+        <div className="p-6 space-y-5 overflow-y-auto flex-1">
+          {/* ── Step 1: Drop & Template ────────────────────────── */}
           {step === 'drop' && (
             <>
+              {/* Download Sample Template Banner */}
+              <div className="p-3.5 bg-[#F8FAFC] border border-[#E2E8F0] rounded-2xl flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-[#E8F9F4] text-[#148059] flex items-center justify-center text-base shrink-0">
+                    📥
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-[#0F172A]">Need a pre-formatted template?</p>
+                    <p className="text-[11px] text-[#64748B]">
+                      Download our sample CSV with proper phone and variable columns.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleDownloadTemplate}
+                  className="px-3 py-1.5 text-xs font-bold text-[#534AB7] bg-[#FFFFFF] hover:bg-[#F3F2FD] border border-[#CBD5E1] rounded-xl transition-all shrink-0 shadow-sm"
+                >
+                  Download Template (.csv)
+                </button>
+              </div>
+
+              {/* Drag and drop area */}
               <div
                 onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
                 onDragLeave={() => setDragging(false)}
                 onDrop={handleDrop}
                 onClick={() => inputRef.current?.click()}
                 className={clsx(
-                  'relative border-2 border-dashed rounded-2xl p-12 text-center cursor-pointer',
-                  'transition-all duration-200',
+                  'relative border-2 border-dashed rounded-2xl p-10 text-center cursor-pointer transition-all duration-200',
                   dragging
-                    ? 'border-[#534AB7] scale-[1.01]'
-                    : 'hover:border-[#534AB7]/50'
+                    ? 'border-[#534AB7] bg-[#F3F2FD]/50 scale-[1.01]'
+                    : 'border-[#CBD5E1] bg-[#F8FAFC] hover:border-[#534AB7]/50 hover:bg-[#F1F5F9]'
                 )}
-                style={{
-                  borderColor: dragging ? '#534AB7' : 'var(--bg-border)',
-                  background: dragging ? 'rgba(83,74,183,0.06)' : 'var(--bg-elevated)',
-                }}
               >
                 <input
-                  ref={inputRef} type="file" accept=".csv"
+                  ref={inputRef}
+                  type="file"
+                  accept=".csv"
                   className="hidden"
                   onChange={(e) => handleFile(e.target.files[0])}
                 />
                 <UploadIcon active={dragging} />
-                <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
-                  {dragging ? 'Drop it here!' : 'Drag & drop your CSV file'}
+                <p className="text-sm font-bold text-[#0F172A]">
+                  {dragging ? 'Drop your CSV file here!' : 'Drag & drop your CSV file here'}
                 </p>
-                <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-                  or click to browse · .csv only · max 5 MB
+                <p className="text-xs text-[#64748B] mt-1">
+                  or click to browse from your computer · .csv format only
                 </p>
               </div>
 
               {/* Column guide */}
-              <div className="rounded-2xl p-4" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--bg-border)' }}>
-                <p className="text-xs font-semibold mb-2" style={{ color: 'var(--text-secondary)' }}>
-                  Expected CSV columns (auto-detected)
+              <div className="bg-[#FFFFFF] border border-[#E2E8F0] rounded-2xl p-4 space-y-2">
+                <p className="text-xs font-bold text-[#0F172A]">
+                  Expected Column Headers (Auto-detected):
                 </p>
                 <div className="flex flex-wrap gap-2">
-                  {['phone *', 'first_name', 'last_name', 'email', 'any extra columns → custom_vars'].map((c) => (
-                    <span key={c} className="font-mono text-2xs px-2 py-1 rounded-lg"
-                      style={{
-                        background: c.endsWith('*') ? 'rgba(83,74,183,0.12)' : 'var(--bg-card)',
-                        color: c.endsWith('*') ? '#AFA9EC' : 'var(--text-muted)',
-                        border: '1px solid var(--bg-border)',
-                      }}>
+                  {['phone *', 'first_name', 'last_name', 'email', 'var1', 'var2'].map((c) => (
+                    <span
+                      key={c}
+                      className={clsx(
+                        'font-mono text-xs px-2.5 py-1 rounded-lg border',
+                        c.endsWith('*')
+                          ? 'bg-[#F3F2FD] text-[#534AB7] border-[#E6E4F5] font-bold'
+                          : 'bg-[#F8FAFC] text-[#475569] border-[#E2E8F0]'
+                      )}
+                    >
                       {c}
                     </span>
                   ))}
                 </div>
+                <p className="text-[11px] text-[#64748B] leading-relaxed">
+                  Phone numbers must include country code (e.g. <code className="font-mono text-[#534AB7]">+919876543210</code>). Any extra columns map to template variables automatically.
+                </p>
               </div>
             </>
           )}
 
-          {/* ── Step: Preview ─────────────────────────────── */}
+          {/* ── Step 2: Preview & Configure ────────────────────── */}
           {step === 'preview' && (
             <>
-              {/* Summary bar */}
-              <div className="flex items-center gap-3 flex-wrap">
-                <span className="text-sm font-semibold truncate flex-1"
-                  style={{ color: 'var(--text-primary)' }}>
-                  {filename}
-                </span>
-                <Pill ok>{valid.length} valid</Pill>
-                {invalid.length > 0 && <Pill ok={false}>{invalid.length} invalid</Pill>}
+              {/* Summary Bar */}
+              <div className="flex items-center justify-between gap-3 p-3 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl">
+                <div className="flex items-center gap-2 truncate">
+                  <span className="text-xs font-bold text-[#0F172A] truncate">{filename}</span>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Pill ok>{valid.length} Valid</Pill>
+                  {invalid.length > 0 && <Pill ok={false}>{invalid.length} Skipped</Pill>}
+                </div>
               </div>
 
-              {/* Preview table */}
-              <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid var(--bg-border)' }}>
-                {/* Header */}
-                <div className="grid grid-cols-12 gap-3 px-4 py-2.5"
-                  style={{ background: 'var(--bg-elevated)', borderBottom: '1px solid var(--bg-border)' }}>
-                  {['Phone', 'First Name', 'Last Name', 'Status'].map((h, i) => (
-                    <span key={h}
-                      className={clsx('text-2xs font-semibold uppercase tracking-wider',
-                        i === 0 ? 'col-span-4' : i === 3 ? 'col-span-2 text-right' : 'col-span-3')}
-                      style={{ color: 'var(--text-muted)' }}>
-                      {h}
-                    </span>
-                  ))}
+              {/* Table Preview */}
+              <div className="border border-[#E2E8F0] rounded-xl overflow-hidden shadow-sm">
+                <div className="grid grid-cols-12 gap-2 px-3 py-2 bg-[#F1F5F9] border-b border-[#E2E8F0] text-[11px] font-bold text-[#475569] uppercase tracking-wider">
+                  <span className="col-span-5">Phone</span>
+                  <span className="col-span-3">First Name</span>
+                  <span className="col-span-2">Last Name</span>
+                  <span className="col-span-2 text-right">Status</span>
                 </div>
 
-                {/* Rows: show first 8 valid + up to 3 invalid */}
-                <div className="max-h-52 overflow-y-auto divide-y"
-                  style={{ divideColor: 'var(--bg-border)' }}>
-                  {valid.slice(0, 8).map((r, i) => (
-                    <div key={i} className="grid grid-cols-12 gap-3 px-4 py-2.5 items-center">
-                      <span className="col-span-4 text-xs font-mono truncate"
-                        style={{ color: '#AFA9EC' }}>{r.phoneE164}</span>
-                      <span className="col-span-3 text-xs truncate"
-                        style={{ color: 'var(--text-secondary)' }}>{r.firstName || '—'}</span>
-                      <span className="col-span-3 text-xs truncate"
-                        style={{ color: 'var(--text-secondary)' }}>{r.lastName || '—'}</span>
+                <div className="max-h-40 overflow-y-auto divide-y divide-[#E2E8F0] text-xs">
+                  {valid.slice(0, 5).map((r, i) => (
+                    <div key={i} className="grid grid-cols-12 gap-2 px-3 py-2 items-center text-[#334155]">
+                      <span className="col-span-5 font-mono text-[#534AB7] font-semibold truncate">{r.phoneE164}</span>
+                      <span className="col-span-3 truncate">{r.firstName || '—'}</span>
+                      <span className="col-span-2 truncate">{r.lastName || '—'}</span>
                       <div className="col-span-2 flex justify-end">
-                        <Pill ok>Valid</Pill>
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#E8F9F4] text-[#148059]">Valid</span>
                       </div>
                     </div>
                   ))}
-                  {invalid.slice(0, 3).map((r, i) => (
-                    <div key={`inv-${i}`} className="grid grid-cols-12 gap-3 px-4 py-2.5 items-center"
-                      style={{ background: 'rgba(239,68,68,0.04)' }}>
-                      <span className="col-span-4 text-xs font-mono truncate text-red-400 line-through">
-                        {r.rawPhone}</span>
-                      <span className="col-span-3 text-xs truncate"
-                        style={{ color: 'var(--text-muted)' }}>{r.firstName || '—'}</span>
-                      <span className="col-span-3 text-xs truncate"
-                        style={{ color: 'var(--text-muted)' }}>{r.lastName || '—'}</span>
+                  {invalid.slice(0, 2).map((r, i) => (
+                    <div key={`inv-${i}`} className="grid grid-cols-12 gap-2 px-3 py-2 items-center bg-red-50/50 text-[#64748B]">
+                      <span className="col-span-5 font-mono text-red-500 line-through truncate">{r.rawPhone}</span>
+                      <span className="col-span-3 truncate">{r.firstName || '—'}</span>
+                      <span className="col-span-2 truncate">{r.lastName || '—'}</span>
                       <div className="col-span-2 flex justify-end">
-                        <Pill ok={false}>Invalid</Pill>
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-700">Invalid</span>
                       </div>
                     </div>
                   ))}
                 </div>
 
-                {(valid.length > 8 || invalid.length > 3) && (
-                  <div className="px-4 py-2 border-t text-center"
-                    style={{ borderColor: 'var(--bg-border)', background: 'var(--bg-elevated)' }}>
-                    <p className="text-2xs" style={{ color: 'var(--text-muted)' }}>
-                      {valid.length > 8 && `+${valid.length - 8} more valid`}
-                      {valid.length > 8 && invalid.length > 3 && ' · '}
-                      {invalid.length > 3 && `+${invalid.length - 3} more invalid`}
-                    </p>
+                {valid.length > 5 && (
+                  <div className="px-3 py-1.5 bg-[#F8FAFC] border-t border-[#E2E8F0] text-center text-[11px] text-[#64748B]">
+                    +{valid.length - 5} more valid contacts in this batch
                   </div>
                 )}
               </div>
 
-              {/* ── REQUIRED: Consent / opt-in source ────── */}
-              <div>
-                <label className="block text-xs font-semibold mb-1.5"
-                  style={{ color: 'var(--text-secondary)' }}>
-                  How did these contacts give consent?{' '}
-                  <span style={{ color: '#ef4444' }}>*</span>
+              {/* ── Groups / Contact Lists (MNC Standard) ────── */}
+              <div className="space-y-2 pt-2 border-t border-[#E2E8F0]">
+                <label className="block text-xs font-bold text-[#0F172A]">
+                  Audience Group / Contact List
+                </label>
+                <div className="flex flex-wrap gap-2 text-xs">
+                  {lists.length > 0 && (
+                    <label className="flex items-center gap-1.5 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="listOption"
+                        checked={listOption === 'existing'}
+                        onChange={() => setListOption('existing')}
+                        className="text-[#534AB7] focus:ring-[#534AB7]"
+                      />
+                      <span className="font-semibold text-[#0F172A]">Add to Existing List</span>
+                    </label>
+                  )}
+
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="listOption"
+                      checked={listOption === 'new'}
+                      onChange={() => setListOption('new')}
+                      className="text-[#534AB7] focus:ring-[#534AB7]"
+                    />
+                    <span className="font-semibold text-[#0F172A]">Create New List</span>
+                  </label>
+
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="listOption"
+                      checked={listOption === 'none'}
+                      onChange={() => setListOption('none')}
+                      className="text-[#534AB7] focus:ring-[#534AB7]"
+                    />
+                    <span className="text-[#64748B]">No List (Save to All Contacts)</span>
+                  </label>
+                </div>
+
+                {listOption === 'existing' && lists.length > 0 && (
+                  <select
+                    value={selectedList}
+                    onChange={(e) => setSelectedList(e.target.value)}
+                    className="w-full px-3 py-2 text-xs bg-[#FFFFFF] border border-[#CBD5E1] rounded-xl text-[#0F172A] focus:border-[#534AB7] focus:outline-none font-semibold"
+                  >
+                    {lists.map((l) => (
+                      <option key={l.id} value={l.id}>
+                        {l.name} ({l.contact_count || 0} contacts)
+                      </option>
+                    ))}
+                  </select>
+                )}
+
+                {listOption === 'new' && (
+                  <input
+                    type="text"
+                    placeholder="e.g. September 2026 Customer Blast"
+                    value={newListName}
+                    onChange={(e) => setNewListName(e.target.value)}
+                    className="w-full px-3 py-2 text-xs bg-[#FFFFFF] border border-[#CBD5E1] rounded-xl text-[#0F172A] placeholder-[#94A3B8] focus:border-[#534AB7] focus:outline-none"
+                  />
+                )}
+              </div>
+
+              {/* ── Tags / Segment Assignment ────────────────── */}
+              <div className="space-y-1 pt-2 border-t border-[#E2E8F0]">
+                <label className="block text-xs font-bold text-[#0F172A]">
+                  Assign Tags (Optional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. VIP, Customer, Lead, Store Visit (comma separated)"
+                  value={tagsInput}
+                  onChange={(e) => setTagsInput(e.target.value)}
+                  className="w-full px-3 py-2 text-xs bg-[#FFFFFF] border border-[#CBD5E1] rounded-xl text-[#0F172A] placeholder-[#94A3B8] focus:border-[#534AB7] focus:outline-none"
+                />
+                <p className="text-[11px] text-[#64748B]">
+                  Tags enable fast audience filtering, smart segment campaigns, and inbox triage.
+                </p>
+              </div>
+
+              {/* ── Consent / Opt-In Source (Required) ────────── */}
+              <div className="space-y-1 pt-2 border-t border-[#E2E8F0]">
+                <label className="block text-xs font-bold text-[#0F172A]">
+                  How did these contacts give consent? <span className="text-[#E11D48]">*</span>
                 </label>
                 <select
                   value={optInSource}
                   onChange={(e) => setOptInSource(e.target.value)}
-                  className="w-full h-10 rounded-xl px-3 text-sm outline-none"
-                  style={{
-                    background: 'var(--bg-elevated)',
-                    border: `1px solid ${optInSource ? 'var(--bg-border)' : '#ef4444'}`,
-                    color: optInSource ? 'var(--text-primary)' : 'var(--text-muted)',
-                  }}
+                  className="w-full px-3 py-2 text-xs bg-[#FFFFFF] border border-[#CBD5E1] rounded-xl text-[#0F172A] focus:border-[#534AB7] focus:outline-none font-semibold"
                 >
-                  <option value="">— Select consent source (required) —</option>
                   {OPT_IN_SOURCES.map((s) => (
                     <option key={s.value} value={s.value}>{s.label}</option>
                   ))}
                 </select>
-                {!optInSource && (
-                  <p className="text-2xs mt-1" style={{ color: '#f87171' }}>
-                    Required by Meta BSP policy — you must record how consent was obtained.
-                  </p>
-                )}
+                <p className="text-[11px] text-[#64748B]">
+                  Required by Meta WhatsApp Business policies to maintain high phone number quality.
+                </p>
               </div>
-
-              {/* Optional: assign to list */}
-              {lists.length > 0 && (
-                <div>
-                  <label className="block text-xs font-semibold mb-1.5"
-                    style={{ color: 'var(--text-secondary)' }}>
-                    Add to Contact List (optional)
-                  </label>
-                  <select
-                    value={selectedList}
-                    onChange={(e) => setSelectedList(e.target.value)}
-                    className="w-full h-10 rounded-xl px-3 text-sm outline-none"
-                    style={{
-                      background: 'var(--bg-elevated)',
-                      border: '1px solid var(--bg-border)',
-                      color: 'var(--text-primary)',
-                    }}
-                  >
-                    <option value="">— No list —</option>
-                    {lists.map((l) => (
-                      <option key={l.id} value={l.id}>{l.name}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
             </>
           )}
 
-          {/* ── Step: Done ────────────────────────────────── */}
+          {/* ── Step 3: Done ──────────────────────────────────── */}
           {step === 'done' && result && (
-            <div className="flex flex-col items-center py-8 gap-4">
-              <div className="w-16 h-16 rounded-full flex items-center justify-center"
-                style={{ background: 'rgba(29,158,117,0.15)' }}>
-                <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24"
-                  stroke="#1D9E75" strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                </svg>
+            <div className="flex flex-col items-center py-6 gap-4 text-center">
+              <div className="w-16 h-16 rounded-2xl bg-[#E8F9F4] text-[#148059] flex items-center justify-center text-3xl shadow-sm">
+                ✓
               </div>
-              <div className="text-center">
-                <p className="text-lg font-black" style={{ color: 'var(--text-primary)' }}>
-                  Import Complete
-                </p>
-                <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
-                  Your contacts have been added to the database.
+              <div>
+                <h3 className="text-lg font-black text-[#0F172A]">Contacts Imported Successfully</h3>
+                <p className="text-xs text-[#64748B] mt-1">
+                  Your contacts have been processed and saved to your workspace.
                 </p>
               </div>
-              <div className="flex gap-4">
-                {[
-                  { label: 'New', value: result.inserted, color: '#1D9E75' },
-                  { label: 'Updated', value: result.updated, color: '#534AB7' },
-                  { label: 'Skipped', value: result.invalidCount, color: '#f87171' },
-                ].map((s) => (
-                  <div key={s.label} className="flex flex-col items-center gap-1 px-5 py-3 rounded-2xl"
-                    style={{ background: 'var(--bg-elevated)', border: '1px solid var(--bg-border)' }}>
-                    <span className="text-2xl font-black" style={{ color: s.color }}>{s.value}</span>
-                    <span className="text-2xs font-semibold uppercase tracking-wider"
-                      style={{ color: 'var(--text-muted)' }}>{s.label}</span>
-                  </div>
-                ))}
+
+              <div className="grid grid-cols-3 gap-3 w-full max-w-sm mt-2">
+                <div className="p-3 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl">
+                  <p className="text-xl font-black text-[#148059]">{result.inserted}</p>
+                  <p className="text-[10px] font-bold text-[#64748B] uppercase tracking-wider mt-0.5">New Contacts</p>
+                </div>
+                <div className="p-3 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl">
+                  <p className="text-xl font-black text-[#534AB7]">{result.updated}</p>
+                  <p className="text-[10px] font-bold text-[#64748B] uppercase tracking-wider mt-0.5">Updated</p>
+                </div>
+                <div className="p-3 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl">
+                  <p className="text-xl font-black text-red-600">{result.invalidCount}</p>
+                  <p className="text-[10px] font-bold text-[#64748B] uppercase tracking-wider mt-0.5">Skipped</p>
+                </div>
               </div>
             </div>
           )}
-
         </div>
 
-        {/* ── Footer Actions ──────────────────────────────────── */}
-        <div className="flex justify-end gap-3 px-6 py-4 border-t"
-          style={{ borderColor: 'var(--bg-border)', background: 'var(--bg-elevated)' }}>
-
+        {/* ── Footer ─────────────────────────────────────────── */}
+        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-[#E2E8F0] bg-[#FFFFFF] shrink-0">
           {step === 'drop' && (
-            <button onClick={onClose}
-              className="h-10 px-4 rounded-xl text-sm font-semibold transition-all hover:opacity-70"
-              style={{ background: 'var(--bg-card)', border: '1px solid var(--bg-border)', color: 'var(--text-secondary)' }}>
+            <button
+              onClick={onClose}
+              className="px-4 py-2 text-xs font-bold text-[#64748B] hover:text-[#0F172A] transition-colors"
+            >
               Cancel
             </button>
           )}
 
           {step === 'preview' && (
             <>
-              <button onClick={() => setStep('drop')}
-                className="h-10 px-4 rounded-xl text-sm font-semibold transition-all hover:opacity-70"
-                style={{ background: 'var(--bg-card)', border: '1px solid var(--bg-border)', color: 'var(--text-secondary)' }}>
+              <button
+                onClick={() => setStep('drop')}
+                className="px-4 py-2 text-xs font-bold text-[#64748B] hover:text-[#0F172A] transition-colors"
+              >
                 ← Back
               </button>
               <button
                 onClick={handleImport}
-                disabled={importing || valid.length === 0 || !optInSource}
-                className="h-10 px-5 rounded-xl text-sm font-semibold text-white transition-all hover:brightness-110 disabled:opacity-50"
-                style={{ background: 'linear-gradient(135deg,#534AB7,#3B3499)' }}>
+                disabled={importing || valid.length === 0}
+                className="px-5 py-2.5 text-xs font-bold text-white bg-[#534AB7] hover:bg-[#4339A6] rounded-xl transition-all shadow-sm flex items-center gap-2 disabled:opacity-50"
+              >
                 {importing ? (
-                  <span className="flex items-center gap-2">
+                  <>
                     <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="white" strokeWidth="4"/>
-                      <path className="opacity-75" fill="white" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
                     </svg>
-                    Importing…
-                  </span>
+                    <span>Importing...</span>
+                  </>
                 ) : (
-                  `Import ${valid.length.toLocaleString()} Contacts`
+                  <span>Import {valid.length.toLocaleString()} Contacts</span>
                 )}
               </button>
             </>
@@ -555,12 +636,11 @@ export default function CsvContactUploader({ isOpen, onClose, onImported, lists 
           {step === 'done' && (
             <button
               onClick={onClose}
-              className="h-10 px-5 rounded-xl text-sm font-semibold text-white transition-all hover:brightness-110"
-              style={{ background: 'linear-gradient(135deg,#534AB7,#3B3499)' }}>
+              className="px-6 py-2.5 text-xs font-bold text-white bg-[#534AB7] hover:bg-[#4339A6] rounded-xl transition-all shadow-sm"
+            >
               Done
             </button>
           )}
-
         </div>
       </div>
     </div>
