@@ -57,9 +57,9 @@ router.post('/', catchAsync(async (req, res) => {
   const resolvedCategory = (category || 'marketing').toLowerCase();
   if (resolvedCategory === 'marketing') {
     const OPT_OUT_REGEX = /\b(stop|unsubscribe|opt.?out|no more)\b/i;
-    if (!OPT_OUT_REGEX.test(bodyText)) {
+    if (!OPT_OUT_REGEX.test(bodyText) && !OPT_OUT_REGEX.test(footerText || '')) {
       throw new AppError(
-        'Marketing templates must include an opt-out instruction in the message body ' +
+        'Marketing templates must include an opt-out instruction in the message body or footer ' +
         '(e.g. "Reply STOP to unsubscribe"). Meta will reject templates without this.',
         400,
         'ERR_TEMPLATE_NO_OPTOUT'
