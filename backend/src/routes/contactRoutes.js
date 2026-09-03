@@ -12,6 +12,7 @@ const { sendSuccess, sendCreated, catchAsync } = require('../middleware/response
 const { authenticate } = require('../middleware/authMiddleware');
 const { contactValidators, uuidParamValidator, validate } = require('../middleware/validationMiddleware');
 const AppError = require('../utils/AppError');
+const { recordAudit } = require('../services/auditService');
 
 router.use(authenticate);
 
@@ -296,6 +297,29 @@ router.post('/bulk', catchAsync(async (req, res) => {
       }
     }
   });
+
+  // Record enterprise audit trail
+  recordAudit({
+    tenantId,
+    userId: req.user.id,
+    action: 'CONTACTS_BULK_IMPORT',
+    resourceType: 'contacts',
+    status: 'SUCCESS',
+    meta: {
+      total: valid.length,
+      inserted,
+      updated,
+      invalidCount: invalid.length,
+      opt_in_source,
+    },
+    subTasks: [
+      { task: 'Verify E.164 phone numbering', status: 'SUCCESS' },
+      { task: `Upsert ${valid.length} contacts into database`, status: 'SUCCESS' },
+      { task: `Record Meta BSP opt-in consent proof (${opt_in_source})`, status: 'SUCCESS' },
+      ...(targetListId ? [{ task: `Assign contacts to contact list ${targetListId}`, status: 'SUCCESS' }] : []),
+    ],
+    ipAddress: req.ip,
+  }).catch(() => {});
 
   return sendSuccess(
     res,

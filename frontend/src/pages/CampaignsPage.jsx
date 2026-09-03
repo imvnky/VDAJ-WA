@@ -7,8 +7,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { clsx } from 'clsx';
 import { campaignApi, contactApi, templateApi } from '../lib/api';
 import { showSuccess, showError } from '../components/atoms/Toast/Toast.jsx';
-import Button, { PrimaryButton, DangerButton, GhostButton } from '../components/atoms/Button/Button.jsx';
+import Button, { PrimaryButton, DangerButton, GhostButton, SecondaryButton } from '../components/atoms/Button/Button.jsx';
 import Input, { Select, Textarea } from '../components/atoms/Input/Input.jsx';
+import CampaignDetailView from '../components/organisms/CampaignDetailView.jsx';
 
 // ---- Status Badge ----
 const STATUS = {
@@ -465,6 +466,10 @@ export default function CampaignsPage() {
   const [loading, setLoading] = useState(true);
   const [composerOpen, setComposerOpen] = useState(false);
   const [actionLoading, setActionLoading] = useState({});
+  const [selectedCampaignId, setSelectedCampaignId] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('id') || null;
+  });
 
   useEffect(() => {
     const load = async () => {
@@ -520,6 +525,39 @@ export default function CampaignsPage() {
     }
   };
 
+  // If a campaign is selected, render the MNC CampaignDetailView
+  if (selectedCampaignId) {
+    return (
+      <div className="max-w-7xl mx-auto animate-fade-in">
+        <CampaignDetailView
+          campaignId={selectedCampaignId}
+          onBack={() => {
+            setSelectedCampaignId(null);
+            const url = new URL(window.location);
+            url.searchParams.delete('id');
+            window.history.pushState({}, '', url);
+          }}
+          onNewCampaign={() => {
+            setSelectedCampaignId(null);
+            setComposerOpen(true);
+          }}
+        />
+        {/* Composer Modal */}
+        {composerOpen && (
+          <ComposerModal
+            onClose={() => setComposerOpen(false)}
+            onCreated={(c) => {
+              setCampaigns((cs) => [c, ...cs]);
+              setSelectedCampaignId(c.id);
+            }}
+            contactLists={contactLists}
+            templates={templates}
+          />
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-7xl mx-auto space-y-6 animate-fade-in">
       {/* Header */}
@@ -553,7 +591,7 @@ export default function CampaignsPage() {
           <PrimaryButton className="mt-5" onClick={() => setComposerOpen(true)}>Create your first campaign</PrimaryButton>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-4">
           {campaigns.map((c) => {
             const sentPct  = c.total_count  ? Math.round((c.sent_count       / c.total_count)  * 100) : 0;
             const delPct   = c.sent_count   ? Math.round(((c.delivered_count || 0) / c.sent_count)  * 100) : 0;
@@ -562,83 +600,80 @@ export default function CampaignsPage() {
             const isDraft   = c.status === 'draft' || c.status === 'scheduled';
             const al = actionLoading[c.id];
             return (
-              <div key={c.id} className="glass-card px-5 py-4 hover:border-[#534AB7]/40 transition-colors bg-white border border-[#E6E4F5]">
+              <div key={c.id} className="glass-card p-5 hover:border-[#534AB7]/50 transition-all bg-white border border-[#E6E4F5] rounded-2xl shadow-xs">
                 <div className="flex items-start gap-4">
                   <div className="flex-1 min-w-0">
-                    {/* Name + badge */}
+                    {/* Name + badge + list info */}
                     <div className="flex items-center gap-3 flex-wrap">
-                      <h3 className="text-sm font-bold text-[#0F0F0F] truncate">{c.name}</h3>
+                      <button
+                        onClick={() => setSelectedCampaignId(c.id)}
+                        className="text-base font-extrabold text-[#0F172A] hover:text-[#534AB7] transition-colors truncate text-left cursor-pointer"
+                      >
+                        {c.name}
+                      </button>
                       <StatusBadge status={c.status} />
+                      {c.contact_list_name && (
+                        <span className="text-2xs font-semibold px-2 py-0.5 rounded-md bg-gray-100 text-gray-700">
+                          Audience: {c.contact_list_name}
+                        </span>
+                      )}
+                      {c.template_name && (
+                        <span className="text-2xs font-semibold px-2 py-0.5 rounded-md bg-[#F3F2FD] text-[#534AB7]">
+                          Template: {c.template_name}
+                        </span>
+                      )}
                     </div>
 
                     {/* Numerical stats row */}
-                    <div className="flex items-center gap-4 mt-2 flex-wrap">
+                    <div className="flex items-center gap-6 mt-3 flex-wrap">
                       {[
-                        { label: 'Sent',      val: c.sent_count,      pct: sentPct,  color: '#534AB7' },
-                        { label: 'Delivered', val: c.delivered_count, pct: delPct,   color: '#1D9E75' },
-                        { label: 'Read',      val: c.read_count,      pct: readPct,  color: '#3730A3' },
+                        { label: 'Total',     val: c.total_count,     color: '#0F172A' },
+                        { label: 'Sent',      val: c.sent_count,      pct: sentPct,  color: '#2563EB' },
+                        { label: 'Delivered', val: c.delivered_count, pct: delPct,   color: '#16A34A' },
+                        { label: 'Read',      val: c.read_count,      pct: readPct,  color: '#0284C7' },
                         { label: 'Failed',    val: c.failed_count,    pct: null,     color: '#DC2626' },
                       ].map((s) => (
                         <div key={s.label} className="flex flex-col">
-                          <span className="text-2xs text-[#9494A8] font-semibold">{s.label}</span>
-                          <div className="flex items-baseline gap-1">
+                          <span className="text-2xs text-[#9494A8] font-bold uppercase tracking-wider">{s.label}</span>
+                          <div className="flex items-baseline gap-1 mt-0.5">
                             <span
-                              className="text-sm font-black tabular-nums"
+                              className="text-base font-black tabular-nums"
                               style={{ color: (s.val ?? 0) > 0 ? s.color : '#9494A8' }}
                             >
                               {(s.val ?? 0).toLocaleString()}
                             </span>
                             {s.pct !== null && (s.val ?? 0) > 0 && (
                               <span className="text-2xs font-bold" style={{ color: s.color, opacity: 0.8 }}>
-                                {s.pct}%
+                                ({s.pct}%)
                               </span>
                             )}
                           </div>
                         </div>
                       ))}
-
-                      {/* Opt-out count */}
-                      {(c.opt_out_count ?? 0) > 0 && (
-                        <div className="flex flex-col">
-                          <span className="text-2xs text-aura-white/30">Opt-outs</span>
-                          <span className="text-sm font-black tabular-nums text-amber-400">
-                            {c.opt_out_count}
-                          </span>
-                        </div>
-                      )}
                     </div>
 
-                    {/* Progress bar */}
-                    {c.total_count > 0 && (
-                      <div className="mt-3">
-                        {/* Layered bar: sent (brand) + delivered overlay (teal) */}
-                        <div className="relative h-2 rounded-full bg-surface-border overflow-hidden">
-                          {/* Sent layer */}
+                    {/* Progress bar + View details action */}
+                    <div className="mt-4 pt-3 border-t border-gray-100 flex flex-wrap items-center justify-between gap-3">
+                      <div className="flex items-center gap-3 flex-1 min-w-[200px]">
+                        <div className="flex-1 relative h-2 rounded-full bg-gray-100 overflow-hidden">
                           <div
-                            className="absolute inset-y-0 left-0 rounded-full"
-                            style={{ width: `${sentPct}%`, background: 'rgba(83,74,183,0.4)' }}
-                          />
-                          {/* Delivered layer */}
-                          <div
-                            className="absolute inset-y-0 left-0 rounded-full transition-all"
-                            style={{ width: `${delPct * sentPct / 100}%`, background: '#1D9E75' }}
+                            className="absolute inset-y-0 left-0 rounded-full bg-[#534AB7] transition-all"
+                            style={{ width: `${Math.min(sentPct, 100)}%` }}
                           />
                         </div>
-                        <div className="flex items-center justify-between mt-1">
-                          <span className="text-2xs text-aura-white/30">
-                            {sentPct}% sent · {delPct}% delivered · {readPct}% read
-                          </span>
-                          {/* View details placeholder */}
-                          <button
-                            className="text-2xs font-semibold hover:underline transition-colors"
-                            style={{ color: '#AFA9EC' }}
-                            onClick={() => { /* TODO: open campaign detail drawer */ }}
-                          >
-                            View details →
-                          </button>
-                        </div>
+                        <span className="text-2xs text-gray-400 font-medium whitespace-nowrap">
+                          {sentPct}% dispatched
+                        </span>
                       </div>
-                    )}
+
+                      <button
+                        onClick={() => setSelectedCampaignId(c.id)}
+                        className="inline-flex items-center gap-1.5 text-xs font-bold text-[#534AB7] bg-[#F3F2FD] hover:bg-[#E8E6F8] px-3.5 py-1.5 rounded-xl border border-[#AFA9EC]/30 transition-all shadow-2xs cursor-pointer"
+                      >
+                        <span>View Delivery Dashboard & Recipients</span>
+                        <span>→</span>
+                      </button>
+                    </div>
                   </div>
 
                   {/* Actions */}

@@ -229,7 +229,7 @@ const processMessage = async (msg, jobData) => {
 // MAIN PROCESSOR — Handles each chunk job
 // ============================================================
 
-messageQueue.process(QUEUE_CONFIG.CONCURRENCY, async (job) => {
+messageQueue.process('*', QUEUE_CONFIG.CONCURRENCY, async (job) => {
   const { campaignId, tenantId, chunkIndex, totalChunks, messages } = job.data;
 
   logger.info('Processing chunk', {
