@@ -140,8 +140,16 @@ router.post('/bulk', catchAsync(async (req, res) => {
   const invalid = [];
 
   for (const raw of rawContacts) {
-    let phone = String(raw.phoneE164 || '').trim().replace(/[\s\-().]/g, '');
-    if (!phone.startsWith('+')) phone = '+' + phone;
+    let phone = String(raw.phoneE164 || '').trim().replace(/^['"\t]+|['"\t]+$/g, '');
+    if (/^[0-9.]+[eE]\+[0-9]+$/.test(phone)) {
+      try { phone = BigInt(Math.round(Number(phone))).toString(); } catch {}
+    }
+    phone = phone.replace(/[\s\-().]/g, '');
+    if (/^[6-9]\d{9}$/.test(phone)) {
+      phone = '+91' + phone;
+    } else if (!phone.startsWith('+')) {
+      phone = '+' + phone;
+    }
 
     if (!E164_REGEX.test(phone)) {
       invalid.push({ raw: raw.phoneE164, reason: 'invalid_e164' });

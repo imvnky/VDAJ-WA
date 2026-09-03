@@ -14,8 +14,28 @@ import { showSuccess, showError, showWarning } from '../atoms/Toast/Toast.jsx';
 // ── E.164 Sanitiser ───────────────────────────────────────────
 function sanitizeE164(raw) {
   if (!raw) return null;
-  let p = String(raw).trim().replace(/[\s\-().]/g, '');
-  if (!p.startsWith('+')) p = '+' + p;
+  let p = String(raw).trim();
+
+  // Strip leading/trailing single quotes, double quotes, and tabs (Excel text formatting)
+  p = p.replace(/^['"\t]+|['"\t]+$/g, '');
+
+  // Handle Excel scientific notation if exported (e.g. 9.19876E+11)
+  if (/^[0-9.]+[eE]\+[0-9]+$/.test(p)) {
+    try {
+      p = BigInt(Math.round(Number(p))).toString();
+    } catch {}
+  }
+
+  // Strip spaces, dashes, parentheses, dots
+  p = p.replace(/[\s\-().]/g, '');
+
+  // Auto-prefix Indian 10-digit mobile numbers (6xxx, 7xxx, 8xxx, 9xxx) with +91
+  if (/^[6-9]\d{9}$/.test(p)) {
+    p = '+91' + p;
+  } else if (!p.startsWith('+')) {
+    p = '+' + p;
+  }
+
   return /^\+[1-9]\d{7,14}$/.test(p) ? p : null;
 }
 
