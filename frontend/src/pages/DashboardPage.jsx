@@ -434,8 +434,14 @@ export default function DashboardPage() {
 
         const results = await Promise.allSettled(promises);
         if (results[0]?.status === 'fulfilled') setCampaigns(results[0].value?.data || []);
-        if (isSuperAdmin && results[1]?.status === 'fulfilled')
-          setQueueStats(results[1].value?.data || null);
+        if (isSuperAdmin) {
+          const qVal = results[1]?.status === 'fulfilled' ? results[1].value : null;
+          const qData = qVal?.data?.messageQueue ? qVal.data : (qVal?.messageQueue ? qVal : (qVal?.data || null));
+          setQueueStats(qData || {
+            messageQueue: { waiting: 0, active: 0, completed: 0, failed: 0 },
+            deadLetterQueue: { waiting: 0, completed: 0 },
+          });
+        }
       } finally {
         setLoading(false);
       }

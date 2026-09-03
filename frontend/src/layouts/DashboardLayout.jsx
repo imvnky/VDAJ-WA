@@ -263,11 +263,11 @@ export default function DashboardLayout() {
           <NotificationBell />
           <ThemeSwitcher />
 
-          {/* Subscription badge */}
+          {/* Subscription / Plan badge */}
           <span className="hidden sm:flex items-center gap-1.5 h-7 px-3 rounded-full text-2xs font-semibold"
             style={{ background: 'rgba(29,158,117,0.15)', color: '#26C18E', border: '1px solid rgba(29,158,117,0.3)' }}>
             <span className="w-1.5 h-1.5 rounded-full bg-teal-light animate-pulse" />
-            Trial Active
+            {user?.role === 'super_admin' ? 'Enterprise Active' : (tenant?.status === 'active' ? 'Active' : 'Live')}
           </span>
         </header>
 
