@@ -98,7 +98,7 @@ app.use(
     },
     credentials:    true, // Required for HTTP-only cookie auth
     methods:        ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Accept', 'X-Request-ID'],
+    allowedHeaders: ['Content-Type', 'Accept', 'X-Request-ID', 'Authorization', 'X-Requested-With'],
   })
 );
 

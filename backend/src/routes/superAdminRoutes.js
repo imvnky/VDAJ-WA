@@ -288,7 +288,7 @@ router.post('/tenants', catchAsync(async (req, res) => {
     INSERT INTO tenants
       (name, slug, plan, country_code, timezone, max_messages_per_day,
        monthly_message_quota, enabled_features, status, is_active)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'active', TRUE)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, 'active', TRUE)
     RETURNING id, name, slug, plan, status, is_active, enabled_features, created_at`,
     [
       name.trim(),
