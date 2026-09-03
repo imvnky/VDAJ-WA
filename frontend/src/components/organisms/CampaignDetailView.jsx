@@ -31,8 +31,9 @@ function fmtDate(iso) {
 }
 
 function calcPct(part, total) {
-  if (!total || total === 0) return '0%';
-  return `${((part / total) * 100).toFixed(2)}%`;
+  if (!total || total === 0 || !part) return '0%';
+  const pct = Math.min(100, Math.max(0, (part / total) * 100));
+  return `${pct.toFixed(2)}%`;
 }
 
 // ── Status Config ───────────────────────────────────────────────────────
@@ -132,16 +133,16 @@ export default function CampaignDetailView({ campaignId, onBack, onNewCampaign }
     }
 
     const counts = campaign.live_counts || {};
-    const total = campaign.total_count || totalMessages || 1;
     const sent = counts.sent || campaign.sent_count || 0;
     const delivered = counts.delivered || campaign.delivered_count || 0;
     const read = counts.read || campaign.read_count || 0;
     const failed = counts.failed || campaign.failed_count || 0;
     const queued = counts.queued || campaign.queued_count || 0;
+    const total = Math.max(campaign.total_count || 0, totalMessages, sent + delivered + read + failed + queued, 1);
     const accepted = sent + delivered + read;
 
     return {
-      total: campaign.total_count || totalMessages,
+      total: campaign.total_count || totalMessages || total,
       sent,
       delivered,
       read,
