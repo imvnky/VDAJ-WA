@@ -181,6 +181,9 @@ router.post('/bulk', catchAsync(async (req, res) => {
   let newContactIds = [];
 
   await withTransaction(async (client) => {
+    // ── Ensure contacts.tags column exists in DB (idempotent) ──
+    await client.query(`ALTER TABLE contacts ADD COLUMN IF NOT EXISTS tags TEXT[] DEFAULT '{}'`);
+
     // ── Create or resolve target listId ───────────────────────
     let targetListId = listId || null;
 
@@ -188,6 +191,7 @@ router.post('/bulk', catchAsync(async (req, res) => {
       const { rows: [createdList] } = await client.query(
         `INSERT INTO contact_lists (tenant_id, name, description, created_by)
          VALUES ($1, $2, $3, $4)
+         ON CONFLICT (tenant_id, name) DO UPDATE SET updated_at = NOW()
          RETURNING id`,
         [tenantId, newListName.trim(), 'Created during contact import', req.user.id]
       );
@@ -224,7 +228,7 @@ router.post('/bulk', catchAsync(async (req, res) => {
            custom_vars = contacts.custom_vars || EXCLUDED.custom_vars,
            tags        = CASE
                            WHEN array_length($7::text[], 1) > 0
-                           THEN array(SELECT DISTINCT UNNEST(COALESCE(contacts.tags, '{}'::text[]) || $7::text[]))
+                           THEN COALESCE(contacts.tags, '{}'::text[]) || $7::text[]
                            ELSE contacts.tags
                          END,
            updated_at  = NOW()

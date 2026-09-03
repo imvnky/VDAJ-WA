@@ -230,7 +230,7 @@ app.use(globalErrorHandler);
 // HTTP SERVER
 // ============================================================
 
-const server = app.listen(PORT, () => {
+const server = app.listen(PORT, async () => {
   logger.info('VDAJ Services backend running', {
     port:       PORT,
     env:        process.env.NODE_ENV,
@@ -242,6 +242,15 @@ const server = app.listen(PORT, () => {
       'webhooks', 'admin/queue',
     ],
   });
+
+  // Ensure database schema columns are up to date
+  try {
+    const { query: dbQuery } = require('./config/database');
+    await dbQuery(`ALTER TABLE contacts ADD COLUMN IF NOT EXISTS tags TEXT[] DEFAULT '{}'`);
+    await dbQuery(`CREATE INDEX IF NOT EXISTS idx_contacts_tags ON contacts USING GIN(tags)`);
+  } catch (err) {
+    logger.warn('Schema auto-migration notice:', { message: err.message });
+  }
 });
 
 // ============================================================
