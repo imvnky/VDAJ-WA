@@ -86,11 +86,18 @@ app.use(
 app.use(
   cors({
     origin: (origin, callback) => {
-      const allowed = (process.env.CORS_ORIGIN || '').split(',').map((o) => o.trim());
+      const defaults = [
+        'https://wa.vdajservices.com',
+        'https://vdajservices.com',
+        'http://localhost:3000',
+        'http://localhost:5173',
+      ];
+      const envAllowed = (process.env.CORS_ORIGIN || '').split(',').map((o) => o.trim()).filter(Boolean);
+      const allowed = [...defaults, ...envAllowed];
       if (process.env.FRONTEND_URL) {
         allowed.push(process.env.FRONTEND_URL.trim());
       }
-      if (!origin || allowed.includes(origin)) {
+      if (!origin || allowed.includes(origin) || origin.endsWith('.vdajservices.com')) {
         callback(null, true);
       } else {
         callback(new Error(`CORS: Origin ${origin} not permitted.`));
