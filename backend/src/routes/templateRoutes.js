@@ -141,24 +141,41 @@ router.get('/:id', catchAsync(async (req, res) => {
 
 // ── POST /templates/:id/sync — Pull latest Meta approval status ─
 router.post('/:id/sync', catchAsync(async (req, res) => {
+  const isSuperAdmin = req.user.role === 'super_admin';
   const { rows: [template] } = await query(
     `SELECT * FROM message_templates
-     WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL`,
-    [req.params.id, req.user.tenantId]
+     WHERE id = $1 AND (tenant_id = $2 OR $3 = TRUE) AND deleted_at IS NULL`,
+    [req.params.id, req.user.tenantId, isSuperAdmin]
   );
   if (!template) throw new AppError('Template not found.', 404, 'ERR_VDAJ_TMPL_001');
 
+  // Resolve tenant credentials (handles both tenant users and super_admin)
+  let tenant = req.tenant;
+  if (!tenant?.wabaId && template.tenant_id) {
+    const { rows: [t] } = await query(
+      `SELECT waba_id, meta_system_token, phone_number_id FROM tenants WHERE id = $1`,
+      [template.tenant_id]
+    );
+    if (t) {
+      tenant = {
+        wabaId: t.waba_id,
+        metaSystemToken: t.meta_system_token,
+        phoneNumberId: t.phone_number_id,
+      };
+    }
+  }
+
+  const { wabaId, metaSystemToken } = tenant || {};
+  if (!wabaId || !metaSystemToken) {
+    throw new AppError(
+      'WhatsApp not configured for this template\'s tenant. Connect at /whatsapp-setup first.',
+      400,
+      'ERR_META_006'
+    );
+  }
+
   if (!template.meta_template_id) {
     // Not yet submitted — attempt initial submission now
-    const { wabaId, metaSystemToken } = req.tenant || {};
-    if (!wabaId || !metaSystemToken) {
-      throw new AppError(
-        'WhatsApp not configured. Connect at /whatsapp-setup first.',
-        400,
-        'ERR_META_006'
-      );
-    }
-
     const { metaTemplateId, status: metaStatus } = await createMetaTemplate(
       { wabaId, accessToken: metaSystemToken },
       template
@@ -176,10 +193,6 @@ router.post('/:id/sync', catchAsync(async (req, res) => {
   }
 
   // Already submitted — poll Meta for current approval status
-  const { wabaId, metaSystemToken } = req.tenant || {};
-  if (!wabaId || !metaSystemToken) {
-    throw new AppError('WhatsApp credentials missing.', 400, 'ERR_META_006');
-  }
 
   const { status: metaStatus, rejectionReason } = await syncMetaTemplateStatus(
     wabaId,
