@@ -354,8 +354,8 @@ router.get('/:id', uuidParamValidator('id'), validate, catchAsync(async (req, re
           ORDER BY created_at ASC
           LIMIT 1
        ) oe ON TRUE
-      WHERE c.id = $1 AND c.tenant_id = $2 AND c.deleted_at IS NULL`,
-    [contactId, tenantId]
+      WHERE c.id = $1 AND (c.tenant_id = $2 OR $3 = TRUE)`,
+    [contactId, tenantId, req.user.role === 'super_admin']
   );
   if (!contact) throw new AppError('Contact not found.', 404, 'ERR_VDAJ_CONT_001');
 
@@ -384,19 +384,19 @@ router.get('/:id', uuidParamValidator('id'), validate, catchAsync(async (req, re
        FROM campaign_messages cm
        JOIN campaigns ca ON ca.id = cm.campaign_id
       WHERE cm.contact_id = $1
-        AND ca.tenant_id  = $2
+        AND (ca.tenant_id = $2 OR $3 = TRUE)
       ORDER BY cm.created_at DESC
       LIMIT 20`,
-    [contactId, tenantId]
+    [contactId, tenantId, req.user.role === 'super_admin']
   );
 
   // 4. Active inbox conversation thread (if exists)
   const { rows: [conversation] } = await query(
     `SELECT id FROM inbox_conversations
-      WHERE contact_id = $1 AND tenant_id = $2
+      WHERE contact_id = $1 AND (tenant_id = $2 OR $3 = TRUE)
       ORDER BY last_message_at DESC
       LIMIT 1`,
-    [contactId, tenantId]
+    [contactId, tenantId, req.user.role === 'super_admin']
   );
 
   return sendSuccess(res, {
@@ -420,12 +420,43 @@ router.patch('/:id/tags', uuidParamValidator('id'), validate, catchAsync(async (
 
   const { rows: [contact] } = await query(
     `UPDATE contacts SET tags = $3, updated_at = NOW()
-      WHERE id = $1 AND tenant_id = $2
+      WHERE id = $1 AND (tenant_id = $2 OR $4 = TRUE)
       RETURNING id, tags`,
-    [req.params.id, req.user.tenantId, clean]
+    [req.params.id, req.user.tenantId, clean, req.user.role === 'super_admin']
   );
   if (!contact) throw new AppError('Contact not found.', 404, 'ERR_VDAJ_CONT_001');
   return sendSuccess(res, contact, 'Tags updated.');
+}));
+
+// ── PATCH /contacts/:id/status — Toggle between active & opted_out ────
+router.patch('/:id/status', uuidParamValidator('id'), validate, catchAsync(async (req, res) => {
+  const { status } = req.body;
+  if (!['active', 'opted_out'].includes(status)) {
+    throw new AppError('Status must be either "active" or "opted_out".', 400, 'ERR_VDAJ_VAL_001');
+  }
+
+  const tenantId = req.user.tenantId || req.tenant?.id;
+  const isActivating = status === 'active';
+
+  const { rows: [contact] } = await query(
+    `UPDATE contacts
+     SET status       = $1,
+         opted_out_at = $2,
+         opted_in_at  = CASE WHEN $3 = TRUE AND opted_in_at IS NULL THEN NOW() ELSE opted_in_at END,
+         updated_at   = NOW()
+     WHERE id = $4 AND (tenant_id = $5 OR $6 = TRUE)
+     RETURNING id, phone_e164, status`,
+    [
+      status,
+      isActivating ? null : new Date(),
+      isActivating,
+      req.params.id,
+      tenantId,
+      req.user.role === 'super_admin',
+    ]
+  );
+  if (!contact) throw new AppError('Contact not found.', 404, 'ERR_VDAJ_CONT_001');
+  return sendSuccess(res, contact, `Contact status changed to ${status}.`);
 }));
 
 // ── PATCH /contacts/:id/opt-out ────────────────────────────────
@@ -433,9 +464,9 @@ router.patch('/:id/opt-out', uuidParamValidator('id'), validate, catchAsync(asyn
   const { rows: [contact] } = await query(
     `UPDATE contacts
      SET status = 'opted_out', opted_out_at = NOW(), updated_at = NOW()
-     WHERE id = $1 AND tenant_id = $2
+     WHERE id = $1 AND (tenant_id = $2 OR $3 = TRUE)
      RETURNING id, phone_e164, status`,
-    [req.params.id, req.user.tenantId]
+    [req.params.id, req.user.tenantId, req.user.role === 'super_admin']
   );
   if (!contact) throw new AppError('Contact not found.', 404, 'ERR_VDAJ_CONT_001');
   return sendSuccess(res, contact, 'Contact opted out.');

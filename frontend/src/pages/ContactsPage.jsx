@@ -95,37 +95,38 @@ function Avatar({ contact }) {
   );
 }
 
-// ── Opt-out toggle ──────────────────────────────────────────────
-function OptOutToggle({ contact, onToggle }) {
+// ── Status toggle (Active <-> Inactive) ─────────────────────────
+function StatusToggle({ contact, onToggle }) {
   const [loading, setLoading] = useState(false);
   const isActive = contact.status === 'active';
 
   const handleToggle = async (e) => {
-    e.preventDefault(); e.stopPropagation(); // don't navigate to detail
-    if (!isActive) return;
+    e.preventDefault();
+    e.stopPropagation(); // don't navigate to detail
     setLoading(true);
     try {
-      await contactApi.optOut(contact.id);
-      onToggle(contact.id);
-    } catch {} finally { setLoading(false); }
+      const nextStatus = isActive ? 'opted_out' : 'active';
+      await contactApi.toggleStatus(contact.id, nextStatus);
+      onToggle(contact.id, nextStatus);
+      showSuccess(nextStatus === 'active' ? 'Contact reactivated.' : 'Contact marked as inactive.');
+    } catch {} finally {
+      setLoading(false);
+    }
   };
 
   return (
     <button
       onClick={handleToggle}
-      disabled={loading || !isActive}
-      title={isActive ? 'Mark as opted out' : 'Opted out'}
+      disabled={loading}
+      title={isActive ? 'Active (Click to mark inactive)' : 'Inactive (Click to reactivate)'}
       className={clsx(
-        'relative inline-flex h-5 w-9 items-center rounded-full',
-        'transition-colors duration-200',
-        !isActive && 'cursor-not-allowed opacity-50',
+        'relative inline-flex h-5 w-9 items-center rounded-full transition-colors duration-200 cursor-pointer',
         loading && 'opacity-60'
       )}
-      style={{ background: isActive ? '#1D9E75' : 'var(--bg-border)' }}
+      style={{ background: isActive ? '#1D9E75' : '#CBD5E1' }}
     >
       <span className={clsx(
-        'inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow',
-        'transition-transform duration-200',
+        'inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform duration-200',
         isActive ? 'translate-x-[18px]' : 'translate-x-0.5'
       )} />
     </button>
@@ -204,8 +205,8 @@ export default function ContactsPage() {
     return () => clearTimeout(t);
   }, [searchInput]); // eslint-disable-line
 
-  const handleOptOut = (id) => {
-    setContacts((cs) => cs.map((c) => c.id === id ? { ...c, status: 'opted_out' } : c));
+  const handleStatusChange = (id, newStatus) => {
+    setContacts((cs) => cs.map((c) => (c.id === id ? { ...c, status: newStatus } : c)));
   };
 
   const handleImported = (result) => {
@@ -390,9 +391,9 @@ export default function ContactsPage() {
                   ))}
                 </div>
 
-                {/* Opt-out toggle */}
+                {/* Status toggle (Active <-> Inactive) */}
                 <div className="col-span-2 flex justify-end">
-                  <OptOutToggle contact={c} onToggle={handleOptOut} />
+                  <StatusToggle contact={c} onToggle={handleStatusChange} />
                 </div>
               </Link>
             ))
