@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VDAJ Services LLP — Enterprise WhatsApp Business Solutions</title>
+  <meta name="description" content="Official WhatsApp Business Solutions by VDAJ Services LLP. Multi-agent team inbox, automated broadcast campaigns, interactive chatbot flows, and verified customer messaging.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --brand: #534AB7;
+      --brand-light: #AFA9EC;
+      --brand-dark: #3730A3;
+      --teal: #1D9E75;
+      --teal-light: #26C18E;
+      --bg: #09090b;
+      --card: #121217;
+      --card-border: rgba(255, 255, 255, 0.08);
+      --text: #F4F4F5;
+      --text-muted: #A1A1AA;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+    .glow-top {
+      position: absolute;
+      top: -200px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 900px;
+      height: 500px;
+      background: radial-gradient(circle, rgba(83, 74, 183, 0.28) 0%, rgba(29, 158, 117, 0.12) 50%, transparent 80%);
+      filter: blur(80px);
+      pointer-events: none;
+      z-index: 0;
+    }
+    header {
+      position: relative;
+      z-index: 10;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 1.5rem 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+      color: #fff;
+    }
+    .logo-mark {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      overflow: hidden;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: 1fr 1fr;
+    }
+    .logo-mark div:nth-child(1) { background: #534AB7; }
+    .logo-mark div:nth-child(2) { background: #AFA9EC; }
+    .logo-mark div:nth-child(3) { background: #AFA9EC; }
+    .logo-mark div:nth-child(4) { background: #1D9E75; }
+    .logo-text { font-size: 20px; font-weight: 800; letter-spacing: -0.5px; }
+    .logo-text span { color: var(--brand-light); font-weight: 600; font-size: 13px; margin-left: 4px; text-transform: uppercase; letter-spacing: 1px; }
+    .nav-links { display: flex; gap: 2rem; align-items: center; }
+    .nav-links a { color: var(--text-muted); text-decoration: none; font-size: 14px; font-weight: 500; transition: color 0.2s; }
+    .nav-links a:hover { color: #fff; }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 0.7rem 1.4rem;
+      border-radius: 12px;
+      font-weight: 600;
+      font-size: 14px;
+      text-decoration: none;
+      transition: all 0.2s ease;
+      cursor: pointer;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--brand) 0%, var(--brand-dark) 100%);
+      color: #fff;
+      border: 1px solid rgba(175, 169, 236, 0.3);
+      box-shadow: 0 4px 20px rgba(83, 74, 183, 0.4);
+    }
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 24px rgba(83, 74, 183, 0.6);
+    }
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.05);
+      color: #fff;
+      border: 1px solid var(--card-border);
+    }
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+    .hero {
+      position: relative;
+      z-index: 5;
+      max-width: 1000px;
+      margin: 4rem auto 5rem;
+      text-align: center;
+      padding: 0 1.5rem;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      border-radius: 9999px;
+      background: rgba(83, 74, 183, 0.15);
+      border: 1px solid rgba(175, 169, 236, 0.25);
+      color: var(--brand-light);
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 1.5rem;
+    }
+    .badge-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--teal-light); }
+    h1 {
+      font-size: clamp(2.5rem, 5vw, 4rem);
+      font-weight: 800;
+      letter-spacing: -1.5px;
+      line-height: 1.15;
+      margin-bottom: 1.5rem;
+    }
+    h1 .gradient-text {
+      background: linear-gradient(135deg, #FFFFFF 30%, var(--brand-light) 70%, var(--teal-light) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .hero p {
+      font-size: clamp(1rem, 2vw, 1.25rem);
+      color: var(--text-muted);
+      max-width: 720px;
+      margin: 0 auto 2.5rem;
+      line-height: 1.6;
+    }
+    .hero-actions { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+    .features {
+      max-width: 1200px;
+      margin: 0 auto 6rem;
+      padding: 0 1.5rem;
+    }
+    .section-title {
+      text-align: center;
+      margin-bottom: 3.5rem;
+    }
+    .section-title h2 {
+      font-size: 2.2rem;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      margin-bottom: 0.8rem;
+    }
+    .section-title p { color: var(--text-muted); font-size: 16px; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 1.5rem;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      border-radius: 20px;
+      padding: 2.2rem;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+    .card:hover {
+      border-color: rgba(175, 169, 236, 0.3);
+      transform: translateY(-4px);
+    }
+    .card-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      margin-bottom: 1.5rem;
+      background: rgba(83, 74, 183, 0.15);
+      border: 1px solid rgba(83, 74, 183, 0.3);
+    }
+    .card h3 { font-size: 1.25rem; font-weight: 700; margin-bottom: 0.75rem; }
+    .card p { color: var(--text-muted); font-size: 14px; line-height: 1.6; }
+    .about-box {
+      max-width: 1200px;
+      margin: 0 auto 6rem;
+      padding: 3rem;
+      background: linear-gradient(135deg, rgba(83, 74, 183, 0.1) 0%, rgba(29, 158, 117, 0.05) 100%);
+      border: 1px solid var(--card-border);
+      border-radius: 24px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 3rem;
+      align-items: center;
+    }
+    .about-info h3 { font-size: 2rem; font-weight: 700; margin-bottom: 1rem; }
+    .about-info p { color: var(--text-muted); font-size: 15px; margin-bottom: 1.5rem; }
+    .contact-details { list-style: none; display: flex; flex-direction: column; gap: 0.8rem; }
+    .contact-details li { display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--text); }
+    footer {
+      border-top: 1px solid var(--card-border);
+      padding: 3rem 1.5rem;
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1.5rem;
+      color: var(--text-muted);
+      font-size: 13px;
+    }
+    .footer-links { display: flex; gap: 1.5rem; }
+    .footer-links a { color: var(--text-muted); text-decoration: none; transition: color 0.2s; }
+    .footer-links a:hover { color: #fff; }
+    @media (max-width: 768px) {
+      .about-box { grid-template-columns: 1fr; padding: 2rem; }
+      .nav-links { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="glow-top"></div>
+  <header>
+    <a href="/" class="logo">
+      <div class="logo-mark">
+        <div></div><div></div><div></div><div></div>
+      </div>
+      <div class="logo-text">VDAJ<span>Services</span></div>
+    </a>
+    <nav class="nav-links">
+      <a href="#features">Features</a>
+      <a href="#about">About</a>
+      <a href="https://wa.vdajservices.com/legal/privacy" target="_blank">Privacy</a>
+      <a href="https://wa.vdajservices.com/legal/terms" target="_blank">Terms</a>
+    </nav>
+    <a href="https://wa.vdajservices.com/login" class="btn btn-primary">Client Portal →</a>
+  </header>
+
+  <section class="hero">
+    <div class="badge">
+      <div class="badge-dot"></div>
+      Meta Business Tech Provider & Solutions
+    </div>
+    <h1>Scale Customer Conversations with <span class="gradient-text">Enterprise WhatsApp Automation</span></h1>
+    <p>Empower your organization with multi-agent team inbox, automated broadcast campaigns, interactive flow builder, and verified Meta WhatsApp Business Platform APIs.</p>
+    <div class="hero-actions">
+      <a href="https://wa.vdajservices.com/login" class="btn btn-primary">Access WhatsApp Portal</a>
+      <a href="mailto:info@vdajservices.com" class="btn btn-secondary">Contact Enterprise Sales</a>
+    </div>
+  </section>
+
+  <section class="features" id="features">
+    <div class="section-title">
+      <h2>Built for Modern Business Communication</h2>
+      <p>A reliable, scalable communication stack tailored for organizations and tech-enabled enterprises.</p>
+    </div>
+    <div class="grid">
+      <div class="card">
+        <div class="card-icon">💬</div>
+        <h3>Multi-Agent Team Inbox</h3>
+        <p>Enable support and sales teams to collaborate in real-time on unified WhatsApp conversation threads with smart assignment and agent tags.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">📢</div>
+        <h3>High-Throughput Broadcasts</h3>
+        <p>Deliver personalized notifications, order alerts, and marketing campaigns with real-time delivery and read tracking at scale.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">⚡</div>
+        <h3>Visual Chatbots & Flows</h3>
+        <p>Automate 24/7 lead qualification, booking systems, appointment confirmations, and customer FAQs without writing code.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">🔗</div>
+        <h3>Embedded Client Onboarding</h3>
+        <p>Seamless 1-click WhatsApp Business Account connection for multi-tenant businesses with direct Meta Embedded Signup.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">📊</div>
+        <h3>Actionable Analytics</h3>
+        <p>Monitor campaign delivery rates, message reads, incoming inquiries, agent response speeds, and WhatsApp quality ratings in real-time.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">🛡️</div>
+        <h3>Privacy & Compliance Built-in</h3>
+        <p>Strict data segregation, end-to-end encryption, automated STOP opt-out handlers, and full GDPR / DPDP compliance.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="about-box" id="about">
+    <div class="about-info">
+      <h3>About VDAJ Services LLP</h3>
+      <p>VDAJ Services LLP is an Indian registered technology provider delivering enterprise software and communication solutions. We provide scalable infrastructure enabling businesses to modernize customer engagement through verified WhatsApp APIs.</p>
+      <ul class="contact-details">
+        <li>🏢 <strong>Legal Entity:</strong> VDAJ Services LLP</li>
+        <li>✉️ <strong>Official Inquiries:</strong> <a href="mailto:info@vdajservices.com" style="color:var(--brand-light); text-decoration:none;">info@vdajservices.com</a></li>
+        <li>📞 <strong>Support Phone:</strong> +91 80077 73138</li>
+        <li>🌐 <strong>Headquarters:</strong> Maharashtra, India</li>
+      </ul>
+    </div>
+    <div class="card" style="background: rgba(18,18,23,0.85);">
+      <h3 style="margin-bottom:1rem;">Ready to get started?</h3>
+      <p style="margin-bottom:1.5rem;">Join forward-thinking businesses managing customer relationships at scale with VDAJ Services WhatsApp Platform.</p>
+      <a href="https://wa.vdajservices.com/login" class="btn btn-primary" style="width:100%;">Sign In to Workspace</a>
+    </div>
+  </section>
+
+  <footer>
+    <div>© 2025 VDAJ Services LLP. All rights reserved.</div>
+    <div class="footer-links">
+      <a href="https://wa.vdajservices.com/legal/privacy" target="_blank">Privacy Policy</a>
+      <a href="https://wa.vdajservices.com/legal/terms" target="_blank">Terms of Service</a>
+      <a href="https://wa.vdajservices.com/login">Portal</a>
+      <a href="mailto:info@vdajservices.com">Support</a>
+    </div>
+  </footer>
+</body>
+</html>
