@@ -193,6 +193,10 @@ export const superAdminApi = {
   exitImpersonation: ()              => client.post('/admin/impersonate/exit'),
 };
 
+// ---- AUDIT TRAIL ----
+export const auditApi = {
+  list: (params, config = {}) => client.get('/audit', { params, ...config }),
+};
 
 export default client;
 
