@@ -16,12 +16,12 @@ import CsvContactUploader from '../components/organisms/CsvContactUploader.jsx';
 
 // ── Tag color palette (deterministic from tag string) ──────────
 const TAG_PALETTE = [
-  { bg: 'rgba(83,74,183,0.12)',  color: '#AFA9EC',  border: 'rgba(83,74,183,0.25)'  },
-  { bg: 'rgba(29,158,117,0.12)', color: '#1D9E75',  border: 'rgba(29,158,117,0.25)' },
-  { bg: 'rgba(245,158,11,0.12)', color: '#f59e0b',  border: 'rgba(245,158,11,0.25)' },
-  { bg: 'rgba(96,165,250,0.12)', color: '#60a5fa',  border: 'rgba(96,165,250,0.25)' },
-  { bg: 'rgba(248,113,113,0.12)',color: '#f87171',  border: 'rgba(248,113,113,0.25)'},
-  { bg: 'rgba(52,211,153,0.12)', color: '#34d399',  border: 'rgba(52,211,153,0.25)' },
+  { bg: '#F3F2FD', color: '#534AB7', border: '#E6E4F5' },
+  { bg: '#E8F9F4', color: '#148059', border: '#A3E4D0' },
+  { bg: '#FFFBEB', color: '#B45309', border: '#FDE68A' },
+  { bg: '#EFF6FF', color: '#1D4ED8', border: '#BFDBFE' },
+  { bg: '#FEF2F2', color: '#DC2626', border: '#FECACA' },
+  { bg: '#ECFDF5', color: '#047857', border: '#A7F3D0' },
 ];
 function tagColor(tag) {
   let h = 0;

@@ -14,19 +14,19 @@ import Input, { Select, Textarea } from '../components/atoms/Input/Input.jsx';
 
 // ── Category badge styles ──────────────────────────────────────
 const CATEGORY_STYLES = {
-  MARKETING:      { bg: 'rgba(83,74,183,0.12)',  color: '#AFA9EC',  border: 'rgba(83,74,183,0.3)'  },
-  UTILITY:        { bg: 'rgba(29,158,117,0.12)', color: '#1D9E75',  border: 'rgba(29,158,117,0.3)' },
-  AUTHENTICATION: { bg: 'rgba(251,191,36,0.12)', color: '#fbbf24',  border: 'rgba(251,191,36,0.3)' },
+  MARKETING:      { bg: '#F3F2FD', color: '#534AB7', border: '#E6E4F5' },
+  UTILITY:        { bg: '#E8F9F4', color: '#148059', border: '#A3E4D0' },
+  AUTHENTICATION: { bg: '#FFFBEB', color: '#B45309', border: '#FDE68A' },
 };
 
 // ── Status badge styles ────────────────────────────────────────
 const STATUS_STYLES = {
-  APPROVED:  { bg: 'rgba(29,158,117,0.12)', color: '#1D9E75', border: 'rgba(29,158,117,0.3)', label: 'Approved'  },
-  approved:  { bg: 'rgba(29,158,117,0.12)', color: '#1D9E75', border: 'rgba(29,158,117,0.3)', label: 'Approved'  },
-  pending:   { bg: 'rgba(251,191,36,0.12)', color: '#fbbf24', border: 'rgba(251,191,36,0.3)', label: 'Pending'   },
-  PENDING:   { bg: 'rgba(251,191,36,0.12)', color: '#fbbf24', border: 'rgba(251,191,36,0.3)', label: 'Pending'   },
-  REJECTED:  { bg: 'rgba(239,68,68,0.10)',  color: '#f87171', border: 'rgba(239,68,68,0.25)', label: 'Rejected'  },
-  rejected:  { bg: 'rgba(239,68,68,0.10)',  color: '#f87171', border: 'rgba(239,68,68,0.25)', label: 'Rejected'  },
+  APPROVED:  { bg: '#E8F9F4', color: '#148059', border: '#A3E4D0', label: 'Approved'  },
+  approved:  { bg: '#E8F9F4', color: '#148059', border: '#A3E4D0', label: 'Approved'  },
+  pending:   { bg: '#FFFBEB', color: '#B45309', border: '#FDE68A', label: 'Pending'   },
+  PENDING:   { bg: '#FFFBEB', color: '#B45309', border: '#FDE68A', label: 'Pending'   },
+  REJECTED:  { bg: '#FEF2F2', color: '#DC2626', border: '#FECACA', label: 'Rejected'  },
+  rejected:  { bg: '#FEF2F2', color: '#DC2626', border: '#FECACA', label: 'Rejected'  },
 };
 
 // ── Badge component ────────────────────────────────────────────

@@ -208,7 +208,7 @@ export default function MetaOnboardingPage() {
             { num: '4', title: 'Start Sending', desc: 'Account is linked. Go to Campaigns and launch your first message.' },
           ].map((step) => (
             <div key={step.num} style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem' }}>
-              <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(83,74,183,0.15)', border: '1px solid rgba(83,74,183,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: '#AFA9EC', flexShrink: 0 }}>
+              <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#F3F2FD', border: '1px solid #E6E4F5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: '#534AB7', flexShrink: 0 }}>
                 {step.num}
               </div>
               <div>

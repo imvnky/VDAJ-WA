@@ -278,20 +278,23 @@ function ConvoCard({ conv, active, onClick }) {
 // ── Message Bubble ────────────────────────────────────────────
 function MessageBubble({ msg }) {
   const isOut = msg.direction === 'outbound';
-  const statusIcon = { sent: '✓', delivered: '✓✓', read: <span style={{ color: '#53BDEB' }}>✓✓</span>, failed: '✗' };
+  const statusIcon = { sent: '✓', delivered: '✓✓', read: <span className="text-[#26C18E] font-bold">✓✓</span>, failed: '✗' };
   return (
     <div className={clsx('flex', isOut ? 'justify-end' : 'justify-start')}>
-      <div className={clsx('max-w-[75%] rounded-2xl px-3.5 py-2.5', isOut ? 'rounded-tr-sm' : 'rounded-tl-sm')}
-        style={{ background: isOut ? '#005C4B' : 'var(--bg-elevated)', border: `1px solid var(--bg-border)` }}>
+      <div className={clsx(
+        'max-w-[75%] rounded-2xl px-4 py-2.5 shadow-sm',
+        isOut
+          ? 'rounded-tr-sm bg-[#534AB7] text-white border border-[#4338CA]'
+          : 'rounded-tl-sm bg-white text-[#0F0F0F] border border-[#E6E4F5]'
+      )}>
         {msg.sender_name && !isOut && (
-          <p className="text-2xs font-semibold mb-1" style={{ color: '#AFA9EC' }}>{msg.sender_name}</p>
+          <p className="text-2xs font-bold mb-1 text-[#534AB7]">{msg.sender_name}</p>
         )}
-        <p className="text-sm leading-relaxed whitespace-pre-wrap break-words"
-          style={{ color: isOut ? '#fff' : 'var(--text-primary)' }}>
+        <p className={clsx('text-sm leading-relaxed whitespace-pre-wrap break-words', isOut ? 'text-white' : 'text-[#0F0F0F]')}>
           {msg.body}
         </p>
-        <div className="flex items-center justify-end gap-1 mt-1">
-          <span className="text-2xs" style={{ color: isOut ? 'rgba(255,255,255,0.4)' : 'var(--text-muted)' }}>
+        <div className="flex items-center justify-end gap-1.5 mt-1">
+          <span className={clsx('text-2xs', isOut ? 'text-white/70' : 'text-[#9494A8]')}>
             {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
           </span>
           {isOut && <span className="text-2xs">{statusIcon[msg.status] || '✓'}</span>}
@@ -632,14 +635,14 @@ export default function InboxPage() {
 
   // ── Tab pill ──────────────────────────────────────────────
   const tabStyle = (active) => ({
-    background: active ? '#534AB7' : 'var(--bg-elevated)',
-    color:      active ? '#fff'    : 'var(--text-secondary)',
-    border:     `1px solid ${active ? '#534AB7' : 'var(--bg-border)'}`,
+    background: active ? '#534AB7' : '#F8F7FF',
+    color:      active ? '#FFFFFF' : '#5A5A6E',
+    border:     `1px solid ${active ? '#534AB7' : '#E6E4F5'}`,
   });
 
   return (
-    <div className="h-[calc(100vh-4rem)] flex rounded-2xl overflow-hidden"
-      style={{ border: '1px solid var(--bg-border)', background: 'var(--bg-card)' }}>
+    <div className="h-[calc(100vh-4rem)] flex rounded-2xl overflow-hidden bg-white"
+      style={{ border: '1px solid #E6E4F5' }}>
 
       {/* ── Left: Conversation List ── */}
       <div className="w-80 flex flex-col shrink-0 border-r" style={{ borderColor: 'var(--bg-border)' }}>
@@ -800,8 +803,7 @@ export default function InboxPage() {
               </div>
             ) : (
               <div>
-                <div className="flex items-end gap-3 p-3 rounded-2xl"
-                  style={{ background: 'var(--bg-elevated)', border: '1px solid var(--bg-border)' }}>
+                <div className="flex items-end gap-3 p-3 rounded-2xl bg-[#F8F7FF] border border-[#E6E4F5]">
                   <textarea
                     ref={replyRef}
                     rows={2}
@@ -809,21 +811,20 @@ export default function InboxPage() {
                     onChange={(e) => setReplyText(e.target.value)}
                     onKeyDown={handleKeyDown}
                     placeholder="Type a reply… (Enter to send, Shift+Enter for newline)"
-                    className="flex-1 bg-transparent text-sm resize-none outline-none"
-                    style={{ color: 'var(--text-primary)' }}
+                    className="flex-1 bg-transparent text-sm resize-none outline-none text-[#0F0F0F] placeholder:text-[#9494A8]"
                   />
                   <button onClick={() => setShowPicker(true)} title="Send a template"
-                    className="w-10 h-10 rounded-xl flex items-center justify-center transition-all shrink-0 hover:opacity-80"
-                    style={{ background: 'var(--bg-card)', border: '1px solid var(--bg-border)' }}>
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} style={{ color: '#AFA9EC' }}>
+                    className="w-10 h-10 rounded-xl flex items-center justify-center transition-all shrink-0 hover:bg-[#F3F2FD] bg-white border border-[#E6E4F5] text-[#534AB7]">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round"
                         d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
                   </button>
                   <button onClick={sendReply} disabled={sending || !replyText.trim()}
-                    className="w-10 h-10 rounded-xl flex items-center justify-center transition-all shrink-0"
+                    className="w-10 h-10 rounded-xl flex items-center justify-center transition-all shrink-0 font-bold"
                     style={{
-                      background: sending || !replyText.trim() ? 'var(--bg-border)' : 'linear-gradient(135deg,#534AB7,#3B3499)',
+                      background: sending || !replyText.trim() ? '#E6E4F5' : '#534AB7',
+                      color: sending || !replyText.trim() ? '#9494A8' : '#FFFFFF',
                       cursor: sending || !replyText.trim() ? 'not-allowed' : 'pointer',
                     }}>
                     {sending ? (
@@ -838,7 +839,7 @@ export default function InboxPage() {
                     )}
                   </button>
                 </div>
-                <p className="text-2xs mt-2 text-center" style={{ color: 'var(--text-muted)' }}>
+                <p className="text-2xs mt-2 text-center text-[#9494A8]">
                   Replies send via WhatsApp Business API · 24h service window applies
                 </p>
               </div>

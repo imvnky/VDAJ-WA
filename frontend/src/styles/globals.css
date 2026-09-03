@@ -5,87 +5,37 @@
 @tailwind utilities;
 
 /* ============================================================
-   VDAJ SERVICES — DESIGN TOKENS (CSS Custom Properties)
-   3 Themes: dark (default) | light | colorful
+   VDAJ SERVICES — MNC ENTERPRISE LIGHT THEME (Brandkit Grounded)
+   Strict Light Palette: Aura White, Pure White, VDAJ Purple, Signal Teal, Deep Black
    ============================================================ */
 
-/* ── DARK MODE (default) ── */
 :root,
-[data-theme="dark"] {
-  --bg-base:        #0F0F0F;
-  --bg-elevated:    #1A1A2E;
-  --bg-card:        #16213E;
-  --bg-border:      #2A2A4A;
-  --bg-hover:       rgba(83,74,183,0.08);
-
-  --text-primary:   #F8F7FF;
-  --text-secondary: rgba(248,247,255,0.55);
-  --text-muted:     rgba(248,247,255,0.25);
-
-  --brand:          #534AB7;
-  --brand-light:    #AFA9EC;
-  --brand-dark:     #3B3499;
-  --teal:           #1D9E75;
-  --teal-light:     #26C18E;
-
-  --shadow-card:    0 4px 24px rgba(0,0,0,0.4);
-  --shadow-brand:   0 4px 20px rgba(83,74,183,0.35);
-  --sidebar-bg:     #0D0D22;
-  --sidebar-active: rgba(83,74,183,0.25);
-  --sidebar-text:   rgba(248,247,255,0.7);
-  --topbar-bg:      rgba(13,13,34,0.9);
-}
-
-/* ── LIGHT MODE ── */
-[data-theme="light"] {
+[data-theme="light"],
+[data-theme="dark"],
+[data-theme="colorful"] {
   --bg-base:        #F8F7FF;
   --bg-elevated:    #FFFFFF;
   --bg-card:        #FFFFFF;
-  --bg-border:      #E2E0F5;
-  --bg-hover:       rgba(83,74,183,0.06);
+  --bg-border:      #E6E4F5;
+  --bg-hover:       rgba(83, 74, 183, 0.05);
 
-  --text-primary:   #1A1A2E;
-  --text-secondary: rgba(26,26,46,0.6);
-  --text-muted:     rgba(26,26,46,0.35);
-
-  --brand:          #534AB7;
-  --brand-light:    #7A73C9;
-  --brand-dark:     #3B3499;
-  --teal:           #1D9E75;
-  --teal-light:     #148059;
-
-  --shadow-card:    0 2px 16px rgba(83,74,183,0.1);
-  --shadow-brand:   0 4px 20px rgba(83,74,183,0.2);
-  --sidebar-bg:     #FFFFFF;
-  --sidebar-active: rgba(83,74,183,0.1);
-  --sidebar-text:   rgba(26,26,46,0.7);
-  --topbar-bg:      rgba(255,255,255,0.95);
-}
-
-/* ── COLORFUL (Outlook-style: rich purple nav) ── */
-[data-theme="colorful"] {
-  --bg-base:        #F0EEF9;
-  --bg-elevated:    #FFFFFF;
-  --bg-card:        #FFFFFF;
-  --bg-border:      #D4CFEE;
-  --bg-hover:       rgba(83,74,183,0.08);
-
-  --text-primary:   #1A1A2E;
-  --text-secondary: rgba(26,26,46,0.65);
-  --text-muted:     rgba(26,26,46,0.4);
+  --text-primary:   #0F0F0F;
+  --text-secondary: #5A5A6E;
+  --text-muted:     #9494A8;
 
   --brand:          #534AB7;
   --brand-light:    #AFA9EC;
-  --brand-dark:     #3B3499;
+  --brand-dark:     #3730A3;
   --teal:           #1D9E75;
   --teal-light:     #26C18E;
+  --teal-dark:      #148059;
 
-  --shadow-card:    0 2px 16px rgba(83,74,183,0.12);
-  --shadow-brand:   0 4px 20px rgba(83,74,183,0.3);
-  --sidebar-bg:     #534AB7;
-  --sidebar-active: rgba(255,255,255,0.18);
-  --sidebar-text:   rgba(255,255,255,0.85);
-  --topbar-bg:      #3B3499;
+  --shadow-card:    0 1px 3px rgba(83, 74, 183, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-brand:   0 4px 16px rgba(83, 74, 183, 0.22);
+  --sidebar-bg:     #FFFFFF;
+  --sidebar-active: #F3F2FD;
+  --sidebar-text:   #5A5A6E;
+  --topbar-bg:      rgba(255, 255, 255, 0.92);
 }
 
 /* ============================================================
@@ -143,25 +93,28 @@
     backdrop-filter: blur(12px);
     box-shadow: var(--shadow-card);
   }
-  [data-theme="dark"] .glass-card {
-    background: linear-gradient(145deg, rgba(83,74,183,0.06) 0%, rgba(22,33,62,0.5) 100%);
+  .glass-card {
+    background: #FFFFFF;
+    border: 1px solid var(--bg-border);
+    border-radius: 1rem;
+    box-shadow: 0 4px 20px -2px rgba(83, 74, 183, 0.08);
   }
 
   /* ── GRADIENT TEXT ── */
   .text-gradient {
-    background: linear-gradient(135deg, #AFA9EC 0%, #534AB7 50%, #1D9E75 100%);
+    background: linear-gradient(135deg, #534AB7 0%, #3730A3 60%, #1D9E75 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
 
   /* ── BADGE SYSTEM ── */
-  .badge { @apply inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold; }
-  .badge-brand   { @apply badge; background: rgba(83,74,183,0.15); color: #AFA9EC; border: 1px solid rgba(83,74,183,0.3); }
-  .badge-teal    { @apply badge; background: rgba(29,158,117,0.15); color: #26C18E; border: 1px solid rgba(29,158,117,0.3); }
-  .badge-error   { @apply badge; background: rgba(239,68,68,0.15); color: #f87171; border: 1px solid rgba(239,68,68,0.3); }
-  .badge-warning { @apply badge; background: rgba(245,158,11,0.15); color: #fbbf24; border: 1px solid rgba(245,158,11,0.3); }
-  .badge-muted   { @apply badge; background: var(--bg-elevated); color: var(--text-muted); border: 1px solid var(--bg-border); }
+  .badge { @apply inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold; }
+  .badge-brand   { @apply badge; background: #F3F2FD; color: #534AB7; border: 1px solid #E6E4F5; }
+  .badge-teal    { @apply badge; background: #E8F9F4; color: #148059; border: 1px solid #A3E4D0; }
+  .badge-error   { @apply badge; background: #FEF2F2; color: #DC2626; border: 1px solid #FECACA; }
+  .badge-warning { @apply badge; background: #FFFBEB; color: #B45309; border: 1px solid #FDE68A; }
+  .badge-muted   { @apply badge; background: #F8F7FF; color: #5A5A6E; border: 1px solid #E6E4F5; }
 
   /* ── FOCUS RING ── */
   .focus-ring {

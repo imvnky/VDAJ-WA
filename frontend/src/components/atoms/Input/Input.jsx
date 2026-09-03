@@ -96,7 +96,7 @@ const Input = forwardRef(
 
     const inputBaseClasses = clsx(
       // Layout
-      'w-full bg-surface-elevated text-aura-white placeholder:text-aura-white/30',
+      'w-full bg-white text-[#0F0F0F] placeholder:text-[#9494A8]',
       'border transition-all duration-200 outline-none',
       // Size
       INPUT_SIZES[size],
@@ -105,9 +105,9 @@ const Input = forwardRef(
       hasRight && 'pr-10',
       // State — normal
       !hasError && !disabled && [
-        'border-surface-border',
-        'hover:border-brand/50',
-        'focus:border-brand focus:ring-2 focus:ring-brand/20',
+        'border-[#E6E4F5]',
+        'hover:border-[#534AB7]/50',
+        'focus:border-[#534AB7] focus:ring-2 focus:ring-[#534AB7]/15',
       ],
       // State — error
       hasError && [
@@ -115,9 +115,9 @@ const Input = forwardRef(
         'focus:border-red-500 focus:ring-2 focus:ring-red-500/20',
       ],
       // State — disabled
-      disabled && 'opacity-50 cursor-not-allowed bg-surface-card border-surface-border',
+      disabled && 'opacity-50 cursor-not-allowed bg-[#F8F7FF] border-[#E6E4F5]',
       // State — read-only
-      readOnly && 'cursor-default bg-surface-card',
+      readOnly && 'cursor-default bg-[#F8F7FF]',
       // Custom
       inputClassName
     );
@@ -129,13 +129,13 @@ const Input = forwardRef(
           <label
             htmlFor={inputId}
             className={clsx(
-              'font-medium text-aura-white/80',
+              'font-semibold text-[#0F0F0F]',
               LABEL_SIZES[size],
               disabled && 'opacity-50'
             )}
           >
             {label}
-            {required && <span className="ml-1 text-red-400" aria-hidden="true">*</span>}
+            {required && <span className="ml-1 text-red-500" aria-hidden="true">*</span>}
           </label>
         )}
 
@@ -143,7 +143,7 @@ const Input = forwardRef(
         <div className="relative flex items-center">
           {/* Left Icon */}
           {hasLeft && (
-            <span className="absolute left-3 text-aura-white/40 pointer-events-none" aria-hidden="true">
+            <span className="absolute left-3 text-[#9494A8] pointer-events-none" aria-hidden="true">
               {leftIcon}
             </span>
           )}
@@ -170,7 +170,7 @@ const Input = forwardRef(
                 <button
                   type="button"
                   onClick={() => setShowPassword((v) => !v)}
-                  className="text-aura-white/40 hover:text-soft-aura transition-colors focus-ring rounded"
+                  className="text-[#9494A8] hover:text-[#534AB7] transition-colors focus-ring rounded"
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
                   tabIndex={-1}
                 >
@@ -185,14 +185,14 @@ const Input = forwardRef(
 
         {/* HELPER / ERROR TEXT */}
         {hasError ? (
-          <p id={errorId} role="alert" className="text-xs text-red-400 flex items-center gap-1">
+          <p id={errorId} role="alert" className="text-xs text-red-600 flex items-center gap-1">
             <svg className="w-3 h-3 shrink-0" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
             </svg>
             {error}
           </p>
         ) : helperText ? (
-          <p id={helperId} className="text-xs text-aura-white/40">{helperText}</p>
+          <p id={helperId} className="text-xs text-[#5A5A6E]">{helperText}</p>
         ) : null}
       </div>
     );
@@ -217,9 +217,9 @@ export const Textarea = forwardRef(
     return (
       <div className={clsx('flex flex-col gap-1.5', className)}>
         {label && (
-          <label htmlFor={inputId} className="text-sm font-medium text-aura-white/80">
+          <label htmlFor={inputId} className="text-sm font-semibold text-[#0F0F0F]">
             {label}
-            {required && <span className="ml-1 text-red-400" aria-hidden="true">*</span>}
+            {required && <span className="ml-1 text-red-500" aria-hidden="true">*</span>}
           </label>
         )}
         <textarea
@@ -230,24 +230,24 @@ export const Textarea = forwardRef(
           aria-invalid={hasError}
           aria-describedby={hasError ? errorId : undefined}
           className={clsx(
-            'w-full min-h-[120px] bg-surface-elevated text-aura-white placeholder:text-aura-white/30',
+            'w-full min-h-[120px] bg-white text-[#0F0F0F] placeholder:text-[#9494A8]',
             'border rounded-xl px-4 py-3 text-sm resize-y transition-all duration-200 outline-none',
             !hasError ? [
-              'border-surface-border hover:border-brand/50',
-              'focus:border-brand focus:ring-2 focus:ring-brand/20',
+              'border-[#E6E4F5] hover:border-[#534AB7]/50',
+              'focus:border-[#534AB7] focus:ring-2 focus:ring-[#534AB7]/15',
             ] : [
               'border-red-500/60 focus:border-red-500 focus:ring-2 focus:ring-red-500/20',
             ],
-            disabled && 'opacity-50 cursor-not-allowed',
+            disabled && 'opacity-50 cursor-not-allowed bg-[#F8F7FF]',
             inputClassName
           )}
           {...rest}
         />
         {hasError && (
-          <p id={errorId} role="alert" className="text-xs text-red-400">{error}</p>
+          <p id={errorId} role="alert" className="text-xs text-red-600">{error}</p>
         )}
         {!hasError && helperText && (
-          <p className="text-xs text-aura-white/40">{helperText}</p>
+          <p className="text-xs text-[#5A5A6E]">{helperText}</p>
         )}
       </div>
     );
@@ -269,9 +269,9 @@ export const Select = forwardRef(
     return (
       <div className={clsx('flex flex-col gap-1.5', className)}>
         {label && (
-          <label htmlFor={inputId} className="text-sm font-medium text-aura-white/80">
+          <label htmlFor={inputId} className="text-sm font-semibold text-[#0F0F0F]">
             {label}
-            {required && <span className="ml-1 text-red-400">*</span>}
+            {required && <span className="ml-1 text-red-500">*</span>}
           </label>
         )}
         <div className="relative">
@@ -282,15 +282,15 @@ export const Select = forwardRef(
             required={required}
             aria-invalid={hasError}
             className={clsx(
-              'w-full h-11 bg-surface-elevated text-aura-white appearance-none cursor-pointer',
+              'w-full h-11 bg-white text-[#0F0F0F] appearance-none cursor-pointer',
               'border rounded-xl px-4 pr-10 text-sm transition-all duration-200 outline-none',
               !hasError ? [
-                'border-surface-border hover:border-brand/50',
-                'focus:border-brand focus:ring-2 focus:ring-brand/20',
+                'border-[#E6E4F5] hover:border-[#534AB7]/50',
+                'focus:border-[#534AB7] focus:ring-2 focus:ring-[#534AB7]/15',
               ] : [
                 'border-red-500/60 focus:border-red-500 focus:ring-2 focus:ring-red-500/20',
               ],
-              disabled && 'opacity-50 cursor-not-allowed',
+              disabled && 'opacity-50 cursor-not-allowed bg-[#F8F7FF]',
               inputClassName
             )}
             {...rest}
@@ -303,14 +303,14 @@ export const Select = forwardRef(
             ))}
           </select>
           {/* Chevron */}
-          <span className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-aura-white/40">
+          <span className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-[#5A5A6E]">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
               <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
             </svg>
           </span>
         </div>
-        {hasError && <p role="alert" className="text-xs text-red-400">{error}</p>}
-        {!hasError && helperText && <p className="text-xs text-aura-white/40">{helperText}</p>}
+        {hasError && <p role="alert" className="text-xs text-red-600">{error}</p>}
+        {!hasError && helperText && <p className="text-xs text-[#5A5A6E]">{helperText}</p>}
       </div>
     );
   }

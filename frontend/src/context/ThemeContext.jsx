@@ -10,44 +10,25 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 const ThemeContext = createContext(null);
 
 export const THEMES = {
-  dark:     { id: 'dark',     label: 'Dark',     icon: '🌙' },
-  light:    { id: 'light',    label: 'Light',    icon: '☀️' },
-  colorful: { id: 'colorful', label: 'Colorful', icon: '🎨' },
+  light: { id: 'light', label: 'Light', icon: '☀️' },
 };
 
 const STORAGE_KEY = 'vdaj_theme';
 
 export function ThemeProvider({ children }) {
-  const [theme, setThemeState] = useState(() => {
-    if (typeof window === 'undefined') return 'dark';
-    return localStorage.getItem(STORAGE_KEY) || 'dark';
-  });
-
-  const applyTheme = useCallback((t) => {
-    document.documentElement.setAttribute('data-theme', t);
-    // Also set color-scheme for native browser elements
-    document.documentElement.style.colorScheme = t === 'light' ? 'light' : 'dark';
-  }, []);
+  const [theme] = useState('light');
 
   useEffect(() => {
-    applyTheme(theme);
-  }, [theme, applyTheme]);
+    document.documentElement.setAttribute('data-theme', 'light');
+    document.documentElement.style.colorScheme = 'light';
+    localStorage.setItem(STORAGE_KEY, 'light');
+  }, []);
 
-  const setTheme = useCallback((t) => {
-    if (!THEMES[t]) return;
-    setThemeState(t);
-    localStorage.setItem(STORAGE_KEY, t);
-    applyTheme(t);
-  }, [applyTheme]);
-
-  const cycleTheme = useCallback(() => {
-    const order = ['dark', 'light', 'colorful'];
-    const next = order[(order.indexOf(theme) + 1) % order.length];
-    setTheme(next);
-  }, [theme, setTheme]);
+  const setTheme = useCallback(() => {}, []);
+  const cycleTheme = useCallback(() => {}, []);
 
   return (
-    <ThemeContext.Provider value={{ theme, setTheme, cycleTheme, themes: THEMES }}>
+    <ThemeContext.Provider value={{ theme: 'light', setTheme, cycleTheme, themes: THEMES }}>
       {children}
     </ThemeContext.Provider>
   );

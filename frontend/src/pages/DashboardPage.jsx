@@ -535,11 +535,11 @@ export default function DashboardPage() {
 
       {/* ── Header ─────────────────────────────────────────────── */}
       <div>
-        <h1 className="text-2xl font-bold text-[#0F0F0F] dark:text-[#F8F7FF]">
+        <h1 className="text-2xl font-bold text-[#0F0F0F]">
           Good {greeting},{' '}
           <span className="text-gradient">{user?.firstName}</span> 👋
         </h1>
-        <p className="text-sm text-[#5A5A6E] dark:text-slate-400 mt-1">
+        <p className="text-sm text-[#5A5A6E] mt-1">
           Here's your platform overview for today.
         </p>
       </div>

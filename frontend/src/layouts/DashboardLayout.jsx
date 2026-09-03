@@ -12,33 +12,10 @@ import { clsx } from 'clsx';
 import useAuthStore from '../store/authStore';
 import { authApi } from '../lib/api';
 import { showSuccess } from '../components/atoms/Toast/Toast.jsx';
-import { useTheme } from '../context/ThemeContext.jsx';
 import Logo from '../components/atoms/Logo.jsx';
 import NotificationBell, { useNotificationWS } from '../components/NotificationBell.jsx';
 import UpdateBanner from '../components/organisms/UpdateBanner.jsx';
 import ImpersonationBanner from '../components/ImpersonationBanner.jsx';
-
-// ─── Theme Switcher Button ─────────────────────────────────────
-function ThemeSwitcher() {
-  const { theme, cycleTheme } = useTheme();
-  const icons = { dark: '🌙', light: '☀️', colorful: '🎨' };
-  const labels = { dark: 'Dark', light: 'Light', colorful: 'Colorful' };
-  return (
-    <button
-      onClick={cycleTheme}
-      title={`Switch theme (current: ${labels[theme]})`}
-      className="flex items-center gap-1.5 h-9 px-3 rounded-xl text-sm font-medium transition-all duration-200"
-      style={{
-        background: 'var(--bg-elevated)',
-        border: '1px solid var(--bg-border)',
-        color: 'var(--text-secondary)',
-      }}
-    >
-      <span className="text-base">{icons[theme]}</span>
-      <span className="hidden sm:block text-xs">{labels[theme]}</span>
-    </button>
-  );
-}
 
 const NAV_ITEMS = [
   {
@@ -83,7 +60,6 @@ export default function DashboardLayout() {
   const { user, tenant, clearAuth } = useAuthStore();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { theme } = useTheme();
 
   const handleLogout = async () => {
     try { await authApi.logout(); } catch {}
@@ -95,18 +71,14 @@ export default function DashboardLayout() {
   // Mount global WS notification listener (message, WABA, campaign, template events)
   useNotificationWS();
 
-  const isColorful = theme === 'colorful';
-
   const sidebarStyle = {
-    background: 'var(--sidebar-bg)',
-    borderRight: '1px solid var(--bg-border)',
+    background: '#FFFFFF',
+    borderRight: '1px solid #E6E4F5',
   };
 
   const topbarStyle = {
-    background: 'var(--topbar-bg)',
-    // Explicit border — visible in all 3 theme modes, overrides var(--bg-border) default
-    borderBottom: '1px solid var(--bg-border)',
-    boxShadow: 'inset 0 -1px 0 0 #E6E4F5',
+    background: 'rgba(255, 255, 255, 0.95)',
+    borderBottom: '1px solid #E6E4F5',
     backdropFilter: 'blur(12px)',
   };
 
@@ -114,11 +86,11 @@ export default function DashboardLayout() {
     <>
       <UpdateBanner />
       <ImpersonationBanner />
-      <div className="flex h-screen overflow-hidden" style={{ background: 'var(--bg-base)' }}>
+      <div className="flex h-screen overflow-hidden" style={{ background: '#F8F7FF' }}>
       {/* Mobile overlay */}
       {mobileOpen && (
         <div
-          className="fixed inset-0 z-30 bg-black/60 lg:hidden"
+          className="fixed inset-0 z-30 bg-black/40 lg:hidden"
           onClick={() => setMobileOpen(false)}
         />
       )}
@@ -132,22 +104,18 @@ export default function DashboardLayout() {
         style={sidebarStyle}
       >
         {/* Logo Area */}
-        <div className="flex items-center gap-3 px-5 py-5 shrink-0">
+        <div className="flex items-center gap-3 px-5 py-5 shrink-0 border-b border-[#E6E4F5]/60">
           <Logo size={36} />
-          <button className="ml-auto lg:hidden" onClick={() => setMobileOpen(false)} style={{ color: isColorful ? '#fff' : 'var(--text-muted)' }}>✕</button>
+          <button className="ml-auto lg:hidden text-[#9494A8] hover:text-[#0F0F0F]" onClick={() => setMobileOpen(false)}>✕</button>
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 overflow-y-auto px-3 pb-4 space-y-5 no-scrollbar">
+        <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-5 no-scrollbar">
           {NAV_ITEMS.map((section) => {
-            // Hide entire section if it has a role restriction
             if (section.role && !section.role.includes(user?.role)) return null;
-            // Hide section if all items would be hidden (feature-gated)
             const enabledFeats = tenant?.enabledFeatures || null;
             const visibleItems = section.items.filter((item) => {
-              // Items with explicit role restriction
               if (item.role && !item.role.includes(user?.role)) return false;
-              // Items with feature flag — super_admin always sees everything
               if (item.feature && user?.role !== 'super_admin' && enabledFeats) {
                 return enabledFeats.includes(item.feature);
               }
@@ -156,8 +124,7 @@ export default function DashboardLayout() {
             if (visibleItems.length === 0) return null;
             return (
               <div key={section.section}>
-                <p className="px-2 mb-1 text-2xs font-bold uppercase tracking-widest"
-                  style={{ color: isColorful ? 'rgba(255,255,255,0.65)' : 'var(--text-muted)' }}>
+                <p className="px-3 mb-1.5 text-2xs font-bold uppercase tracking-wider text-[#9494A8]">
                   {section.section}
                 </p>
                 {visibleItems.map((item) => (
@@ -168,22 +135,16 @@ export default function DashboardLayout() {
                     className={({ isActive }) => clsx(
                       'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 mb-0.5',
                       isActive
-                        ? (isColorful ? 'bg-white/18 text-white font-semibold' : 'bg-brand/15 text-brand-light font-semibold')
-                        : 'hover:opacity-80'
+                        ? 'bg-[#F3F2FD] text-[#534AB7] font-bold shadow-sm'
+                        : 'text-[#5A5A6E] hover:bg-[#F8F7FF] hover:text-[#0F0F0F]'
                     )}
-                    style={({ isActive }) => ({
-                      color: isActive
-                        ? (isColorful ? '#fff' : '#AFA9EC')
-                        : (isColorful ? 'rgba(255,255,255,0.75)' : 'var(--sidebar-text)'),
-                      background: isActive ? 'var(--sidebar-active)' : undefined,
-                    })}
                   >
                     <span className="w-4 h-4 shrink-0 opacity-90">{item.icon}</span>
                     <span className="flex-1">{item.label}</span>
                     {item.badge && (
                       <span className={clsx(
                         'text-2xs px-1.5 py-0.5 rounded-md font-bold',
-                        item.badge === 'Live' ? 'bg-teal/20 text-teal-light' : 'bg-brand/20 text-brand-light'
+                        item.badge === 'Live' ? 'bg-[#E8F9F4] text-[#1D9E75]' : 'bg-[#F3F2FD] text-[#534AB7]'
                       )}>
                         {item.badge}
                       </span>
@@ -196,23 +157,21 @@ export default function DashboardLayout() {
         </nav>
 
         {/* User Card */}
-        <div className="px-3 py-3 shrink-0 border-t" style={{ borderColor: isColorful ? 'rgba(255,255,255,0.1)' : 'var(--bg-border)' }}>
-          <div className="flex items-center gap-3 px-2 py-2 rounded-xl"
-            style={{ background: isColorful ? 'rgba(255,255,255,0.08)' : 'var(--bg-elevated)' }}>
-            <div className="w-8 h-8 rounded-full bg-brand-gradient flex items-center justify-center text-xs font-bold text-white shrink-0">
+        <div className="px-3 py-3 shrink-0 border-t border-[#E6E4F5]">
+          <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-[#F8F7FF] border border-[#E6E4F5]/80">
+            <div className="w-8 h-8 rounded-full bg-[#534AB7] flex items-center justify-center text-xs font-bold text-white shrink-0">
               {user?.firstName?.[0]?.toUpperCase() || 'U'}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold truncate" style={{ color: isColorful ? '#fff' : 'var(--text-primary)' }}>
+              <p className="text-xs font-bold text-[#0F0F0F] truncate">
                 {user?.firstName} {user?.lastName}
               </p>
-              <p className="text-2xs truncate" style={{ color: isColorful ? 'rgba(255,255,255,0.45)' : 'var(--text-muted)' }}>
+              <p className="text-2xs text-[#9494A8] truncate uppercase font-semibold">
                 {user?.role?.replace('_', ' ')}
               </p>
             </div>
             <button onClick={handleLogout} title="Logout"
-              className="shrink-0 opacity-50 hover:opacity-100 transition-opacity"
-              style={{ color: isColorful ? '#fff' : 'var(--text-secondary)' }}>
+              className="shrink-0 text-[#9494A8] hover:text-[#DC2626] transition-colors">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h6a2 2 0 012 2v1" />
               </svg>
@@ -220,30 +179,28 @@ export default function DashboardLayout() {
           </div>
         </div>
 
-        {/* Legal Footer — required for Meta App Review */}
+        {/* Legal Footer */}
         <div className="px-4 pb-3 shrink-0">
-          <div className="flex items-center gap-2 flex-wrap" style={{ fontSize: 10 }}>
+          <div className="flex items-center gap-2 flex-wrap text-2xs text-[#9494A8]">
             <a
               href="/legal/privacy"
               target="_blank"
               rel="noopener noreferrer"
-              className="hover:opacity-100 transition-opacity"
-              style={{ color: isColorful ? 'rgba(255,255,255,0.35)' : 'var(--text-muted)', textDecoration: 'none', opacity: 0.7 }}
+              className="hover:text-[#534AB7] transition-colors"
             >
               Privacy
             </a>
-            <span style={{ color: isColorful ? 'rgba(255,255,255,0.2)' : 'var(--bg-border)' }}>·</span>
+            <span>·</span>
             <a
               href="/legal/terms"
               target="_blank"
               rel="noopener noreferrer"
-              className="hover:opacity-100 transition-opacity"
-              style={{ color: isColorful ? 'rgba(255,255,255,0.35)' : 'var(--text-muted)', textDecoration: 'none', opacity: 0.7 }}
+              className="hover:text-[#534AB7] transition-colors"
             >
               Terms
             </a>
-            <span style={{ color: isColorful ? 'rgba(255,255,255,0.2)' : 'var(--bg-border)' }}>·</span>
-            <span style={{ color: isColorful ? 'rgba(255,255,255,0.25)' : 'var(--text-muted)', opacity: 0.6 }}>VDAJ Services LLP</span>
+            <span>·</span>
+            <span>VDAJ Services LLP</span>
           </div>
         </div>
       </aside>
@@ -252,7 +209,7 @@ export default function DashboardLayout() {
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Topbar */}
         <header className="flex items-center gap-4 px-4 sm:px-6 h-16 shrink-0 z-20" style={topbarStyle}>
-          <button className="lg:hidden" onClick={() => setMobileOpen(true)} style={{ color: 'var(--text-secondary)' }}>
+          <button className="lg:hidden text-[#5A5A6E] hover:text-[#0F0F0F]" onClick={() => setMobileOpen(true)}>
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
             </svg>
@@ -261,12 +218,11 @@ export default function DashboardLayout() {
           <div className="flex-1" />
 
           <NotificationBell />
-          <ThemeSwitcher />
 
           {/* Subscription / Plan badge */}
           <span className="hidden sm:flex items-center gap-1.5 h-7 px-3 rounded-full text-2xs font-semibold"
-            style={{ background: 'rgba(29,158,117,0.15)', color: '#26C18E', border: '1px solid rgba(29,158,117,0.3)' }}>
-            <span className="w-1.5 h-1.5 rounded-full bg-teal-light animate-pulse" />
+            style={{ background: '#E8F9F4', color: '#148059', border: '1px solid #A3E4D0' }}>
+            <span className="w-1.5 h-1.5 rounded-full bg-[#1D9E75] animate-pulse" />
             {user?.role === 'super_admin' ? 'Enterprise Active' : (tenant?.status === 'active' ? 'Active' : 'Live')}
           </span>
         </header>

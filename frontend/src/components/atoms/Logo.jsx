@@ -6,40 +6,35 @@
 import React from 'react';
 
 export default function Logo({ size = 36 }) {
-  const cell = size / 2;
   return (
     <div className="flex items-center gap-3 select-none">
-      {/* 2×2 grid mark */}
+      {/* Official 2×2 brandkit grid mark */}
       <svg
         width={size}
         height={size}
-        viewBox={`0 0 ${size} ${size}`}
+        viewBox="0 0 60 60"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
-        className="shrink-0 rounded-lg overflow-hidden"
+        className="shrink-0"
         aria-label="VDAJ logo mark"
       >
-        {/* Top-Left — brand purple */}
-        <rect x={0}      y={0}      width={cell} height={cell} fill="#534AB7" />
-        {/* Top-Right — soft aura */}
-        <rect x={cell}   y={0}      width={cell} height={cell} fill="#AFA9EC" />
-        {/* Bottom-Left — soft aura */}
-        <rect x={0}      y={cell}   width={cell} height={cell} fill="#AFA9EC" />
-        {/* Bottom-Right — signal teal */}
-        <rect x={cell}   y={cell}   width={cell} height={cell} fill="#1D9E75" />
+        <rect x="8" y="8" width="20" height="20" rx="3" fill="#534AB7" />
+        <rect x="32" y="8" width="20" height="20" rx="3" fill="#AFA9EC" />
+        <rect x="8" y="32" width="20" height="20" rx="3" fill="#AFA9EC" />
+        <rect x="32" y="32" width="20" height="20" rx="3" fill="#1D9E75" />
       </svg>
 
       {/* Wordmark */}
       <div className="flex flex-col leading-none">
         <span
-          className="font-black tracking-tight"
-          style={{ fontFamily: "'Inter', sans-serif", fontSize: size * 0.38, color: 'var(--text-primary)' }}
+          className="font-extrabold tracking-tight"
+          style={{ fontFamily: "'Inter', sans-serif", fontSize: size * 0.42, color: '#0F0F0F' }}
         >
           VDAJ
         </span>
         <span
-          className="font-semibold uppercase tracking-widest"
-          style={{ fontFamily: "'Inter', sans-serif", fontSize: size * 0.22, color: 'var(--text-muted)', letterSpacing: '0.15em' }}
+          className="font-bold uppercase tracking-widest"
+          style={{ fontFamily: "'Inter', sans-serif", fontSize: size * 0.22, color: '#534AB7', letterSpacing: '0.18em', marginTop: '2px' }}
         >
           Services
         </span>

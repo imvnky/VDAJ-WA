@@ -12,18 +12,18 @@ import Input, { Select, Textarea } from '../components/atoms/Input/Input.jsx';
 
 // ---- Status Badge ----
 const STATUS = {
-  draft:     { label: 'Draft',     cls: 'bg-surface-elevated text-aura-white/50 border-surface-border' },
-  scheduled: { label: 'Scheduled', cls: 'bg-soft-aura/10 text-soft-aura border-soft-aura/30' },
-  running:   { label: 'Running',   cls: 'bg-brand/20 text-soft-aura border-brand/30' },
-  paused:    { label: 'Paused',    cls: 'bg-amber-500/20 text-amber-400 border-amber-500/30' },
-  completed: { label: 'Done',      cls: 'bg-signal-teal/20 text-teal-light border-signal-teal/30' },
-  failed:    { label: 'Failed',    cls: 'bg-red-500/20 text-red-400 border-red-500/30' },
+  draft:     { label: 'Draft',     cls: 'bg-[#F8F7FF] text-[#5A5A6E] border-[#E6E4F5]' },
+  scheduled: { label: 'Scheduled', cls: 'bg-[#F3F2FD] text-[#534AB7] border-[#E6E4F5]' },
+  running:   { label: 'Running',   cls: 'bg-[#F3F2FD] text-[#534AB7] border-[#AFA9EC]' },
+  paused:    { label: 'Paused',    cls: 'bg-amber-50 text-amber-700 border-amber-200' },
+  completed: { label: 'Done',      cls: 'bg-[#E8F9F4] text-[#148059] border-[#A3E4D0]' },
+  failed:    { label: 'Failed',    cls: 'bg-red-50 text-red-700 border-red-200' },
 };
 
 function StatusBadge({ status }) {
   const s = STATUS[status] || STATUS.draft;
   return (
-    <span className={clsx('inline-flex px-2.5 py-1 rounded-full text-2xs font-bold border', s.cls)}>
+    <span className={clsx('inline-flex px-2.5 py-0.5 rounded-full text-2xs font-bold border', s.cls)}>
       {s.label}
     </span>
   );
@@ -277,8 +277,8 @@ export default function CampaignsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-black text-aura-white">Campaigns</h1>
-          <p className="text-sm text-aura-white/40 mt-1">{campaigns.length} campaign{campaigns.length !== 1 ? 's' : ''} total</p>
+          <h1 className="text-2xl font-black text-[#0F0F0F]">Campaigns</h1>
+          <p className="text-sm text-[#5A5A6E] mt-1">{campaigns.length} campaign{campaigns.length !== 1 ? 's' : ''} total</p>
         </div>
         <PrimaryButton onClick={() => setComposerOpen(true)} leftIcon={
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -293,15 +293,15 @@ export default function CampaignsPage() {
       {loading ? (
         <div className="space-y-4">
           {[...Array(4)].map((_, i) => (
-            <div key={i} className="h-28 animate-pulse rounded-2xl bg-surface-elevated" />
+            <div key={i} className="h-28 animate-pulse rounded-2xl bg-white border border-[#E6E4F5]" />
           ))}
         </div>
       ) : campaigns.length === 0 ? (
-        <div className="glass-card flex flex-col items-center justify-center py-20 text-center">
-          <svg className="w-14 h-14 text-aura-white/10 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.2}>
+        <div className="glass-card flex flex-col items-center justify-center py-20 text-center bg-white border border-[#E6E4F5]">
+          <svg className="w-14 h-14 text-[#9494A8]/40 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
           </svg>
-          <p className="text-aura-white/40 text-sm">No campaigns yet.</p>
+          <p className="text-[#5A5A6E] text-sm">No campaigns yet.</p>
           <PrimaryButton className="mt-5" onClick={() => setComposerOpen(true)}>Create your first campaign</PrimaryButton>
         </div>
       ) : (
@@ -314,34 +314,34 @@ export default function CampaignsPage() {
             const isDraft   = c.status === 'draft' || c.status === 'scheduled';
             const al = actionLoading[c.id];
             return (
-              <div key={c.id} className="glass-card px-5 py-4 hover:border-brand/30 transition-colors">
+              <div key={c.id} className="glass-card px-5 py-4 hover:border-[#534AB7]/40 transition-colors bg-white border border-[#E6E4F5]">
                 <div className="flex items-start gap-4">
                   <div className="flex-1 min-w-0">
                     {/* Name + badge */}
                     <div className="flex items-center gap-3 flex-wrap">
-                      <h3 className="text-sm font-bold text-aura-white truncate">{c.name}</h3>
+                      <h3 className="text-sm font-bold text-[#0F0F0F] truncate">{c.name}</h3>
                       <StatusBadge status={c.status} />
                     </div>
 
                     {/* Numerical stats row */}
                     <div className="flex items-center gap-4 mt-2 flex-wrap">
                       {[
-                        { label: 'Sent',      val: c.sent_count,      pct: sentPct,  color: '#AFA9EC' },
+                        { label: 'Sent',      val: c.sent_count,      pct: sentPct,  color: '#534AB7' },
                         { label: 'Delivered', val: c.delivered_count, pct: delPct,   color: '#1D9E75' },
-                        { label: 'Read',      val: c.read_count,      pct: readPct,  color: '#60a5fa' },
-                        { label: 'Failed',    val: c.failed_count,    pct: null,     color: '#f87171' },
+                        { label: 'Read',      val: c.read_count,      pct: readPct,  color: '#3730A3' },
+                        { label: 'Failed',    val: c.failed_count,    pct: null,     color: '#DC2626' },
                       ].map((s) => (
                         <div key={s.label} className="flex flex-col">
-                          <span className="text-2xs text-aura-white/30">{s.label}</span>
+                          <span className="text-2xs text-[#9494A8] font-semibold">{s.label}</span>
                           <div className="flex items-baseline gap-1">
                             <span
                               className="text-sm font-black tabular-nums"
-                              style={{ color: (s.val ?? 0) > 0 ? s.color : 'rgba(255,255,255,0.3)' }}
+                              style={{ color: (s.val ?? 0) > 0 ? s.color : '#9494A8' }}
                             >
                               {(s.val ?? 0).toLocaleString()}
                             </span>
                             {s.pct !== null && (s.val ?? 0) > 0 && (
-                              <span className="text-2xs" style={{ color: s.color, opacity: 0.7 }}>
+                              <span className="text-2xs font-bold" style={{ color: s.color, opacity: 0.8 }}>
                                 {s.pct}%
                               </span>
                             )}

@@ -190,7 +190,7 @@ export default function NotificationBell() {
       >
         {/* Bell SVG */}
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
-          style={{ color: hasUnread ? '#AFA9EC' : 'var(--text-muted)' }}>
+          style={{ color: hasUnread ? '#534AB7' : 'var(--text-secondary)' }}>
           <path strokeLinecap="round" strokeLinejoin="round"
             d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
         </svg>
@@ -208,23 +208,20 @@ export default function NotificationBell() {
       {/* ── Dropdown ── */}
       {open && (
         <div
-          className="absolute right-0 top-11 w-[340px] rounded-2xl shadow-2xl overflow-hidden z-50"
+          className="absolute right-0 top-11 w-[340px] rounded-2xl shadow-xl overflow-hidden z-50 bg-white"
           style={{
-            background: 'var(--bg-card)',
-            border: '1px solid var(--bg-border)',
+            border: '1px solid #E6E4F5',
             animation: 'fadeIn 0.12s ease-out',
           }}>
 
           {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b"
-            style={{ borderColor: 'var(--bg-border)', background: 'var(--bg-elevated)' }}>
+          <div className="flex items-center justify-between px-4 py-3 border-b border-[#E6E4F5] bg-[#F8F7FF]">
             <div className="flex items-center gap-2">
-              <span className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>
+              <span className="text-sm font-bold text-[#0F0F0F]">
                 Notifications
               </span>
               {hasUnread && (
-                <span className="text-2xs font-bold px-1.5 py-0.5 rounded-full"
-                  style={{ background: 'rgba(83,74,183,0.15)', color: '#AFA9EC' }}>
+                <span className="text-2xs font-bold px-2 py-0.5 rounded-full bg-[#F3F2FD] text-[#534AB7]">
                   {unreadCount} new
                 </span>
               )}
@@ -232,16 +229,14 @@ export default function NotificationBell() {
             <div className="flex gap-3">
               {hasUnread && (
                 <button onClick={markAllRead}
-                  className="text-2xs font-semibold transition-opacity hover:opacity-70"
-                  style={{ color: '#AFA9EC' }}>
+                  className="text-2xs font-semibold text-[#534AB7] hover:underline">
                   Mark all read
                 </button>
               )}
               {notifications.length > 0 && (
                 <button onClick={clearAll}
-                  className="text-2xs font-semibold transition-opacity hover:opacity-70"
-                  style={{ color: 'var(--text-muted)' }}>
-                  Clear all
+                  className="text-2xs text-[#9494A8] hover:text-[#DC2626]">
+                  Clear
                 </button>
               )}
             </div>
