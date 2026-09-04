@@ -295,12 +295,14 @@
 
     .gradient-text-hero {
       background: linear-gradient(135deg, #FFFFFF 20%, #AFA9EC 65%, #26C18E 100%);
+      background-clip: text;
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
     }
 
     .gradient-text-it {
       background: linear-gradient(135deg, #FFFFFF 20%, #60A5FA 65%, #A78BFA 100%);
+      background-clip: text;
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
     }
@@ -467,7 +469,7 @@
       justify-content: center;
       font-weight: 700;
       font-size: 13px;
-      shrink-0: 0;
+      flex-shrink: 0;
     }
 
     /* Simulation Chat View */
