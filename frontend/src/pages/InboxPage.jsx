@@ -238,34 +238,38 @@ function TemplatePicker({ templates, onSend, onClose }) {
 function ConvoCard({ conv, active, onClick }) {
   return (
     <button onClick={onClick} className={clsx(
-      'w-full flex items-start gap-3 px-4 py-3.5 text-left transition-colors border-b',
-      active ? 'border-l-2 border-l-brand' : 'hover:opacity-80'
-    )} style={{
-      borderBottomColor: 'var(--bg-border)',
-      background: active ? 'rgba(83,74,183,0.08)' : 'transparent',
-    }}>
+      'w-full flex items-start gap-3 px-4 py-3.5 text-left transition-all border-b cursor-pointer',
+      active
+        ? 'bg-[#F5F3FF] border-l-[3px] border-l-[#534AB7] border-b-slate-100'
+        : 'hover:bg-slate-50/80 border-l-[3px] border-l-transparent border-b-slate-100'
+    )}>
       <Avatar name={conv.display_name} phone={conv.phone_e164} />
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-2">
-          <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
+          <p className={clsx("text-sm font-semibold truncate", active ? "text-[#534AB7]" : "text-slate-900")}>
             {conv.display_name || conv.phone_e164}
           </p>
-          <span className="text-2xs shrink-0" style={{ color: 'var(--text-muted)' }}>
+          <span className="text-[11px] font-medium text-slate-400 shrink-0">
             {timeAgo(conv.last_message_at)}
           </span>
         </div>
-        <p className="text-xs truncate mt-0.5" style={{ color: 'var(--text-secondary)' }}>
+        <p className="text-xs truncate mt-0.5 text-slate-500">
           {conv.last_message_preview || 'No messages yet'}
         </p>
-        <div className="flex items-center gap-2 mt-1">
-          {conv.assigned_first && (
-            <span className="text-2xs" style={{ color: '#AFA9EC' }}>
-              👤 {conv.assigned_first}
-            </span>
-          )}
-          {conv.status !== 'open' && <StatusPill status={conv.status} />}
+        <div className="flex items-center justify-between gap-2 mt-1.5">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {conv.assigned_first ? (
+              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-indigo-50 text-[#534AB7] border border-indigo-100/80 inline-flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#534AB7]" />
+                {conv.assigned_first}
+              </span>
+            ) : (
+              <span className="text-[10px] text-slate-400">Unassigned</span>
+            )}
+            {conv.status !== 'open' && <StatusPill status={conv.status} />}
+          </div>
           {conv.unread_count > 0 && (
-            <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-brand text-2xs font-bold text-white">
+            <span className="inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-[#534AB7] text-[10px] font-bold text-white shadow-xs">
               {conv.unread_count > 9 ? '9+' : conv.unread_count}
             </span>
           )}
@@ -278,26 +282,32 @@ function ConvoCard({ conv, active, onClick }) {
 // ── Message Bubble ────────────────────────────────────────────
 function MessageBubble({ msg }) {
   const isOut = msg.direction === 'outbound';
-  const statusIcon = { sent: '✓', delivered: '✓✓', read: <span className="text-[#26C18E] font-bold">✓✓</span>, failed: '✗' };
+  const statusIcon = {
+    sent: <span className="text-white/70">✓</span>,
+    delivered: <span className="text-white/80">✓✓</span>,
+    read: <span className="text-[#34D399] font-bold">✓✓</span>,
+    failed: <span className="text-rose-300 font-bold">✗</span>
+  };
+
   return (
-    <div className={clsx('flex', isOut ? 'justify-end' : 'justify-start')}>
+    <div className={clsx('flex w-full', isOut ? 'justify-end' : 'justify-start')}>
       <div className={clsx(
-        'max-w-[75%] rounded-2xl px-4 py-2.5 shadow-sm',
+        'max-w-[78%] rounded-2xl px-4 py-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.05)] transition-all',
         isOut
-          ? 'rounded-tr-sm bg-[#534AB7] text-white border border-[#4338CA]'
-          : 'rounded-tl-sm bg-white text-[#0F0F0F] border border-[#E6E4F5]'
+          ? 'rounded-tr-xs bg-gradient-to-r from-[#534AB7] to-[#4338CA] text-white'
+          : 'rounded-tl-xs bg-white text-slate-900 border border-slate-200/90'
       )}>
         {msg.sender_name && !isOut && (
-          <p className="text-2xs font-bold mb-1 text-[#534AB7]">{msg.sender_name}</p>
+          <p className="text-[11px] font-bold mb-1 text-[#534AB7] tracking-tight">{msg.sender_name}</p>
         )}
-        <p className={clsx('text-sm leading-relaxed whitespace-pre-wrap break-words', isOut ? 'text-white' : 'text-[#0F0F0F]')}>
+        <p className={clsx('text-sm leading-relaxed whitespace-pre-wrap break-words', isOut ? 'text-white' : 'text-slate-800')}>
           {msg.body}
         </p>
-        <div className="flex items-center justify-end gap-1.5 mt-1">
-          <span className={clsx('text-2xs', isOut ? 'text-white/70' : 'text-[#9494A8]')}>
+        <div className="flex items-center justify-end gap-1.5 mt-1 select-none">
+          <span className={clsx('text-[10px] font-medium', isOut ? 'text-white/70' : 'text-slate-400')}>
             {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
           </span>
-          {isOut && <span className="text-2xs">{statusIcon[msg.status] || '✓'}</span>}
+          {isOut && <span className="text-[11px] leading-none inline-flex items-center">{statusIcon[msg.status] || '✓'}</span>}
         </div>
       </div>
     </div>
@@ -320,56 +330,67 @@ function AssignDropdown({ agents, currentAssignedTo, onAssign, loading }) {
   return (
     <div className="relative" ref={dropRef}>
       <button
+        type="button"
         onClick={() => setOpen((o) => !o)}
         disabled={loading}
-        className="flex items-center gap-2 h-8 px-3 rounded-lg text-xs font-semibold transition-all hover:opacity-80 disabled:opacity-50"
-        style={{ background: 'rgba(83,74,183,0.1)', color: '#AFA9EC', border: '1px solid rgba(83,74,183,0.2)' }}>
-        <span>👤</span>
-        <span className="max-w-[100px] truncate">
+        className="flex items-center gap-2 h-8 px-2.5 rounded-lg text-xs font-semibold transition-all hover:bg-slate-100/80 disabled:opacity-50 border border-slate-200 bg-white text-slate-700 cursor-pointer shadow-2xs"
+      >
+        <span className="w-5 h-5 rounded-full bg-indigo-50 text-[#534AB7] flex items-center justify-center text-[10px] font-bold shrink-0">
+          {current ? (current.first_name?.[0] || 'A').toUpperCase() : '👤'}
+        </span>
+        <span className="max-w-[110px] truncate text-slate-800">
           {loading ? 'Assigning…' : current ? `${current.first_name} ${current.last_name || ''}`.trim() : 'Unassigned'}
         </span>
-        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <svg className="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
         </svg>
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-1.5 w-52 rounded-xl overflow-hidden z-40 shadow-xl"
-          style={{ background: 'var(--bg-card)', border: '1px solid var(--bg-border)' }}>
-          <div className="p-1">
-            {/* Unassign option */}
-            <button
-              onClick={() => { onAssign(null); setOpen(false); }}
-              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-colors hover:opacity-80"
-              style={{
-                color: !currentAssignedTo ? '#AFA9EC' : 'var(--text-secondary)',
-                background: !currentAssignedTo ? 'rgba(83,74,183,0.1)' : 'transparent',
-              }}>
-              <span className="w-6 h-6 rounded-full flex items-center justify-center text-xs shrink-0"
-                style={{ background: 'var(--bg-elevated)' }}>—</span>
-              <span className="font-medium">Unassigned</span>
-              {!currentAssignedTo && <span className="ml-auto text-2xs">✓</span>}
-            </button>
-            {agents.map((agent) => (
-              <button
-                key={agent.id}
-                onClick={() => { onAssign(agent.id); setOpen(false); }}
-                className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-colors hover:opacity-80"
-                style={{
-                  color: agent.id === currentAssignedTo ? '#AFA9EC' : 'var(--text-secondary)',
-                  background: agent.id === currentAssignedTo ? 'rgba(83,74,183,0.1)' : 'transparent',
-                }}>
-                <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0"
-                  style={{ background: 'hsl(270,55%,45%)' }}>
-                  {(agent.first_name?.[0] || agent.email?.[0] || 'A').toUpperCase()}
-                </div>
-                <div className="min-w-0 text-left">
-                  <p className="font-medium truncate">{[agent.first_name, agent.last_name].filter(Boolean).join(' ')}</p>
-                  <p className="text-2xs opacity-60 truncate">{agent.role}</p>
-                </div>
-                {agent.id === currentAssignedTo && <span className="ml-auto text-2xs shrink-0">✓</span>}
-              </button>
-            ))}
+        <div className="absolute right-0 top-full mt-1.5 w-56 rounded-xl overflow-hidden z-50 shadow-xl border border-slate-200 bg-white p-1.5 animate-scale-in">
+          <div className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 mb-1">
+            Assign Conversation
+          </div>
+          {/* Unassign option */}
+          <button
+            type="button"
+            onClick={() => { onAssign(null); setOpen(false); }}
+            className={clsx(
+              "w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-colors cursor-pointer text-left",
+              !currentAssignedTo ? "bg-indigo-50 text-[#534AB7] font-semibold" : "text-slate-600 hover:bg-slate-50"
+            )}
+          >
+            <span className="w-6 h-6 rounded-full flex items-center justify-center text-xs shrink-0 bg-slate-100 text-slate-400">—</span>
+            <span className="flex-1">Unassigned</span>
+            {!currentAssignedTo && <span className="text-[#534AB7] text-xs font-bold">✓</span>}
+          </button>
+          <div className="my-1 border-t border-slate-100" />
+          <div className="max-h-48 overflow-y-auto space-y-0.5">
+            {agents.map((agent) => {
+              const isSelected = agent.id === currentAssignedTo;
+              return (
+                <button
+                  key={agent.id}
+                  type="button"
+                  onClick={() => { onAssign(agent.id); setOpen(false); }}
+                  className={clsx(
+                    "w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-colors cursor-pointer text-left",
+                    isSelected ? "bg-indigo-50 text-[#534AB7] font-semibold" : "text-slate-700 hover:bg-slate-50"
+                  )}
+                >
+                  <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0 bg-[#534AB7]">
+                    {(agent.first_name?.[0] || agent.email?.[0] || 'A').toUpperCase()}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium truncate leading-tight text-slate-800">
+                      {[agent.first_name, agent.last_name].filter(Boolean).join(' ')}
+                    </p>
+                    <p className="text-[10px] text-slate-400 truncate capitalize">{agent.role || 'Agent'}</p>
+                  </div>
+                  {isSelected && <span className="text-[#534AB7] text-xs font-bold shrink-0">✓</span>}
+                </button>
+              );
+            })}
           </div>
         </div>
       )}
@@ -378,22 +399,26 @@ function AssignDropdown({ agents, currentAssignedTo, onAssign, loading }) {
 }
 
 // ── Empty State ───────────────────────────────────────────────
-function EmptyInbox() {
+function EmptyInbox({ onReset }) {
   return (
-    <div className="flex-1 flex flex-col items-center justify-center gap-4 p-8 text-center">
-      <svg className="w-20 h-20 opacity-10" viewBox="0 0 100 100" fill="none">
-        <circle cx="50" cy="50" r="45" stroke="currentColor" strokeWidth="3"/>
-        <path d="M30 40 Q50 20 70 40 Q80 60 60 70 L50 90 L40 70 Q20 60 30 40Z" fill="currentColor" fillOpacity="0.3"/>
-        <circle cx="40" cy="50" r="3" fill="currentColor"/>
-        <circle cx="50" cy="50" r="3" fill="currentColor"/>
-        <circle cx="60" cy="50" r="3" fill="currentColor"/>
-      </svg>
-      <div>
-        <p className="font-bold text-lg" style={{ color: 'var(--text-primary)' }}>No conversations found</p>
-        <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
-          Try a different filter or wait for customers to message you.
-        </p>
+    <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
+      <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400 mb-3">
+        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+        </svg>
       </div>
+      <p className="font-bold text-sm text-slate-800">No conversations found</p>
+      <p className="text-xs mt-1 text-slate-500 max-w-[200px] leading-relaxed">
+        Try adjusting your filter or search query.
+      </p>
+      {onReset && (
+        <button
+          onClick={onReset}
+          className="mt-3 text-xs font-semibold text-[#534AB7] hover:underline cursor-pointer"
+        >
+          Reset Filters
+        </button>
+      )}
     </div>
   );
 }
@@ -653,72 +678,121 @@ export default function InboxPage() {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendReply(); }
   };
 
-  // ── Tab pill ──────────────────────────────────────────────
-  const tabStyle = (active) => ({
-    background: active ? '#534AB7' : '#F8F7FF',
-    color:      active ? '#FFFFFF' : '#5A5A6E',
-    border:     `1px solid ${active ? '#534AB7' : '#E6E4F5'}`,
-  });
-
   return (
-    <div className="h-[calc(100vh-4rem)] flex rounded-2xl overflow-hidden bg-white"
-      style={{ border: '1px solid #E6E4F5' }}>
+    <div className="flex-1 min-h-0 flex rounded-2xl overflow-hidden bg-white shadow-xs border border-slate-200/90">
 
       {/* ── Left: Conversation List ── */}
-      <div className="w-80 flex flex-col shrink-0 border-r" style={{ borderColor: 'var(--bg-border)' }}>
+      <div className="w-80 md:w-88 flex flex-col shrink-0 border-r border-slate-200/80 bg-white min-h-0">
 
-        {/* Header */}
-        <div className="px-4 pt-4 pb-3 border-b" style={{ borderColor: 'var(--bg-border)' }}>
-          <div className="flex items-center justify-between mb-3">
-            <h1 className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>Inbox</h1>
-            <p className="text-2xs flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>
+        {/* Header with Search and Segmented Filters */}
+        <div className="p-3.5 border-b border-slate-200/80 space-y-2.5 shrink-0 bg-slate-50/50">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <h1 className="text-base font-bold text-slate-900 tracking-tight">Inbox</h1>
+              <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-slate-200/70 text-slate-700">
+                {conversations.length}
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200/60">
               <span className={clsx('w-1.5 h-1.5 rounded-full',
-                wsStatus === 'connected' ? 'bg-teal-light animate-pulse' : 'bg-red-400')} />
-              {wsStatus === 'connected' ? 'Live' : 'Connecting…'}
-            </p>
+                wsStatus === 'connected' ? 'bg-emerald-500 animate-pulse' : 'bg-rose-400')} />
+              <span className="text-[10px] font-semibold text-emerald-700">
+                {wsStatus === 'connected' ? 'Live' : 'Connecting…'}
+              </span>
+            </div>
           </div>
 
-          {/* Filter tabs */}
-          <div className="flex gap-1 mb-2">
-            {FILTER_TABS.map((tab) => (
-              <button key={tab.key}
-                onClick={() => setFilterTab(tab.key)}
-                className="flex-1 h-7 rounded-lg text-2xs font-semibold transition-all"
-                style={tabStyle(filterTab === tab.key)}>
-                {tab.label}
+          {/* Quick Search */}
+          <div className="relative">
+            <input
+              type="text"
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              placeholder="Search conversations..."
+              className="w-full h-8 pl-8 pr-7 rounded-lg text-xs bg-white border border-slate-200/90 text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-[#534AB7] focus:ring-1 focus:ring-[#534AB7]/20 transition-all shadow-2xs"
+            />
+            <svg className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            {searchText && (
+              <button
+                type="button"
+                onClick={() => setSearchText('')}
+                className="absolute right-2 top-2 text-slate-400 hover:text-slate-600 p-0.5 text-xs leading-none cursor-pointer"
+              >
+                ✕
               </button>
-            ))}
+            )}
           </div>
 
-          {/* Status tabs */}
-          <div className="flex gap-1">
-            {STATUS_TABS.map((tab) => (
-              <button key={tab.key}
-                onClick={() => setStatusTab(tab.key)}
-                className="flex-1 h-7 rounded-lg text-2xs font-semibold transition-all"
-                style={tabStyle(statusTab === tab.key)}>
-                {tab.label}
-              </button>
-            ))}
+          {/* Segmented Status Slider */}
+          <div className="bg-slate-200/70 p-0.5 rounded-lg flex gap-0.5">
+            {STATUS_TABS.map((tab) => {
+              const active = statusTab === tab.key;
+              return (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setStatusTab(tab.key)}
+                  className={clsx(
+                    "flex-1 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer flex items-center justify-center gap-1.5",
+                    active
+                      ? "bg-white text-slate-900 shadow-2xs font-bold"
+                      : "text-slate-500 hover:text-slate-800"
+                  )}
+                >
+                  <span className={clsx("w-1.5 h-1.5 rounded-full",
+                    tab.key === 'open' ? (active ? "bg-emerald-500" : "bg-emerald-300") :
+                    tab.key === 'pending' ? (active ? "bg-amber-500" : "bg-amber-300") :
+                    (active ? "bg-slate-500" : "bg-slate-300")
+                  )} />
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Scope Pills */}
+          <div className="flex items-center gap-1">
+            {FILTER_TABS.map((tab) => {
+              const active = filterTab === tab.key;
+              return (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setFilterTab(tab.key)}
+                  className={clsx(
+                    "flex-1 py-1 px-1.5 rounded-md text-[11px] font-semibold transition-all cursor-pointer text-center truncate",
+                    active
+                      ? "bg-[#534AB7] text-white shadow-2xs"
+                      : "bg-white text-slate-600 hover:bg-slate-100/70 border border-slate-200/60"
+                  )}
+                >
+                  {tab.key === 'all' && 'All Chats'}
+                  {tab.key === 'mine' && '👤 Mine'}
+                  {tab.key === 'unassigned' && '⭕ Unassigned'}
+                </button>
+              );
+            })}
           </div>
         </div>
 
         {/* Conversation list */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto min-h-0 divide-y divide-slate-100">
           {loading ? (
             <div className="space-y-0">
               {[...Array(5)].map((_, i) => (
-                <div key={i} className="px-4 py-3.5 border-b flex gap-3" style={{ borderColor: 'var(--bg-border)' }}>
-                  <div className="w-10 h-10 rounded-full animate-pulse" style={{ background: 'var(--bg-elevated)' }} />
+                <div key={i} className="px-4 py-3.5 border-b border-slate-100 flex gap-3">
+                  <div className="w-10 h-10 rounded-full animate-pulse bg-slate-100 shrink-0" />
                   <div className="flex-1 space-y-2">
-                    <div className="h-3 rounded animate-pulse w-2/3" style={{ background: 'var(--bg-elevated)' }} />
-                    <div className="h-2.5 rounded animate-pulse w-full" style={{ background: 'var(--bg-elevated)' }} />
+                    <div className="h-3 rounded animate-pulse w-2/3 bg-slate-100" />
+                    <div className="h-2.5 rounded animate-pulse w-full bg-slate-100" />
                   </div>
                 </div>
               ))}
             </div>
           ) : conversations.length === 0 ? (
-            <EmptyInbox />
+            <EmptyInbox onReset={() => { setFilterTab('all'); setStatusTab('open'); setSearchText(''); }} />
           ) : (
             conversations.map((c) => (
               <ConvoCard key={c.id} conv={c} active={activeConv?.id === c.id} onClick={() => selectConv(c)} />
@@ -729,28 +803,55 @@ export default function InboxPage() {
 
       {/* ── Right: Chat Thread ── */}
       {!activeConv ? (
-        <div className="flex-1 flex flex-col items-center justify-center gap-3" style={{ background: 'var(--bg-base)' }}>
-          <svg className="w-16 h-16 opacity-10" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/>
-          </svg>
-          <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>Select a conversation</p>
-          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Choose from the left to start chatting</p>
+        <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-gradient-to-b from-[#FAF5FF]/30 via-white to-[#F8FAFC]">
+          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#534AB7] to-[#3B3499] text-white flex items-center justify-center shadow-lg shadow-indigo-500/15 mb-5 relative">
+            <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12.05 2.049C6.495 2.049 2 6.545 2 12.1c0 1.784.47 3.458 1.292 4.913L2 22l5.237-1.373A9.99 9.99 0 0012.05 22c5.554 0 10.05-4.495 10.05-10.05S17.604 2.049 12.05 2.049z"/>
+            </svg>
+            <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500 border-2 border-white"></span>
+            </span>
+          </div>
+          <h2 className="text-lg font-bold text-slate-900 tracking-tight mb-1.5">
+            VDAJ Enterprise Live Inbox
+          </h2>
+          <p className="text-xs text-slate-500 max-w-sm leading-relaxed mb-6">
+            Select a conversation from the sidebar to view complete chat history, assign teammates, and reply in real-time via WhatsApp Cloud API.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-lg w-full">
+            <div className="bg-white p-3 rounded-xl border border-slate-200/80 shadow-2xs text-left">
+              <span className="text-sm block mb-1">⚡</span>
+              <p className="text-xs font-bold text-slate-800">24h Meta Window</p>
+              <p className="text-[10px] text-slate-400 mt-0.5">Automated session compliance & templates</p>
+            </div>
+            <div className="bg-white p-3 rounded-xl border border-slate-200/80 shadow-2xs text-left">
+              <span className="text-sm block mb-1">🛡️</span>
+              <p className="text-xs font-bold text-slate-800">Cloud API v21.0</p>
+              <p className="text-[10px] text-slate-400 mt-0.5">Direct Meta WhatsApp Business API</p>
+            </div>
+            <div className="bg-white p-3 rounded-xl border border-slate-200/80 shadow-2xs text-left">
+              <span className="text-sm block mb-1">👥</span>
+              <p className="text-xs font-bold text-slate-800">Live Routing</p>
+              <p className="text-[10px] text-slate-400 mt-0.5">Seamless agent workload distribution</p>
+            </div>
+          </div>
         </div>
       ) : (
-        <div className="flex-1 flex flex-col min-w-0" style={{ background: 'var(--bg-base)' }}>
+        <div className="flex-1 flex flex-col min-w-0 bg-[#F8FAFC]">
           {/* Thread Header */}
-          <div className="flex items-center gap-3 px-5 py-3 border-b shrink-0"
-            style={{ borderColor: 'var(--bg-border)', background: 'var(--bg-card)' }}>
+          <div className="flex items-center gap-3 px-5 py-3 border-b border-slate-200/80 bg-white shrink-0 shadow-2xs">
             <Avatar name={activeConv.display_name} phone={activeConv.phone_e164} />
             <div className="min-w-0">
-              <p className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>
-                {activeConv.display_name || activeConv.phone_e164}
-              </p>
-              <div className="flex items-center gap-2 mt-0.5">
-                <p className="text-2xs" style={{ color: 'var(--text-muted)' }}>{activeConv.phone_e164}</p>
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-bold text-slate-900 truncate">
+                  {activeConv.display_name || activeConv.phone_e164}
+                </p>
                 <StatusPill status={activeConv.status} />
               </div>
+              <p className="text-[11px] text-slate-400 font-mono mt-0.5">{activeConv.phone_e164}</p>
             </div>
+
             <div className="ml-auto flex items-center gap-2 flex-wrap justify-end">
               {/* Assignment dropdown */}
               <AssignDropdown
@@ -763,25 +864,28 @@ export default function InboxPage() {
               {/* Status actions */}
               {activeConv.status !== 'pending' && (
                 <button
+                  type="button"
                   onClick={() => handleStatusChange('pending')}
-                  className="h-8 px-3 rounded-lg text-xs font-semibold transition-all hover:opacity-80"
-                  style={{ background: 'rgba(245,158,11,0.1)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.25)' }}>
+                  className="h-8 px-2.5 rounded-lg text-xs font-semibold transition-all hover:bg-amber-100/70 border border-amber-200 bg-amber-50 text-amber-800 cursor-pointer inline-flex items-center gap-1 shadow-2xs"
+                >
                   ⏸ Pending
                 </button>
               )}
               {activeConv.status !== 'open' && (
                 <button
+                  type="button"
                   onClick={() => handleStatusChange('open')}
-                  className="h-8 px-3 rounded-lg text-xs font-semibold transition-all hover:opacity-80"
-                  style={{ background: 'rgba(29,158,117,0.1)', color: '#1D9E75', border: '1px solid rgba(29,158,117,0.25)' }}>
+                  className="h-8 px-2.5 rounded-lg text-xs font-semibold transition-all hover:bg-emerald-100/70 border border-emerald-200 bg-emerald-50 text-emerald-800 cursor-pointer inline-flex items-center gap-1 shadow-2xs"
+                >
                   ↩ Reopen
                 </button>
               )}
               {activeConv.status !== 'resolved' && (
                 <button
+                  type="button"
                   onClick={() => handleStatusChange('resolved')}
-                  className="h-8 px-3 rounded-lg text-xs font-semibold transition-all hover:opacity-80"
-                  style={{ background: 'rgba(29,158,117,0.15)', color: '#26C18E', border: '1px solid rgba(29,158,117,0.3)' }}>
+                  className="h-8 px-2.5 rounded-lg text-xs font-semibold transition-all hover:bg-slate-200/80 border border-slate-300 bg-white text-slate-700 cursor-pointer inline-flex items-center gap-1 shadow-2xs"
+                >
                   ✓ Resolve
                 </button>
               )}
@@ -792,38 +896,39 @@ export default function InboxPage() {
           <ServiceWindowBanner lastInboundAt={activeConv.last_inbound_at} />
 
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-5 space-y-3">
+          <div className="flex-1 overflow-y-auto min-h-0 p-5 space-y-3.5">
             {messages.map((m) => <MessageBubble key={m.id} msg={m} />)}
             <div ref={messagesEndRef} />
           </div>
 
           {/* Reply Composer */}
-          <div className="p-4 border-t shrink-0"
-            style={{ borderColor: 'var(--bg-border)', background: 'var(--bg-card)' }}>
+          <div className="p-3.5 border-t border-slate-200/80 bg-white shrink-0">
             {windowExpired ? (
-              <div>
-                <div className="flex items-center gap-3 p-3 rounded-2xl"
-                  style={{ background: 'var(--bg-elevated)', border: '1px solid rgba(239,68,68,0.25)' }}>
-                  <svg className="w-4 h-4 shrink-0 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <div className="space-y-2">
+                <div className="flex items-center gap-3 p-3 rounded-xl bg-amber-50/80 border border-amber-200/80">
+                  <svg className="w-5 h-5 shrink-0 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round"
-                      d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                   </svg>
-                  <p className="flex-1 text-sm" style={{ color: 'var(--text-muted)' }}>
-                    Free-form messaging disabled. Use a pre-approved template.
-                  </p>
-                  <button onClick={() => setShowPicker(true)}
-                    className="shrink-0 h-9 px-4 rounded-xl text-xs font-bold text-white transition-all hover:brightness-110"
-                    style={{ background: 'linear-gradient(135deg,#534AB7,#3B3499)' }}>
-                    📋 Use Template
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold text-amber-900">24-hour customer window is closed</p>
+                    <p className="text-[11px] text-amber-700 mt-0.5">
+                      Meta WhatsApp policy requires an approved template to reopen this conversation.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowPicker(true)}
+                    className="shrink-0 h-8 px-3 rounded-lg text-xs font-bold text-white transition-all hover:brightness-110 shadow-xs cursor-pointer bg-gradient-to-r from-[#534AB7] to-[#4338CA] inline-flex items-center gap-1.5"
+                  >
+                    <span>📋</span>
+                    <span>Send Template</span>
                   </button>
                 </div>
-                <p className="text-2xs mt-2 text-center" style={{ color: 'var(--text-muted)' }}>
-                  24-hour service window has closed · Only pre-approved templates are permitted by Meta
-                </p>
               </div>
             ) : (
               <div>
-                <div className="flex items-end gap-3 p-3 rounded-2xl bg-[#F8F7FF] border border-[#E6E4F5]">
+                <div className="flex items-end gap-2 p-2.5 rounded-xl bg-slate-50 border border-slate-200/90 focus-within:border-[#534AB7] focus-within:ring-2 focus-within:ring-[#534AB7]/10 transition-all shadow-2xs">
                   <textarea
                     ref={replyRef}
                     rows={2}
@@ -831,22 +936,31 @@ export default function InboxPage() {
                     onChange={(e) => setReplyText(e.target.value)}
                     onKeyDown={handleKeyDown}
                     placeholder="Type a reply… (Enter to send, Shift+Enter for newline)"
-                    className="flex-1 bg-transparent text-sm resize-none outline-none text-[#0F0F0F] placeholder:text-[#9494A8]"
+                    className="flex-1 bg-transparent text-xs sm:text-sm resize-none outline-none text-slate-900 placeholder:text-slate-400 py-1"
                   />
-                  <button onClick={() => setShowPicker(true)} title="Send a template"
-                    className="w-10 h-10 rounded-xl flex items-center justify-center transition-all shrink-0 hover:bg-[#F3F2FD] bg-white border border-[#E6E4F5] text-[#534AB7]">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <button
+                    type="button"
+                    onClick={() => setShowPicker(true)}
+                    title="Send a pre-approved template"
+                    className="h-9 px-2.5 rounded-lg flex items-center gap-1.5 transition-all shrink-0 hover:bg-slate-200/60 bg-white border border-slate-200 text-[#534AB7] text-xs font-semibold cursor-pointer shadow-2xs"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round"
                         d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
+                    <span className="hidden sm:inline">Templates</span>
                   </button>
-                  <button onClick={sendReply} disabled={sending || !replyText.trim()}
-                    className="w-10 h-10 rounded-xl flex items-center justify-center transition-all shrink-0 font-bold"
-                    style={{
-                      background: sending || !replyText.trim() ? '#E6E4F5' : '#534AB7',
-                      color: sending || !replyText.trim() ? '#9494A8' : '#FFFFFF',
-                      cursor: sending || !replyText.trim() ? 'not-allowed' : 'pointer',
-                    }}>
+                  <button
+                    type="button"
+                    onClick={sendReply}
+                    disabled={sending || !replyText.trim()}
+                    className={clsx(
+                      "w-9 h-9 rounded-lg flex items-center justify-center transition-all shrink-0 font-bold shadow-2xs cursor-pointer",
+                      sending || !replyText.trim()
+                        ? "bg-slate-200 text-slate-400 cursor-not-allowed"
+                        : "bg-[#534AB7] hover:bg-[#4338CA] text-white"
+                    )}
+                  >
                     {sending ? (
                       <svg className="w-4 h-4 animate-spin text-white" viewBox="0 0 24 24" fill="none">
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
@@ -859,9 +973,10 @@ export default function InboxPage() {
                     )}
                   </button>
                 </div>
-                <p className="text-2xs mt-2 text-center text-[#9494A8]">
-                  Replies send via WhatsApp Business API · 24h service window applies
-                </p>
+                <div className="flex items-center justify-between text-[11px] text-slate-400 mt-1.5 px-1">
+                  <span>WhatsApp Cloud API Active</span>
+                  <span>Enter ↵ to send • Shift+Enter for newline</span>
+                </div>
               </div>
             )}
           </div>

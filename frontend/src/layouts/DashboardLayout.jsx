@@ -7,7 +7,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { clsx } from 'clsx';
 import useAuthStore from '../store/authStore';
 import { authApi } from '../lib/api';
@@ -60,7 +60,9 @@ const NAV_ITEMS = [
 export default function DashboardLayout() {
   const { user, tenant, clearAuth } = useAuthStore();
   const navigate = useNavigate();
+  const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const isInbox = location.pathname.startsWith('/inbox');
 
   const handleLogout = async () => {
     try { await authApi.logout(); } catch {}
@@ -229,7 +231,10 @@ export default function DashboardLayout() {
         </header>
 
         {/* Page content */}
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6">
+        <main className={clsx(
+          "flex-1 min-h-0 flex flex-col",
+          isInbox ? "overflow-hidden p-2.5 sm:p-4" : "overflow-y-auto p-4 sm:p-6"
+        )}>
           <Outlet />
         </main>
       </div>

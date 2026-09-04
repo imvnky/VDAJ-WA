@@ -16,7 +16,7 @@ export const VdajToaster = () => (
   <Toaster
     position="top-right"
     gutter={12}
-    containerStyle={{ top: 24, right: 24, zIndex: 99999 }}
+    containerStyle={{ top: 24, right: 24, zIndex: 99999, pointerEvents: 'none' }}
     toastOptions={{
       duration: 5000,
       style: {
@@ -25,6 +25,7 @@ export const VdajToaster = () => (
         boxShadow: 'none',
         border: 'none',
         maxWidth: 'none',
+        pointerEvents: 'auto',
       },
     }}
   />
@@ -96,13 +97,24 @@ const ToastContent = ({ id, type, title, message, errorCode, details, suggestion
   const cfg = configs[type] || configs.info;
   const hint = suggestion || (errorCode && ERROR_TIPS[errorCode]);
 
+  const handleDismiss = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (id) {
+      toast.dismiss(id);
+      toast.remove(id);
+    } else {
+      toast.dismiss();
+    }
+  };
+
   return (
     <div
       className={clsx(
-        'w-[400px] max-w-[calc(100vw-32px)]',
+        'w-[400px] max-w-[calc(100vw-32px)] pointer-events-auto',
         'bg-[#FFFFFF] border border-[#E2E8F0] border-l-4 rounded-xl',
         'p-4 shadow-[0_12px_32px_-4px_rgba(15,23,42,0.14),0_4px_12px_-2px_rgba(15,23,42,0.06)]',
-        'transition-all duration-200 ease-out select-text flex items-start gap-3.5',
+        'transition-all duration-200 ease-out select-text flex items-start gap-3.5 relative z-20',
         cfg.accentBorder
       )}
       style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}
@@ -156,11 +168,12 @@ const ToastContent = ({ id, type, title, message, errorCode, details, suggestion
       {/* Dismiss button */}
       <button
         type="button"
-        onClick={() => toast.dismiss(id)}
-        className="text-[#94A3B8] hover:text-[#0F172A] p-1 -mr-1 -mt-1 rounded-md hover:bg-[#F1F5F9] transition-colors shrink-0"
-        title="Dismiss"
+        onClick={handleDismiss}
+        className="text-[#94A3B8] hover:text-[#0F172A] p-1.5 -mr-1.5 -mt-1.5 rounded-lg hover:bg-[#F1F5F9] transition-colors shrink-0 cursor-pointer pointer-events-auto relative z-30"
+        title="Dismiss notification"
+        aria-label="Close"
       >
-        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2">
           <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
         </svg>
       </button>
