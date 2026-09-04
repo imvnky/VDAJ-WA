@@ -51,10 +51,15 @@ router.post('/whatsapp', (req, res) => {
   // Validate Meta HMAC-SHA256 signature
   const signature = req.headers['x-hub-signature-256'];
   const rawBody   = req.body; // raw Buffer — set in server.js
+  const appSecret = process.env.META_APP_SECRET;
+  const isRealSecret = appSecret &&
+                       appSecret !== 'your_meta_app_secret' &&
+                       !appSecret.includes('your_meta') &&
+                       appSecret.length >= 16;
 
-  if (signature && process.env.META_APP_SECRET) {
+  if (signature && isRealSecret) {
     const expected = `sha256=${crypto
-      .createHmac('sha256', process.env.META_APP_SECRET)
+      .createHmac('sha256', appSecret)
       .update(rawBody)
       .digest('hex')}`;
     // Buffer length must match before timingSafeEqual (throws if lengths differ)
@@ -350,7 +355,7 @@ async function handleStatusUpdate(status) {
   try {
     await query(
       `UPDATE campaign_messages
-       SET status = $1::message_status,
+       SET status = $1,
            ${timestampCol} = to_timestamp($2),
            updated_at = NOW()
        WHERE meta_message_id = $3`,
@@ -370,15 +375,12 @@ async function handleStatusUpdate(status) {
     logger.warn('campaign_messages status update skipped', { metaMessageId, error: e.message });
   }
 
-  // ── 2. Inbox message status update (direct replies) ────────────
-  // When an agent sends a reply from the Inbox, we store the
-  // meta_message_id in inbox_messages. This keeps delivery receipts
-  // visible in the chat thread in real time.
+  // ── 2. Inbox message status update (direct replies + templates) ──
   try {
     await query(
       `UPDATE inbox_messages
        SET status = $1, updated_at = NOW()
-       WHERE wa_message_id = $2 AND direction = 'outbound'`,
+       WHERE wa_message_id = $2`,
       [dbStatus, metaMessageId]
     );
   } catch (e) {

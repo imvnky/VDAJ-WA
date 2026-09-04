@@ -456,9 +456,29 @@ export default function InboxPage() {
       if (searchText.trim())   params.search  = searchText.trim();
 
       const res = await inboxApi.conversations(params, { silent: true });
-      setConversations(res?.data || []);
+      const convList = res?.data || [];
+      setConversations(convList);
+
+      // Handle ?phone= URL query parameter to auto-select or initiate chat
+      const urlParams = new URLSearchParams(window.location.search);
+      const queryPhone = urlParams.get('phone');
+      if (queryPhone && !activeConv) {
+        const cleanQuery = queryPhone.replace(/\D/g, '');
+        const matched = convList.find((c) => (c.phone_e164 && c.phone_e164.replace(/\D/g, '').includes(cleanQuery)));
+        if (matched) {
+          setActiveConv(matched);
+        } else {
+          // If not yet in list, initiate and prepend
+          inboxApi.initiate({ phone: queryPhone }).then((initRes) => {
+            if (initRes?.data) {
+              setConversations((prev) => [initRes.data, ...prev.filter((p) => p.id !== initRes.data.id)]);
+              setActiveConv(initRes.data);
+            }
+          }).catch(() => {});
+        }
+      }
     } catch {} finally { setLoading(false); }
-  }, [filterTab, statusTab, searchText]);
+  }, [filterTab, statusTab, searchText, activeConv]);
 
   useEffect(() => { loadConversations(); }, [loadConversations]);
 

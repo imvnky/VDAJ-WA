@@ -40,12 +40,53 @@ function broadcastToTenant(req, type, data) {
 //   filter  = 'all' | 'mine' | 'unassigned'             (default depends on role)
 //   search  = string (name or phone)
 //   page, limit
-//
-// Agent scoping: if role is 'agent' and no filter is specified,
-// defaults to 'mine' (only conversations assigned to them or unassigned).
 router.get('/conversations', catchAsync(async (req, res) => {
   const { page = 1, limit = 50, search } = req.query;
   const offset = (parseInt(page) - 1) * parseInt(limit);
+
+  // Auto-sync sent campaign messages into inbox_conversations and inbox_messages
+  try {
+    await query(`
+      INSERT INTO inbox_conversations (tenant_id, phone_e164, display_name, contact_id, status, unread_count, last_message_at, last_message_preview)
+      SELECT
+        cm.tenant_id,
+        cm.phone_e164,
+        COALESCE(c.display_name, NULLIF(TRIM(c.first_name || ' ' || COALESCE(c.last_name, '')), ''), cm.phone_e164) AS display_name,
+        cm.contact_id,
+        'open' AS status,
+        0 AS unread_count,
+        COALESCE(cm.sent_at, cm.created_at) AS last_message_at,
+        COALESCE('Template: ' || mt.name, '[Template Message]') AS last_message_preview
+      FROM campaign_messages cm
+      LEFT JOIN contacts c ON c.id = cm.contact_id
+      LEFT JOIN campaigns camp ON camp.id = cm.campaign_id
+      LEFT JOIN message_templates mt ON mt.id = camp.template_id
+      WHERE cm.status IN ('sent', 'delivered', 'read')
+      ON CONFLICT (tenant_id, phone_e164) DO UPDATE
+        SET last_message_at = GREATEST(inbox_conversations.last_message_at, EXCLUDED.last_message_at),
+            display_name = COALESCE(inbox_conversations.display_name, EXCLUDED.display_name),
+            contact_id = COALESCE(inbox_conversations.contact_id, EXCLUDED.contact_id);
+
+      INSERT INTO inbox_messages (conversation_id, tenant_id, wa_message_id, direction, message_type, body, status, created_at)
+      SELECT
+        ic.id,
+        cm.tenant_id,
+        cm.meta_message_id,
+        'outbound',
+        'template',
+        COALESCE('Template: ' || mt.name, 'Template Message'),
+        cm.status,
+        COALESCE(cm.sent_at, cm.created_at)
+      FROM campaign_messages cm
+      JOIN inbox_conversations ic ON ic.tenant_id = cm.tenant_id AND ic.phone_e164 = cm.phone_e164
+      LEFT JOIN campaigns camp ON camp.id = cm.campaign_id
+      LEFT JOIN message_templates mt ON mt.id = camp.template_id
+      WHERE cm.meta_message_id IS NOT NULL AND cm.status IN ('sent', 'delivered', 'read')
+      ON CONFLICT (wa_message_id) DO NOTHING;
+    `);
+  } catch (syncErr) {
+    // Non-blocking sync
+  }
 
   let statusFilter = req.query.status;
   if (!statusFilter || statusFilter === 'all') statusFilter = null; // no status filter
@@ -292,7 +333,37 @@ router.post('/conversations/:id/assign', catchAsync(async (req, res) => {
     assignedBy: req.user.id,
   });
 
-  return sendSuccess(res, rows[0], userId ? 'Conversation assigned.' : 'Conversation unassigned.');
+// ── POST /inbox/conversations/initiate ─────────────────────────
+// Get or create conversation by phone number (used by "Chat ->" button)
+router.post('/conversations/initiate', catchAsync(async (req, res) => {
+  const { phone } = req.body;
+  if (!phone) throw new AppError('Phone number is required.', 400, 'ERR_VDAJ_VAL_001');
+
+  const tenantId = req.user.tenantId || req.tenant?.id;
+  const cleanPhone = phone.trim().startsWith('+') ? phone.trim() : `+${phone.trim()}`;
+
+  // Find contact name if available
+  const { rows: contactRows } = await query(
+    `SELECT id, first_name, last_name, display_name FROM contacts WHERE (tenant_id = $1 OR $1 IS NULL) AND phone_e164 = $2 LIMIT 1`,
+    [tenantId, cleanPhone]
+  );
+  const contact = contactRows[0];
+  const displayName = contact?.display_name || (contact?.first_name ? `${contact.first_name} ${contact.last_name || ''}`.trim() : null);
+
+  // Get or create conversation
+  const { rows: [conv] } = await query(
+    `INSERT INTO inbox_conversations
+       (tenant_id, phone_e164, display_name, contact_id, status, unread_count, last_message_at)
+     VALUES ($1, $2, $3, $4, 'open', 0, NOW())
+     ON CONFLICT (tenant_id, phone_e164) DO UPDATE
+       SET display_name = COALESCE(inbox_conversations.display_name, $3),
+           contact_id = COALESCE(inbox_conversations.contact_id, $4),
+           updated_at = NOW()
+     RETURNING *`,
+    [tenantId, cleanPhone, displayName, contact?.id || null]
+  );
+
+  return sendSuccess(res, conv, 'Conversation ready.');
 }));
 
 module.exports = router;

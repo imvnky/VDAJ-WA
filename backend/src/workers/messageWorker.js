@@ -200,6 +200,44 @@ const processMessage = async (msg, jobData) => {
       [jobData.campaignId]
     );
 
+    // Sync into 2-way Inbox: create/update conversation and add outbound message
+    try {
+      const { rows: [conv] } = await db.query(
+        `INSERT INTO inbox_conversations
+           (tenant_id, phone_e164, display_name, status, unread_count, last_message_at, last_message_preview)
+         VALUES ($1, $2, $3, 'open', 0, NOW(), $4)
+         ON CONFLICT (tenant_id, phone_e164) DO UPDATE
+           SET last_message_at = NOW(),
+               last_message_preview = $4,
+               display_name = COALESCE($3, inbox_conversations.display_name),
+               updated_at = NOW()
+         RETURNING id`,
+        [
+          jobData.tenantId,
+          msg.phone_e164,
+          msg.displayName || msg.display_name || null,
+          `Template: ${templateName}`,
+        ]
+      );
+
+      if (conv?.id) {
+        await db.query(
+          `INSERT INTO inbox_messages
+             (conversation_id, tenant_id, wa_message_id, direction, message_type, body, status)
+           VALUES ($1, $2, $3, 'outbound', 'template', $4, 'sent')
+           ON CONFLICT (wa_message_id) DO NOTHING`,
+          [
+            conv.id,
+            jobData.tenantId,
+            metaResponse.messages[0].id,
+            `Template: ${templateName}`,
+          ]
+        );
+      }
+    } catch (inboxErr) {
+      logger.warn('Failed to sync message to inbox_conversations', { error: inboxErr.message });
+    }
+
     return { success: true, metaMessageId: metaResponse.messages[0].id };
   } catch (err) {
     const errorCode = err.errorCode || 'ERR_META_005';

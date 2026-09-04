@@ -139,6 +139,7 @@ export const queueApi = {
 // ---- INBOX ----
 export const inboxApi = {
   conversations: (params, config = {}) => client.get('/inbox/conversations', { params, ...config }),
+  initiate: (data) => client.post('/inbox/conversations/initiate', data),
   messages: (id, params) => client.get(`/inbox/conversations/${id}/messages`, { params }),
   reply: (id, body, messageType) => client.post(`/inbox/conversations/${id}/reply`, { body, messageType }),
   resolve: (id, status) => client.patch(`/inbox/conversations/${id}/resolve`, { status }),
