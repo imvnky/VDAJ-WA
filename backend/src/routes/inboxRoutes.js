@@ -333,6 +333,9 @@ router.post('/conversations/:id/assign', catchAsync(async (req, res) => {
     assignedBy: req.user.id,
   });
 
+  return sendSuccess(res, rows[0], userId ? 'Conversation assigned.' : 'Conversation unassigned.');
+}));
+
 // ── POST /inbox/conversations/initiate ─────────────────────────
 // Get or create conversation by phone number (used by "Chat ->" button)
 router.post('/conversations/initiate', catchAsync(async (req, res) => {
