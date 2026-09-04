@@ -10,19 +10,21 @@ export default function Logo({ size = 36, variant = 'default', showWordmark = tr
 
   return (
     <div className="flex items-center gap-2.5 select-none shrink-0">
-      {/* Official VDAJ Brand Emblem */}
-      <img
-        src="/vdaj_logo.jpg"
-        alt="VDAJ Services LLP"
+      {/* Official 2×2 Brand Grid Mark */}
+      <svg
         width={size}
         height={size}
-        className="rounded-xl object-contain shrink-0 shadow-2xs"
-        style={{ width: `${size}px`, height: `${size}px` }}
-        onError={(e) => {
-          // Fallback if image path fails
-          e.currentTarget.style.display = 'none';
-        }}
-      />
+        viewBox="0 0 60 60"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        className="shrink-0"
+        aria-label="VDAJ Services LLP Logo"
+      >
+        <rect x="8" y="8" width="20" height="20" rx="4" fill="#534AB7" />
+        <rect x="32" y="8" width="20" height="20" rx="4" fill="#AFA9EC" />
+        <rect x="8" y="32" width="20" height="20" rx="4" fill="#AFA9EC" />
+        <rect x="32" y="32" width="20" height="20" rx="4" fill="#1D9E75" />
+      </svg>
 
       {/* Wordmark */}
       {showWordmark && (
