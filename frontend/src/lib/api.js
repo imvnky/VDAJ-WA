@@ -88,6 +88,8 @@ export const campaignApi = {
   create: (data) => client.post('/campaigns', data),
   launch: (id) => client.post(`/campaigns/${id}/launch`),
   pause: (id) => client.patch(`/campaigns/${id}/pause`),
+  retryFailed: (id) => client.post(`/campaigns/${id}/retry-failed`),
+  resend: (id) => client.post(`/campaigns/${id}/resend`),
   delete: (id) => client.delete(`/campaigns/${id}`),
   messages: (params, config = {}) => client.get('/campaigns/messages', { params, ...config }),
 };

@@ -144,7 +144,7 @@ const enqueueCampaign = async (campaign, messages) => {
     opts: {
       // Stagger: each chunk starts DELAY_BETWEEN_CHUNKS_MS * index after the previous
       delay: index * (campaign.delay_ms || QUEUE_CONFIG.DELAY_BETWEEN_CHUNKS_MS),
-      jobId: `${campaign.id}-chunk-${index}`,
+      jobId: `${campaign.id}-chunk-${index}-${Date.now()}-${uuidv4().slice(0, 8)}`,
     },
   }));
 
@@ -205,12 +205,18 @@ const processMessage = async (msg, jobData) => {
     const errorCode = err.errorCode || 'ERR_META_005';
     const errorMessage = err.message;
 
-    // Update message with error info
+    // Update message status to 'failed' with error info and timestamp
     await db.query(
       `UPDATE campaign_messages
-       SET last_error = $1, error_code = $2, retry_count = retry_count + 1, updated_at = NOW()
+       SET status = 'failed', failed_at = NOW(), last_error = $1, error_code = $2, retry_count = retry_count + 1, updated_at = NOW()
        WHERE id = $3`,
       [errorMessage, errorCode, msg.id]
+    );
+
+    // Increment campaign failed_count
+    await db.query(
+      `UPDATE campaigns SET failed_count = failed_count + 1, updated_at = NOW() WHERE id = $1`,
+      [jobData.campaignId]
     );
 
     logger.warn('Message send failed', {
@@ -266,13 +272,20 @@ messageQueue.process('*', QUEUE_CONFIG.CONCURRENCY, async (job) => {
 
   // If all chunks are done, check if campaign is complete
   if (chunkIndex + 1 === totalChunks) {
-    await db.query(
-      `UPDATE campaigns
-       SET status = 'completed', completed_at = NOW(), updated_at = NOW()
-       WHERE id = $1 AND status = 'running'`,
+    const { rows: [{ remaining_queued }] } = await db.query(
+      `SELECT COUNT(*)::int AS remaining_queued FROM campaign_messages WHERE campaign_id = $1 AND status = 'queued'`,
       [campaignId]
     );
-    logger.info('Campaign completed', { campaignId, tenantId });
+
+    if (remaining_queued === 0) {
+      await db.query(
+        `UPDATE campaigns
+         SET status = 'completed', completed_at = NOW(), updated_at = NOW()
+         WHERE id = $1 AND status = 'running'`,
+        [campaignId]
+      );
+      logger.info('Campaign completed', { campaignId, tenantId });
+    }
   }
 
   logger.info('Chunk processed', {
@@ -337,15 +350,17 @@ messageQueue.on('failed', async (job, err) => {
       await db.query(
         `UPDATE campaign_messages
          SET is_dead_letter = TRUE, dead_lettered_at = NOW(), status = 'dead_letter',
-             error_code = 'ERR_VDAJ_QUEUE_002', updated_at = NOW()
+             failed_at = COALESCE(failed_at, NOW()),
+             last_error = COALESCE(last_error, $2),
+             error_code = COALESCE(error_code, 'ERR_VDAJ_QUEUE_002'), updated_at = NOW()
          WHERE id = ANY($1::uuid[])`,
-        [messageIds]
+        [messageIds, err.message]
       );
 
       await db.query(
         `UPDATE campaigns
          SET dead_letter_count = dead_letter_count + $1,
-             failed_count = failed_count + $1, updated_at = NOW()
+             updated_at = NOW()
          WHERE id = $2`,
         [messageIds.length, job.data.campaignId]
       );

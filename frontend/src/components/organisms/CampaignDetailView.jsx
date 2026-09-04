@@ -73,6 +73,13 @@ const STATUS_CFG = {
     bg: '#FEE2E2',
     border: '#FECACA',
   },
+  dead_letter: {
+    label: 'Failed',
+    icon: '✗',
+    color: '#DC2626',
+    bg: '#FEE2E2',
+    border: '#FECACA',
+  },
 };
 
 export default function CampaignDetailView({ campaignId, onBack, onNewCampaign }) {
@@ -81,6 +88,8 @@ export default function CampaignDetailView({ campaignId, onBack, onNewCampaign }
   const [totalMessages, setTotalMessages] = useState(0);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [retrying, setRetrying] = useState(false);
+  const [resending, setResending] = useState(false);
   const [activeTab, setActiveTab] = useState('all'); // all, executed, queued, failed
   const [searchTerm, setSearchTerm] = useState('');
   const recipientTableRef = useRef(null);
@@ -126,6 +135,39 @@ export default function CampaignDetailView({ campaignId, onBack, onNewCampaign }
     loadData();
   }, [loadData]);
 
+  // Retry failed recipients only
+  const handleRetryFailed = async () => {
+    if (retrying) return;
+    setRetrying(true);
+    try {
+      const res = await campaignApi.retryFailed(campaignId);
+      showSuccess(res?.message || 'Failed recipient(s) queued for re-dispatch.');
+      await loadData(true);
+    } catch (err) {
+      showError(err?.message || 'Failed to retry recipients.');
+    } finally {
+      setRetrying(false);
+    }
+  };
+
+  // Resend entire campaign to all recipients
+  const handleResendCampaign = async () => {
+    if (resending) return;
+    if (!window.confirm('Are you sure you want to resend this campaign to all audience contacts?')) {
+      return;
+    }
+    setResending(true);
+    try {
+      const res = await campaignApi.resend(campaignId);
+      showSuccess(res?.message || 'Campaign queued for resend.');
+      await loadData(true);
+    } catch (err) {
+      showError(err?.message || 'Failed to resend campaign.');
+    } finally {
+      setResending(false);
+    }
+  };
+
   // Derived metrics
   const stats = useMemo(() => {
     if (!campaign) {
@@ -141,20 +183,20 @@ export default function CampaignDetailView({ campaignId, onBack, onNewCampaign }
     }
 
     const counts = campaign.live_counts || {};
-    const sent = counts.sent || campaign.sent_count || 0;
-    const delivered = counts.delivered || campaign.delivered_count || 0;
-    const read = counts.read || campaign.read_count || 0;
-    const failed = counts.failed || campaign.failed_count || 0;
-    const queued = counts.queued || campaign.queued_count || 0;
-    const total = Math.max(campaign.total_count || 0, totalMessages, sent + delivered + read + failed + queued, 1);
+    const sent = Number(counts.sent ?? campaign.sent_count ?? 0);
+    const delivered = Number(counts.delivered ?? campaign.delivered_count ?? 0);
+    const read = Number(counts.read ?? campaign.read_count ?? 0);
+    const queued = Number(counts.queued ?? campaign.queued_count ?? 0);
+    const failed = Number(counts.failed !== undefined ? counts.failed : (campaign.failed_count || 0));
+    const total = Math.max(Number(campaign.total_count || totalMessages || (sent + delivered + read + failed + queued)), 1);
     const accepted = sent + delivered + read;
 
     return {
-      total: campaign.total_count || totalMessages || total,
+      total,
       sent,
       delivered,
       read,
-      failed,
+      failed: Math.min(failed, total),
       queued,
       accepted,
     };
@@ -169,7 +211,7 @@ export default function CampaignDetailView({ campaignId, onBack, onNewCampaign }
       } else if (activeTab === 'queued') {
         if (m.status !== 'queued') return false;
       } else if (activeTab === 'failed') {
-        if (m.status !== 'failed') return false;
+        if (!['failed', 'dead_letter'].includes(m.status)) return false;
       }
 
       // Search filter
@@ -266,7 +308,48 @@ export default function CampaignDetailView({ campaignId, onBack, onNewCampaign }
           </PrimaryButton>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2.5 flex-wrap">
+          {/* Retry Failed Only Button */}
+          {stats.failed > 0 && (
+            <button
+              onClick={handleRetryFailed}
+              disabled={retrying}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-red-700 bg-red-50 border border-red-200 hover:bg-red-100 shadow-xs transition-all cursor-pointer disabled:opacity-50"
+              title="Re-send template only to failed/dead-lettered recipients"
+            >
+              <svg
+                className={`w-3.5 h-3.5 ${retrying ? 'animate-spin' : ''}`}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2.2}
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              <span>{retrying ? 'Queueing Retries...' : `Retry Failed (${stats.failed})`}</span>
+            </button>
+          )}
+
+          {/* Resend Campaign Button */}
+          <button
+            onClick={handleResendCampaign}
+            disabled={resending}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-[#534AB7] bg-[#F3F2FD] border border-[#AFA9EC] hover:bg-[#E8E6F8] shadow-xs transition-all cursor-pointer disabled:opacity-50"
+            title="Relaunch this campaign to all audience contacts"
+          >
+            <svg
+              className={`w-3.5 h-3.5 ${resending ? 'animate-spin' : ''}`}
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2.2}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span>{resending ? 'Relaunching...' : 'Resend Campaign'}</span>
+          </button>
+
           <button
             onClick={() => loadData(true)}
             disabled={refreshing}
@@ -498,7 +581,7 @@ export default function CampaignDetailView({ campaignId, onBack, onNewCampaign }
           </div>
           <div className="mt-3">
             <span className="text-2xl font-black text-[#0F172A] tabular-nums">
-              {stats.total > 0 ? `${Math.round(((stats.accepted + stats.failed) / stats.total) * 100)}%` : '0%'}
+              {stats.total > 0 ? `${Math.min(100, Math.round(((stats.accepted + Math.min(stats.failed, stats.total - stats.accepted)) / stats.total) * 100))}%` : '0%'}
             </span>
             <p className="text-2xs text-gray-500 font-medium mt-1">Messages Processed</p>
           </div>
@@ -550,6 +633,28 @@ export default function CampaignDetailView({ campaignId, onBack, onNewCampaign }
 
       {/* ── Recipient Delivery Log Table ──────────────────────────────── */}
       <div ref={recipientTableRef} className="bg-white rounded-2xl border border-[#E6E4F5] shadow-xs overflow-hidden scroll-mt-6">
+        {/* Failed Recipient Action Banner */}
+        {stats.failed > 0 && (
+          <div className="bg-red-50/90 border-b border-red-200 px-4 py-3 flex flex-wrap items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2.5 text-red-900 font-medium">
+              <span className="w-5 h-5 rounded-full bg-red-100 text-red-600 flex items-center justify-center font-bold text-xs shrink-0">!</span>
+              <span>
+                <strong>{stats.failed} recipient(s)</strong> failed or were dead-lettered in the delivery pipeline.
+              </span>
+            </div>
+            <button
+              onClick={handleRetryFailed}
+              disabled={retrying}
+              className="px-3.5 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white font-bold text-xs shadow-xs transition-all cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+            >
+              <svg className={`w-3.5 h-3.5 ${retrying ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              <span>{retrying ? 'Queueing Retries...' : `Retry ${stats.failed} Failed Recipients Only`}</span>
+            </button>
+          </div>
+        )}
+
         {/* Table Toolbar */}
         <div className="p-4 border-b border-[#E6E4F5] flex flex-wrap items-center justify-between gap-4 bg-[#F8FAFC]">
           {/* Tabs */}

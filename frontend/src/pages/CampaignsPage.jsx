@@ -525,6 +525,33 @@ export default function CampaignsPage() {
     }
   };
 
+  const handleRetryFailed = async (id) => {
+    setAction(id, 'retry');
+    try {
+      const res = await campaignApi.retryFailed(id);
+      showSuccess(res?.message || 'Retrying failed messages.');
+      loadData(true);
+    } catch (err) {
+      showError(err?.message || 'Failed to retry campaign.');
+    } finally {
+      setAction(id, null);
+    }
+  };
+
+  const handleResend = async (id) => {
+    if (!confirm('Are you sure you want to resend this campaign to all audience contacts?')) return;
+    setAction(id, 'resend');
+    try {
+      const res = await campaignApi.resend(id);
+      showSuccess(res?.message || 'Campaign queued for resend.');
+      loadData(true);
+    } catch (err) {
+      showError(err?.message || 'Failed to resend campaign.');
+    } finally {
+      setAction(id, null);
+    }
+  };
+
   // If a campaign is selected, render the MNC CampaignDetailView
   if (selectedCampaignId) {
     return (
@@ -690,7 +717,7 @@ export default function CampaignsPage() {
                   </div>
 
                   {/* Actions */}
-                  <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex items-center gap-2 shrink-0 flex-wrap">
                     {isDraft && (
                       <Button variant="teal" size="sm" loading={al === 'launch'} onClick={() => handleLaunch(c.id)}
                         leftIcon={<svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}>
@@ -700,6 +727,20 @@ export default function CampaignsPage() {
                     {isRunning && (
                       <Button variant="secondary" size="sm" loading={al === 'pause'} onClick={() => handlePause(c.id)}>
                         Pause
+                      </Button>
+                    )}
+                    {(c.failed_count || 0) > 0 && (
+                      <Button variant="secondary" size="sm" loading={al === 'retry'} onClick={() => handleRetryFailed(c.id)}
+                        className="text-red-700 bg-red-50 hover:bg-red-100 border-red-200"
+                        title="Retry only failed recipients">
+                        ↻ Retry Failed
+                      </Button>
+                    )}
+                    {(c.status === 'completed' || c.status === 'failed' || c.status === 'paused') && (
+                      <Button variant="secondary" size="sm" loading={al === 'resend'} onClick={() => handleResend(c.id)}
+                        className="text-[#534AB7] bg-[#F3F2FD] hover:bg-[#E8E6F8] border-[#AFA9EC]"
+                        title="Resend to all audience contacts">
+                        ↺ Resend
                       </Button>
                     )}
                     <Button variant="ghost" size="icon" loading={al === 'delete'} onClick={() => handleDelete(c.id)}

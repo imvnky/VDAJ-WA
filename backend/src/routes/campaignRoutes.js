@@ -85,8 +85,12 @@ router.get('/messages', catchAsync(async (req, res) => {
     params.push(tenantId);
   }
   if (status) {
-    filters.push(`cm.status = $${pidx++}`);
-    params.push(status);
+    if (status === 'failed') {
+      filters.push(`cm.status IN ('failed', 'dead_letter')`);
+    } else {
+      filters.push(`cm.status = $${pidx++}`);
+      params.push(status);
+    }
   }
   if (campaign_id) {
     filters.push(`cm.campaign_id = $${pidx++}`);
@@ -181,7 +185,7 @@ router.get('/:id', uuidParamValidator('id'), validate, catchAsync(async (req, re
        COUNT(*) FILTER (WHERE status = 'sent')::int AS sent,
        COUNT(*) FILTER (WHERE status = 'delivered')::int AS delivered,
        COUNT(*) FILTER (WHERE status = 'read')::int AS read,
-       COUNT(*) FILTER (WHERE status = 'failed')::int AS failed
+       COUNT(*) FILTER (WHERE status IN ('failed', 'dead_letter'))::int AS failed
      FROM campaign_messages
      WHERE campaign_id = $1`,
     [req.params.id]
@@ -310,6 +314,224 @@ router.patch('/:id/pause', uuidParamValidator('id'), validate, catchAsync(async 
   );
   if (!campaign) throw new AppError('Campaign not found or not currently running.', 404, 'ERR_VDAJ_CAMP_001');
   return sendSuccess(res, campaign, 'Campaign paused.');
+}));
+
+// ── POST /campaigns/:id/retry-failed ───────────────────────────
+// Re-runs the campaign targeting ONLY failed, dead-lettered, or stuck un-sent recipients
+router.post('/:id/retry-failed', uuidParamValidator('id'), validate, catchAsync(async (req, res) => {
+  const isSuperAdmin = req.user.role === 'super_admin';
+  const tenantId = req.user.tenantId || req.tenant?.id;
+
+  const result = await withTransaction(async (client) => {
+    // 1. Fetch and lock campaign + tenant credentials
+    const { rows: [campaign] } = await client.query(
+      `SELECT c.*, t.meta_system_token, t.phone_number_id,
+              mt.name AS template_name, mt.language AS template_language
+       FROM campaigns c
+       JOIN tenants t ON t.id = c.tenant_id
+       JOIN message_templates mt ON mt.id = c.template_id
+       WHERE c.id = $1 AND (c.tenant_id = $2 OR $3 = TRUE) AND c.deleted_at IS NULL FOR UPDATE`,
+      [req.params.id, tenantId, isSuperAdmin]
+    );
+
+    if (!campaign) throw new AppError('Campaign not found.', 404, 'ERR_VDAJ_CAMP_001');
+    if (!campaign.meta_system_token) {
+      throw new AppError('WhatsApp not configured. Connect your WABA credentials first.', 400, 'ERR_META_006');
+    }
+
+    // 2. Fetch all failed, dead-lettered, or stuck un-sent recipients
+    // Exclude messages that were already successfully sent, delivered, or read
+    const { rows: failedMessages } = await client.query(
+      `SELECT cm.id, cm.phone_e164, cm.template_vars, cm.status
+       FROM campaign_messages cm
+       WHERE cm.campaign_id = $1
+         AND cm.status NOT IN ('sent', 'delivered', 'read')
+       FOR UPDATE`,
+      [campaign.id]
+    );
+
+    if (failedMessages.length === 0) {
+      throw new AppError('No failed or pending recipients found to retry. All recipients have already received the message.', 400, 'ERR_VDAJ_CAMP_005');
+    }
+
+    const failedIds = failedMessages.map((m) => m.id);
+
+    // 3. Reset failed/stuck messages to 'queued' state
+    await client.query(
+      `UPDATE campaign_messages
+       SET status = 'queued',
+           is_dead_letter = FALSE,
+           dead_lettered_at = NULL,
+           last_error = NULL,
+           error_code = NULL,
+           failed_at = NULL,
+           retry_count = 0,
+           updated_at = NOW()
+       WHERE id = ANY($1::uuid[])`,
+      [failedIds]
+    );
+
+    // 4. Update campaign status to running and adjust counters
+    await client.query(
+      `UPDATE campaigns
+       SET status = 'running',
+           failed_count = GREATEST(0, failed_count - $1),
+           dead_letter_count = GREATEST(0, dead_letter_count - $1),
+           queued_count = $1,
+           updated_at = NOW()
+       WHERE id = $2`,
+      [failedIds.length, campaign.id]
+    );
+
+    return { campaign, messages: failedMessages };
+  });
+
+  // 5. Enqueue the failed messages into Bull queue engine with fresh unique job IDs
+  await enqueueCampaign(result.campaign, result.messages);
+
+  // Enterprise Audit Trail
+  recordAudit({
+    tenantId: result.campaign.tenant_id,
+    userId: req.user.id,
+    action: 'CAMPAIGN_RETRY_FAILED',
+    resourceType: 'campaign',
+    resourceId: result.campaign.id,
+    status: 'SUCCESS',
+    meta: {
+      campaignName: result.campaign.name,
+      retriedCount: result.messages.length,
+      templateName: result.campaign.template_name,
+    },
+    subTasks: [
+      { task: `Identified ${result.messages.length} failed/stuck recipients for re-dispatch`, status: 'SUCCESS' },
+      { task: 'Reset message delivery state to queued in database', status: 'SUCCESS' },
+      { task: 'Re-dispatched chunk jobs to Bull queue engine', status: 'SUCCESS' },
+    ],
+    ipAddress: req.ip,
+  }).catch(() => {});
+
+  return sendSuccess(res, {
+    campaignId: result.campaign.id,
+    retriedCount: result.messages.length,
+  }, `Successfully queued ${result.messages.length} failed recipient(s) for re-dispatch.`);
+}));
+
+// ── POST /campaigns/:id/resend ─────────────────────────────────
+// Resends the entire campaign to all active audience contacts
+router.post('/:id/resend', uuidParamValidator('id'), validate, catchAsync(async (req, res) => {
+  const isSuperAdmin = req.user.role === 'super_admin';
+  const tenantId = req.user.tenantId || req.tenant?.id;
+
+  const result = await withTransaction(async (client) => {
+    // 1. Fetch and lock campaign + tenant credentials
+    const { rows: [campaign] } = await client.query(
+      `SELECT c.*, t.meta_system_token, t.phone_number_id,
+              mt.name AS template_name, mt.language AS template_language
+       FROM campaigns c
+       JOIN tenants t ON t.id = c.tenant_id
+       JOIN message_templates mt ON mt.id = c.template_id
+       WHERE c.id = $1 AND (c.tenant_id = $2 OR $3 = TRUE) AND c.deleted_at IS NULL FOR UPDATE`,
+      [req.params.id, tenantId, isSuperAdmin]
+    );
+
+    if (!campaign) throw new AppError('Campaign not found.', 404, 'ERR_VDAJ_CAMP_001');
+    if (!campaign.meta_system_token) {
+      throw new AppError('WhatsApp not configured. Connect your WABA credentials first.', 400, 'ERR_META_006');
+    }
+
+    // 2. Ensure all active contacts in the audience list have rows
+    await client.query(
+      `INSERT INTO campaign_messages
+         (campaign_id, tenant_id, contact_id, phone_e164, template_vars, status)
+       SELECT $1, $2, c.id, c.phone_e164,
+              COALESCE(c.custom_vars, '{}'::jsonb),
+              'queued'
+       FROM contact_list_members clm
+       JOIN contacts c ON c.id = clm.contact_id
+       WHERE clm.contact_list_id = $3
+         AND c.status = 'active'
+       ON CONFLICT DO NOTHING`,
+      [campaign.id, campaign.tenant_id, campaign.contact_list_id]
+    );
+
+    // 3. Reset ALL campaign messages to queued
+    await client.query(
+      `UPDATE campaign_messages
+       SET status = 'queued',
+           meta_message_id = NULL,
+           sent_at = NULL,
+           delivered_at = NULL,
+           read_at = NULL,
+           failed_at = NULL,
+           last_error = NULL,
+           error_code = NULL,
+           retry_count = 0,
+           is_dead_letter = FALSE,
+           dead_lettered_at = NULL,
+           updated_at = NOW()
+       WHERE campaign_id = $1`,
+      [campaign.id]
+    );
+
+    // 4. Fetch all queued messages
+    const { rows: messages } = await client.query(
+      `SELECT cm.id, cm.phone_e164, cm.template_vars
+       FROM campaign_messages cm
+       WHERE cm.campaign_id = $1`,
+      [campaign.id]
+    );
+
+    if (messages.length === 0) {
+      throw new AppError('No active contacts found in the audience list to send.', 400, 'ERR_VDAJ_CAMP_003');
+    }
+
+    // 5. Reset campaign counters
+    await client.query(
+      `UPDATE campaigns
+       SET status = 'running',
+           started_at = NOW(),
+           completed_at = NULL,
+           total_count = $1,
+           sent_count = 0,
+           delivered_count = 0,
+           read_count = 0,
+           failed_count = 0,
+           dead_letter_count = 0,
+           queued_count = $1,
+           updated_at = NOW()
+       WHERE id = $2`,
+      [messages.length, campaign.id]
+    );
+
+    return { campaign, messages };
+  });
+
+  // 6. Enqueue all messages into Bull queue engine
+  await enqueueCampaign(result.campaign, result.messages);
+
+  recordAudit({
+    tenantId: result.campaign.tenant_id,
+    userId: req.user.id,
+    action: 'CAMPAIGN_RESEND_ALL',
+    resourceType: 'campaign',
+    resourceId: result.campaign.id,
+    status: 'SUCCESS',
+    meta: {
+      campaignName: result.campaign.name,
+      totalMessages: result.messages.length,
+      templateName: result.campaign.template_name,
+    },
+    subTasks: [
+      { task: `Reset and queued ${result.messages.length} messages for campaign resend`, status: 'SUCCESS' },
+      { task: 'Dispatched chunk jobs to Bull queue engine', status: 'SUCCESS' },
+    ],
+    ipAddress: req.ip,
+  }).catch(() => {});
+
+  return sendSuccess(res, {
+    campaignId: result.campaign.id,
+    totalMessages: result.messages.length,
+  }, `Campaign resent: ${result.messages.length} message(s) queued for delivery.`);
 }));
 
 // ── DELETE /campaigns/:id ──────────────────────────────────────
