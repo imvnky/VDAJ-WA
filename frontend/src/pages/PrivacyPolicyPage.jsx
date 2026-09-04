@@ -1,160 +1,266 @@
 /**
- * VDAJ Services — Privacy Policy Page
+ * VDAJ Services LLP — Enterprise Privacy Policy
  * Route: /legal/privacy (public, no auth required)
- * Required for Meta App Review and Embedded Signup verification.
+ * MNC Grade UI/UX · Compliant with Meta Platform Terms & India DPDP Act 2023
  */
 
 import React from 'react';
+import { Link } from 'react-router-dom';
+import Logo from '../components/atoms/Logo';
 
 export default function PrivacyPolicyPage() {
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg-base, #0f0f1a)', color: 'var(--text-primary, #fff)', fontFamily: "'Inter', system-ui, sans-serif" }}>
-      {/* Header */}
-      <header style={{ background: 'rgba(83,74,183,0.08)', borderBottom: '1px solid rgba(83,74,183,0.2)', padding: '1rem 2rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <div style={{ width: 32, height: 32, borderRadius: 10, background: 'linear-gradient(135deg,#534AB7,#26C18E)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <span style={{ color: '#fff', fontWeight: 900, fontSize: 14 }}>V</span>
+    <div className="min-h-screen bg-slate-50 text-slate-800 font-sans selection:bg-indigo-100 selection:text-indigo-900">
+      {/* Sticky Executive Navigation */}
+      <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-slate-200 px-6 py-3.5 shadow-xs">
+        <div className="max-w-5xl mx-auto flex items-center justify-between">
+          <Link to="/" className="flex items-center gap-3 no-underline">
+            <Logo size={36} showWordmark={true} />
+          </Link>
+
+          <div className="flex items-center gap-4 text-sm font-medium">
+            <Link
+              to="/legal/terms"
+              className="text-slate-600 hover:text-indigo-600 transition-colors hidden sm:inline-block"
+            >
+              Terms of Service
+            </Link>
+            <a
+              href="https://www.vdajservices.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-slate-600 hover:text-indigo-600 transition-colors hidden md:inline-block"
+            >
+              Main Website
+            </a>
+            <Link
+              to="/login"
+              className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-xs transition-all"
+            >
+              <span>Back to App</span>
+              <span>→</span>
+            </Link>
           </div>
-          <span style={{ fontWeight: 800, fontSize: 15 }}>VDAJ Services LLP</span>
         </div>
-        <a href="/login" style={{ color: '#AFA9EC', fontSize: 13, textDecoration: 'none' }}>← Back to App</a>
       </header>
 
-      {/* Content */}
-      <main style={{ maxWidth: 800, margin: '0 auto', padding: '3rem 2rem' }}>
-        <h1 style={{ fontSize: '2rem', fontWeight: 900, marginBottom: '0.5rem', background: 'linear-gradient(135deg,#AFA9EC,#26C18E)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-          Privacy Policy
-        </h1>
-        <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, marginBottom: '2.5rem' }}>
-          Last updated: August 26, 2025 · Effective Date: August 26, 2025
-        </p>
+      {/* Main Container */}
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
+        {/* Document Header Card */}
+        <div className="bg-white rounded-2xl p-8 sm:p-10 border border-slate-200/80 shadow-xs mb-8">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-700 text-xs font-semibold mb-4">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span>Legal Framework & Data Protection</span>
+          </div>
 
-        <Section title="1. Introduction">
-          <p>VDAJ Services LLP ("VDAJ", "we", "us", or "our") operates the VDAJ WhatsApp Business Platform ("Platform"), a WhatsApp Business Solution Provider (BSP) service that enables businesses to communicate with their customers via the WhatsApp Business API.</p>
-          <p>This Privacy Policy explains how we collect, use, disclose, and safeguard information when you use our Platform. By using the Platform, you agree to the collection and use of information in accordance with this Policy.</p>
-        </Section>
+          <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight mb-3">
+            Privacy Policy
+          </h1>
 
-        <Section title="2. Data We Collect">
-          <SubSection title="2.1 Business Account Information">
-            <ul>
-              <li>Business name, email address, phone number</li>
-              <li>WhatsApp Business Account (WABA) ID and Phone Number ID</li>
-              <li>Meta App ID and associated credentials</li>
-              <li>Billing and subscription information</li>
+          <p className="text-sm text-slate-500 flex flex-wrap items-center gap-x-4 gap-y-1">
+            <span><strong>Entity:</strong> VDAJ Services LLP</span>
+            <span>•</span>
+            <span><strong>Effective Date:</strong> September 1, 2026</span>
+            <span>•</span>
+            <span className="text-emerald-700 font-medium">DPDP Act (India) & Meta Platform Aligned</span>
+          </p>
+        </div>
+
+        {/* Document Content */}
+        <div className="bg-white rounded-2xl p-8 sm:p-12 border border-slate-200/80 shadow-xs space-y-10 text-slate-700 leading-relaxed text-[15px]">
+          {/* Section 1 */}
+          <section id="introduction">
+            <h2 className="text-xl font-bold text-slate-900 pb-2 border-b border-slate-200 flex items-center gap-2 mb-4">
+              <span className="text-indigo-600 font-black">1.</span>
+              <span>Introduction & Scope</span>
+            </h2>
+            <p className="mb-3">
+              <strong>VDAJ Services LLP</strong> ("VDAJ", "we", "us", or "our") is a registered Limited Liability Partnership in India providing enterprise communication technology and operating as a WhatsApp Business Solution Provider (BSP) through official Meta Cloud APIs.
+            </p>
+            <p>
+              This Privacy Policy governs the manner in which VDAJ Services LLP collects, utilizes, safeguards, and discloses information gathered from users, clients ("Business Operators"), and end-user recipients communicating through our platform. By utilizing our workspace or connecting a WhatsApp Business Account (WABA), you acknowledge and accept the practices described herein.
+            </p>
+          </section>
+
+          {/* Section 2 */}
+          <section id="data-collection">
+            <h2 className="text-xl font-bold text-slate-900 pb-2 border-b border-slate-200 flex items-center gap-2 mb-4">
+              <span className="text-indigo-600 font-black">2.</span>
+              <span>Data We Collect</span>
+            </h2>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 my-4">
+              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
+                <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide mb-2 flex items-center gap-2">
+                  <span className="text-indigo-600">🏢</span> Business Account Information
+                </h3>
+                <ul className="text-xs text-slate-600 space-y-1.5 list-disc pl-4">
+                  <li>Organization legal name, corporate email, billing address</li>
+                  <li>WhatsApp Business Account (WABA) ID, Phone Number ID</li>
+                  <li>Authorized administrative credentials and tenant API keys</li>
+                  <li>Meta App ID and embedded signup OAuth verification tokens</li>
+                </ul>
+              </div>
+
+              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
+                <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide mb-2 flex items-center gap-2">
+                  <span className="text-emerald-600">💬</span> WhatsApp Communications Data
+                </h3>
+                <ul className="text-xs text-slate-600 space-y-1.5 list-disc pl-4">
+                  <li>Message templates submitted to Meta for approval</li>
+                  <li>Campaign configuration parameters and broadcast variable mappings</li>
+                  <li>Real-time message delivery receipts (sent, delivered, read, failed)</li>
+                  <li>Inbound customer inquiries and agent resolution transcripts</li>
+                </ul>
+              </div>
+
+              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
+                <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide mb-2 flex items-center gap-2">
+                  <span className="text-blue-600">👥</span> Contact & Consent Records
+                </h3>
+                <ul className="text-xs text-slate-600 space-y-1.5 list-disc pl-4">
+                  <li>Recipient mobile telephone numbers in standard E.164 format</li>
+                  <li>Contact names, classification tags, and attributes</li>
+                  <li>Explicit opt-in timestamps and consent verification records</li>
+                  <li>Permanent unsubscribe signals and "STOP" opt-out logs</li>
+                </ul>
+              </div>
+
+              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
+                <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide mb-2 flex items-center gap-2">
+                  <span className="text-purple-600">🛡️</span> Security & Telemetry Data
+                </h3>
+                <ul className="text-xs text-slate-600 space-y-1.5 list-disc pl-4">
+                  <li>HTTP-only JWT security tokens with automated 24h expiration</li>
+                  <li>Client IP addresses, browser user-agents, audit log events</li>
+                  <li>Meta Graph API webhook transaction logs and payload verification</li>
+                </ul>
+              </div>
+            </div>
+          </section>
+
+          {/* Section 3 */}
+          <section id="usage">
+            <h2 className="text-xl font-bold text-slate-900 pb-2 border-b border-slate-200 flex items-center gap-2 mb-4">
+              <span className="text-indigo-600 font-black">3.</span>
+              <span>How We Process Your Information</span>
+            </h2>
+            <ul className="space-y-2.5 list-none pl-0">
+              <li className="flex items-start gap-2.5">
+                <span className="text-emerald-600 font-bold">✓</span>
+                <div><strong>Service Delivery & Orchestration:</strong> Delivering authorized WhatsApp templates, campaigns, dynamic messaging workflows, and team inbox collaboration tools.</div>
+              </li>
+              <li className="flex items-start gap-2.5">
+                <span className="text-emerald-600 font-bold">✓</span>
+                <div><strong>Regulatory & Policy Adherence:</strong> Enforcing compliance with Meta Platform Policies, GDPR, and India Digital Personal Data Protection (DPDP) Act 2023, including automated opt-out processing.</div>
+              </li>
+              <li className="flex items-start gap-2.5">
+                <span className="text-emerald-600 font-bold">✓</span>
+                <div><strong>Cryptographic Security Validation:</strong> Authenticating HMAC-SHA256 signatures on all incoming webhooks from Meta to prevent unauthorized message spoofing.</div>
+              </li>
+              <li className="flex items-start gap-2.5">
+                <span className="text-emerald-600 font-bold">✓</span>
+                <div><strong>Operational Analytics:</strong> Presenting aggregated message lifecycle metrics (delivery success, read rates, failures) to tenant administrators. We do not profile or sell end-user data.</div>
+              </li>
             </ul>
-          </SubSection>
-          <SubSection title="2.2 Message & Campaign Data">
-            <ul>
-              <li>Message templates submitted for Meta approval</li>
-              <li>Campaign configurations (recipient lists, scheduling, template variables)</li>
-              <li>Delivery status data: sent, delivered, read, failed timestamps</li>
-              <li>Opt-out records and unsubscribe signals received via WhatsApp</li>
+          </section>
+
+          {/* Section 4 */}
+          <section id="meta-cloud-api">
+            <h2 className="text-xl font-bold text-slate-900 pb-2 border-b border-slate-200 flex items-center gap-2 mb-4">
+              <span className="text-indigo-600 font-black">4.</span>
+              <span>WhatsApp & Meta Platform Data Governance</span>
+            </h2>
+            <div className="p-5 rounded-xl bg-indigo-50/70 border border-indigo-100 text-slate-700 mb-4">
+              <p className="font-semibold text-slate-900 mb-2">Our Strict Data Protection Guarantees:</p>
+              <ul className="space-y-1.5 text-sm list-disc pl-5">
+                <li>We <strong>NEVER</strong> sell, monetize, or lease WhatsApp contact data or conversation transcripts to third parties.</li>
+                <li>We <strong>NEVER</strong> utilize WhatsApp conversation data for cross-platform advertising or targeted behavioral profiling.</li>
+                <li>All messaging transactions occur directly against official Meta Cloud API endpoints using TLS 1.3 encryption.</li>
+              </ul>
+            </div>
+            <p className="text-xs text-slate-500">
+              Our data processing adheres strictly to the <a href="https://developers.facebook.com/terms/" target="_blank" rel="noopener noreferrer" className="text-indigo-600 underline">Meta Platform Terms</a> and the <a href="https://www.whatsapp.com/legal/business-policy/" target="_blank" rel="noopener noreferrer" className="text-indigo-600 underline">WhatsApp Business Policy</a>.
+            </p>
+          </section>
+
+          {/* Section 5 */}
+          <section id="data-retention">
+            <h2 className="text-xl font-bold text-slate-900 pb-2 border-b border-slate-200 flex items-center gap-2 mb-4">
+              <span className="text-indigo-600 font-black">5.</span>
+              <span>Data Retention & Security Protocols</span>
+            </h2>
+            <div className="space-y-3">
+              <p>
+                <strong>Message Delivery Logs:</strong> Retained for a rolling period of 90 days for operational audit verification, after which raw message payloads are automatically archived or purged.
+              </p>
+              <p>
+                <strong>Unsubscribe & Opt-Out Records:</strong> Retained indefinitely in our secure suppression index to honor recipient opt-out signals and prevent unsolicited messaging.
+              </p>
+              <p>
+                <strong>Encryption & Infrastructure:</strong> All data in transit is protected via TLS 1.2+ encryption. Data at rest is encrypted using AES-256 in production databases. Webhook secrets and Meta tokens are strictly isolated with environment-level access controls.
+              </p>
+            </div>
+          </section>
+
+          {/* Section 6 */}
+          <section id="user-rights">
+            <h2 className="text-xl font-bold text-slate-900 pb-2 border-b border-slate-200 flex items-center gap-2 mb-4">
+              <span className="text-indigo-600 font-black">6.</span>
+              <span>Recipient & Business Operator Rights</span>
+            </h2>
+            <p className="mb-3">
+              Under applicable data protection frameworks, including the India DPDP Act 2023 and GDPR, individuals retain explicit rights over their personal data:
+            </p>
+            <ul className="space-y-1.5 list-disc pl-5 mb-4">
+              <li><strong>Right of Access & Correction:</strong> You may request review or correction of stored organizational or contact details.</li>
+              <li><strong>Right of Erasure ("Right to be Forgotten"):</strong> Business clients may request complete workspace purging upon service termination.</li>
+              <li><strong>Immediate Opt-Out:</strong> End-users may reply "STOP" or "UNSUBSCRIBE" to any WhatsApp communication to be added to the suppression list automatically.</li>
             </ul>
-          </SubSection>
-          <SubSection title="2.3 Contact Data (Processed on Behalf of Businesses)">
-            <ul>
-              <li>End-user phone numbers (E.164 format)</li>
-              <li>End-user names and optional tags provided by the business</li>
-              <li>Consent records: opt-in source, opt-in proof, opt-in timestamp</li>
-              <li>Conversation history within the Platform Inbox</li>
-            </ul>
-          </SubSection>
-          <SubSection title="2.4 Technical & Usage Data">
-            <ul>
-              <li>IP addresses, browser type, session tokens (HTTP-only cookies)</li>
-              <li>API request logs with timestamps and response codes</li>
-              <li>Webhook event payloads from Meta Graph API</li>
-            </ul>
-          </SubSection>
-        </Section>
+          </section>
 
-        <Section title="3. How We Use Your Data">
-          <ul>
-            <li><strong>Service Delivery:</strong> To process WhatsApp message campaigns, manage contact lists, and provide the Inbox functionality.</li>
-            <li><strong>Compliance Enforcement:</strong> To maintain GDPR, India DPDP Act 2023, and Meta Business Platform policy adherence — including opt-out processing within 24 hours of receipt.</li>
-            <li><strong>Analytics:</strong> To provide aggregated delivery metrics (sent, delivered, read, failed counts) to the business operator. We do not profile end-users.</li>
-            <li><strong>Security:</strong> To validate HMAC-SHA256 webhook signatures from Meta, preventing unauthorized message injection.</li>
-            <li><strong>Support:</strong> To diagnose technical issues when requested by the business operator.</li>
-          </ul>
-        </Section>
+          {/* Corporate Entity & Contact */}
+          <section id="contact" className="p-6 rounded-2xl bg-slate-900 text-white mt-10">
+            <h3 className="text-lg font-bold mb-2 flex items-center gap-2">
+              <span className="text-indigo-400">🏛️</span> Official Legal & Grievance Contact
+            </h3>
+            <p className="text-sm text-slate-300 mb-4">
+              For any privacy inquiries, grievance redressal, or data protection officer (DPO) correspondence, contact us directly:
+            </p>
 
-        <Section title="4. WhatsApp & Meta Platform Data Usage">
-          <p>We access WhatsApp Business API data solely to:</p>
-          <ul>
-            <li>Send and receive messages on behalf of our business clients</li>
-            <li>Process delivery status webhooks (sent, delivered, read, failed)</li>
-            <li>Verify webhook endpoint connectivity for Meta App Review</li>
-          </ul>
-          <p><strong>We do not:</strong></p>
-          <ul>
-            <li>Use WhatsApp conversation data for advertising or third-party analytics</li>
-            <li>Sell or share end-user data with third parties outside the scope of service delivery</li>
-            <li>Retain message content beyond what is operationally required</li>
-          </ul>
-          <p>Data access and usage comply with the <a href="https://developers.facebook.com/terms/" target="_blank" rel="noopener noreferrer" style={{ color: '#AFA9EC' }}>Meta Platform Terms</a> and <a href="https://www.whatsapp.com/legal/business-policy/" target="_blank" rel="noopener noreferrer" style={{ color: '#AFA9EC' }}>WhatsApp Business Policy</a>.</p>
-        </Section>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-slate-300">
+              <div>
+                <strong className="text-white block">Corporate Entity:</strong>
+                VDAJ Services LLP (Registered LLP in India)
+              </div>
+              <div>
+                <strong className="text-white block">Grievance & Privacy Email:</strong>
+                <a href="mailto:info@vdajservices.com" className="text-indigo-300 hover:underline">info@vdajservices.com</a>
+              </div>
+              <div>
+                <strong className="text-white block">Official Website:</strong>
+                <a href="https://www.vdajservices.com" target="_blank" rel="noopener noreferrer" className="text-indigo-300 hover:underline">https://www.vdajservices.com</a>
+              </div>
+              <div>
+                <strong className="text-white block">Enterprise Operations:</strong>
+                Maharashtra, India
+              </div>
+            </div>
+          </section>
+        </div>
 
-        <Section title="5. Data Retention">
-          <ul>
-            <li><strong>Message logs:</strong> Retained for 90 days, then automatically purged</li>
-            <li><strong>Contact opt-out records:</strong> Retained indefinitely to honor unsubscribe requests</li>
-            <li><strong>Account data:</strong> Retained until account deletion is requested</li>
-            <li><strong>Session data:</strong> HTTP-only JWT cookies expire after 24 hours of inactivity</li>
-          </ul>
-        </Section>
-
-        <Section title="6. Data Security">
-          <ul>
-            <li>All data is transmitted over TLS 1.2+</li>
-            <li>Webhook payloads are verified with HMAC-SHA256 signatures</li>
-            <li>Passwords are hashed using bcrypt (minimum 12 rounds)</li>
-            <li>Database access is restricted to authorized personnel only</li>
-            <li>Railway.app production infrastructure is used with environment-variable secret management</li>
-          </ul>
-        </Section>
-
-        <Section title="7. Your Rights">
-          <p>As a business operator or end-user, you have the following rights:</p>
-          <ul>
-            <li><strong>Access:</strong> Request a copy of the personal data we hold about you</li>
-            <li><strong>Correction:</strong> Request correction of inaccurate data</li>
-            <li><strong>Deletion:</strong> Request deletion of your data (subject to legal retention obligations)</li>
-            <li><strong>Opt-Out:</strong> End-users may reply "STOP" to any WhatsApp message to opt out. We process opt-outs within 24 hours.</li>
-          </ul>
-          <p>To exercise these rights, contact: <a href="mailto:info@vdajservices.com" style={{ color: '#AFA9EC' }}>info@vdajservices.com</a></p>
-        </Section>
-
-        <Section title="8. Contact Information">
-          <p><strong>VDAJ Services LLP</strong><br />
-          Data Controller & Processor<br />
-          Email: <a href="mailto:info@vdajservices.com" style={{ color: '#AFA9EC' }}>info@vdajservices.com</a><br />
-          Website: <a href="https://vdajservices.com" style={{ color: '#AFA9EC' }}>https://vdajservices.com</a></p>
-        </Section>
-
-        <div style={{ marginTop: '3rem', paddingTop: '1.5rem', borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', gap: '1.5rem', fontSize: 13, color: 'rgba(255,255,255,0.4)' }}>
-          <a href="/legal/terms" style={{ color: '#AFA9EC', textDecoration: 'none' }}>Terms of Service</a>
-          <a href="/login" style={{ color: '#AFA9EC', textDecoration: 'none' }}>← Back to Platform</a>
-          <span>© 2025 VDAJ Services LLP</span>
+        {/* Footer Navigation */}
+        <div className="mt-8 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-4 pt-4 border-t border-slate-200">
+          <div>
+            © 2026 VDAJ Services LLP. All rights reserved.
+          </div>
+          <div className="flex items-center gap-4">
+            <Link to="/legal/terms" className="text-slate-600 hover:text-indigo-600">Terms of Service</Link>
+            <Link to="/login" className="text-slate-600 hover:text-indigo-600">Client Portal</Link>
+            <a href="https://www.vdajservices.com" className="text-slate-600 hover:text-indigo-600">vdajservices.com</a>
+          </div>
         </div>
       </main>
-    </div>
-  );
-}
-
-function Section({ title, children }) {
-  return (
-    <section style={{ marginBottom: '2rem' }}>
-      <h2 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#AFA9EC', marginBottom: '0.75rem', paddingBottom: '0.5rem', borderBottom: '1px solid rgba(83,74,183,0.2)' }}>{title}</h2>
-      <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: 14, lineHeight: 1.75, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>{children}</div>
-    </section>
-  );
-}
-
-function SubSection({ title, children }) {
-  return (
-    <div style={{ marginBottom: '0.75rem' }}>
-      <h3 style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.85)', marginBottom: '0.25rem' }}>{title}</h3>
-      <div style={{ color: 'rgba(255,255,255,0.65)', fontSize: 13, lineHeight: 1.7 }}>{children}</div>
     </div>
   );
 }

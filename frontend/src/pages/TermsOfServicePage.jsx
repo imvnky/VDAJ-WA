@@ -1,150 +1,222 @@
 /**
- * VDAJ Services — Terms of Service Page
+ * VDAJ Services LLP — Enterprise Terms of Service
  * Route: /legal/terms (public, no auth required)
- * Required for Meta App Review and Embedded Signup verification.
+ * MNC Grade UI/UX · Compliant with Meta Platform Terms & India DPDP Act 2023
  */
 
 import React from 'react';
+import { Link } from 'react-router-dom';
+import Logo from '../components/atoms/Logo';
 
 export default function TermsOfServicePage() {
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg-base, #0f0f1a)', color: 'var(--text-primary, #fff)', fontFamily: "'Inter', system-ui, sans-serif" }}>
-      {/* Header */}
-      <header style={{ background: 'rgba(83,74,183,0.08)', borderBottom: '1px solid rgba(83,74,183,0.2)', padding: '1rem 2rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <div style={{ width: 32, height: 32, borderRadius: 10, background: 'linear-gradient(135deg,#534AB7,#26C18E)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <span style={{ color: '#fff', fontWeight: 900, fontSize: 14 }}>V</span>
+    <div className="min-h-screen bg-slate-50 text-slate-800 font-sans selection:bg-indigo-100 selection:text-indigo-900">
+      {/* Sticky Executive Navigation */}
+      <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-slate-200 px-6 py-3.5 shadow-xs">
+        <div className="max-w-5xl mx-auto flex items-center justify-between">
+          <Link to="/" className="flex items-center gap-3 no-underline">
+            <Logo size={36} showWordmark={true} />
+          </Link>
+
+          <div className="flex items-center gap-4 text-sm font-medium">
+            <Link
+              to="/legal/privacy"
+              className="text-slate-600 hover:text-indigo-600 transition-colors hidden sm:inline-block"
+            >
+              Privacy Policy
+            </Link>
+            <a
+              href="https://www.vdajservices.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-slate-600 hover:text-indigo-600 transition-colors hidden md:inline-block"
+            >
+              Main Website
+            </a>
+            <Link
+              to="/login"
+              className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-xs transition-all"
+            >
+              <span>Back to App</span>
+              <span>→</span>
+            </Link>
           </div>
-          <span style={{ fontWeight: 800, fontSize: 15 }}>VDAJ Services LLP</span>
         </div>
-        <a href="/login" style={{ color: '#AFA9EC', fontSize: 13, textDecoration: 'none' }}>← Back to App</a>
       </header>
 
-      {/* Content */}
-      <main style={{ maxWidth: 800, margin: '0 auto', padding: '3rem 2rem' }}>
-        <h1 style={{ fontSize: '2rem', fontWeight: 900, marginBottom: '0.5rem', background: 'linear-gradient(135deg,#AFA9EC,#26C18E)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-          Terms of Service
-        </h1>
-        <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, marginBottom: '2.5rem' }}>
-          Last updated: August 26, 2025 · Effective Date: August 26, 2025
-        </p>
+      {/* Main Container */}
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
+        {/* Document Header Card */}
+        <div className="bg-white rounded-2xl p-8 sm:p-10 border border-slate-200/80 shadow-xs mb-8">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-700 text-xs font-semibold mb-4">
+            <span className="w-2 h-2 rounded-full bg-indigo-600"></span>
+            <span>Enterprise Master Services Agreement</span>
+          </div>
 
-        <Section title="1. Acceptance of Terms">
-          <p>By accessing or using the VDAJ Services LLP Platform ("Platform"), you ("Business Operator" or "User") agree to be bound by these Terms of Service ("Terms"). If you do not agree to these Terms, you may not use the Platform.</p>
-          <p>The Platform is operated by VDAJ Services LLP, a registered Limited Liability Partnership in India, acting as a WhatsApp Business Solution Provider (BSP).</p>
-        </Section>
+          <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight mb-3">
+            Terms of Service
+          </h1>
 
-        <Section title="2. Platform Description">
-          <p>The VDAJ Platform provides:</p>
-          <ul>
-            <li>WhatsApp Business API access via Meta's Cloud API</li>
-            <li>Campaign management for bulk WhatsApp messaging</li>
-            <li>Inbox for customer conversation management</li>
-            <li>Contact list management with GDPR/DPDP-compliant opt-in tracking</li>
-            <li>Message template management and Meta approval workflow</li>
-            <li>Automation and AI-powered response capabilities</li>
-            <li>Analytics and delivery reporting</li>
-          </ul>
-        </Section>
+          <p className="text-sm text-slate-500 flex flex-wrap items-center gap-x-4 gap-y-1">
+            <span><strong>Entity:</strong> VDAJ Services LLP</span>
+            <span>•</span>
+            <span><strong>Effective Date:</strong> September 1, 2026</span>
+            <span>•</span>
+            <span className="text-indigo-700 font-medium">Meta Cloud API Tier-1 Terms Governed</span>
+          </p>
+        </div>
 
-        <Section title="3. WhatsApp Business API Acceptable Use">
-          <p>By using our Platform, you agree to comply with all applicable WhatsApp and Meta policies:</p>
-          <ul>
-            <li><a href="https://www.whatsapp.com/legal/business-policy/" target="_blank" rel="noopener noreferrer" style={{ color: '#AFA9EC' }}>WhatsApp Business Policy</a></li>
-            <li><a href="https://developers.facebook.com/terms/" target="_blank" rel="noopener noreferrer" style={{ color: '#AFA9EC' }}>Meta Platform Terms</a></li>
-            <li><a href="https://www.whatsapp.com/legal/commerce-policy/" target="_blank" rel="noopener noreferrer" style={{ color: '#AFA9EC' }}>WhatsApp Commerce Policy</a></li>
-          </ul>
-          <p>Specifically, you agree that you will NOT:</p>
-          <ul>
-            <li>Send unsolicited messages ("spam") to users who have not explicitly opted in</li>
-            <li>Use the Platform for illegal, deceptive, or abusive messaging</li>
-            <li>Send messages that violate Meta's prohibited content policies</li>
-            <li>Circumvent opt-out requests — all unsubscribe signals must be honored within 24 hours</li>
-            <li>Impersonate Meta, WhatsApp, or any business you are not authorized to represent</li>
-            <li>Use unauthorized Meta trademarks in your business name or branding</li>
-          </ul>
-        </Section>
+        {/* Document Content */}
+        <div className="bg-white rounded-2xl p-8 sm:p-12 border border-slate-200/80 shadow-xs space-y-10 text-slate-700 leading-relaxed text-[15px]">
+          {/* Section 1 */}
+          <section id="acceptance">
+            <h2 className="text-xl font-bold text-slate-900 pb-2 border-b border-slate-200 flex items-center gap-2 mb-4">
+              <span className="text-indigo-600 font-black">1.</span>
+              <span>Acceptance of Master Terms</span>
+            </h2>
+            <p className="mb-3">
+              By accessing, registering with, or utilizing the services provided by <strong>VDAJ Services LLP</strong> ("Platform", "we", "us", or "our"), you ("Client", "Business Operator", or "Subscriber") agree to be legally bound by these Terms of Service. If you do not agree to these terms, you must not access or utilize our services.
+            </p>
+            <p>
+              VDAJ Services LLP is an officially incorporated Limited Liability Partnership in India operating an enterprise messaging management and automation suite integrated with the Meta WhatsApp Business Cloud API.
+            </p>
+          </section>
 
-        <Section title="4. Consent & Opt-In Requirements">
-          <p>You are solely responsible for:</p>
-          <ul>
-            <li>Obtaining valid, documented opt-in consent from every contact before sending marketing messages</li>
-            <li>Maintaining a record of how and when each contact opted in</li>
-            <li>Including compliant opt-out language in all marketing templates (e.g., "Reply STOP to unsubscribe")</li>
-            <li>Immediately honoring opt-out requests received through any channel</li>
-          </ul>
-          <p>VDAJ reserves the right to suspend accounts with opt-out rates exceeding 5% or with documented consent violations.</p>
-        </Section>
+          {/* Section 2 */}
+          <section id="services-scope">
+            <h2 className="text-xl font-bold text-slate-900 pb-2 border-b border-slate-200 flex items-center gap-2 mb-4">
+              <span className="text-indigo-600 font-black">2.</span>
+              <span>Platform Services & Capabilities</span>
+            </h2>
+            <p className="mb-4">Our enterprise service infrastructure provides:</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-sm">
+                <strong className="text-slate-900 block mb-1">⚡ Meta Cloud API Connectivity</strong>
+                Direct high-throughput routing through official Meta WhatsApp Business Platform endpoints.
+              </div>
+              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-sm">
+                <strong className="text-slate-900 block mb-1">📢 Broadcast & Campaign Engine</strong>
+                Multi-tenant recipient segmentation, schedule queueing, and delivery confirmation logging.
+              </div>
+              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-sm">
+                <strong className="text-slate-900 block mb-1">💬 Collaborative Multi-Agent Inbox</strong>
+                Unified conversation threads, agent assignment, quick canned responses, and tag organization.
+              </div>
+              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-sm">
+                <strong className="text-slate-900 block mb-1">🛡️ Automated Consent & Opt-Out</strong>
+                Enforcement of GDPR and DPDP opt-in management with real-time unsubscribe suppression.
+              </div>
+            </div>
+          </section>
 
-        <Section title="5. Account Responsibility">
-          <ul>
-            <li>You are responsible for maintaining the security of your account credentials</li>
-            <li>You must notify us immediately of any unauthorized access at <a href="mailto:support@vdajservices.com" style={{ color: '#AFA9EC' }}>support@vdajservices.com</a></li>
-            <li>You are responsible for all activities conducted under your account</li>
-            <li>Sharing account credentials with unauthorized parties is prohibited</li>
-          </ul>
-        </Section>
+          {/* Section 3 */}
+          <section id="acceptable-use">
+            <h2 className="text-xl font-bold text-slate-900 pb-2 border-b border-slate-200 flex items-center gap-2 mb-4">
+              <span className="text-indigo-600 font-black">3.</span>
+              <span>WhatsApp & Meta Platform Acceptable Use Policy</span>
+            </h2>
+            <p className="mb-3">
+              Subscribers must strictly adhere to all applicable Meta platform governance policies, including:
+            </p>
+            <ul className="list-disc pl-5 space-y-1 mb-4 text-sm text-indigo-700 font-medium">
+              <li><a href="https://www.whatsapp.com/legal/business-policy/" target="_blank" rel="noopener noreferrer" className="hover:underline">WhatsApp Business Policy</a></li>
+              <li><a href="https://developers.facebook.com/terms/" target="_blank" rel="noopener noreferrer" className="hover:underline">Meta Platform Terms & Developer Agreement</a></li>
+              <li><a href="https://www.whatsapp.com/legal/commerce-policy/" target="_blank" rel="noopener noreferrer" className="hover:underline">WhatsApp Commerce Policy</a></li>
+            </ul>
 
-        <Section title="6. Service Level & Availability">
-          <ul>
-            <li>We target 99.5% monthly uptime for the API and Inbox services</li>
-            <li>Scheduled maintenance will be announced 24 hours in advance where possible</li>
-            <li>Message delivery depends on Meta's WhatsApp infrastructure; we are not liable for Meta-side outages</li>
-            <li>We provide a 30-day rolling credit for extended downtime beyond our SLA</li>
-          </ul>
-        </Section>
+            <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-900 text-sm mb-4">
+              <strong className="block text-rose-950 font-bold mb-1.5">🚫 Strictly Prohibited Actions:</strong>
+              <ul className="space-y-1 list-disc pl-4 text-xs sm:text-sm text-rose-800">
+                <li>Transmission of unsolicited commercial communications ("Spam") to recipients without verifiable opt-in consent.</li>
+                <li>Importing or messaging scraped, purchased, rented, or third-party harvested telephone lists.</li>
+                <li>Failing to honor recipient unsubscribe requests ("STOP", "CANCEL", "UNSUBSCRIBE") immediately.</li>
+                <li>Disseminating misleading, fraudulent, defamatory, or prohibited category commodities.</li>
+                <li>Circumventing Meta message template review or tampering with approved template parameters.</li>
+              </ul>
+            </div>
+          </section>
 
-        <Section title="7. Data Processing">
-          <p>By using the Platform, you appoint VDAJ Services LLP as a Data Processor for contact data you upload. We will process this data only as directed by you and in accordance with our <a href="/legal/privacy" style={{ color: '#AFA9EC' }}>Privacy Policy</a>.</p>
-          <p>You remain the Data Controller responsible for ensuring your use of the Platform complies with GDPR, India DPDP Act 2023, and all applicable data protection laws in your jurisdiction.</p>
-        </Section>
+          {/* Section 4 */}
+          <section id="consent-obligations">
+            <h2 className="text-xl font-bold text-slate-900 pb-2 border-b border-slate-200 flex items-center gap-2 mb-4">
+              <span className="text-indigo-600 font-black">4.</span>
+              <span>Mandatory Consent & Opt-In Compliance</span>
+            </h2>
+            <p className="mb-3">
+              The Client maintains sole legal responsibility as the <strong>Data Controller</strong> for obtaining and maintaining documented prior affirmative consent from every individual prior to initiating WhatsApp outbound messages.
+            </p>
+            <p className="text-sm text-slate-600">
+              VDAJ Services LLP reserves the contractual right to immediately throttle, pause, or suspend any tenant account whose opt-out rate exceeds 5% or who incurs Meta quality rating degradation (Red/Low quality flag).
+            </p>
+          </section>
 
-        <Section title="8. Prohibited Uses">
-          <p>The following uses of the Platform are strictly prohibited:</p>
-          <ul>
-            <li>Sending messages to purchased, scraped, or rented contact lists</li>
-            <li>Operating a WhatsApp spamming service or reselling API access without authorization</li>
-            <li>Sending content that promotes violence, hate speech, or illegal activities</li>
-            <li>Circumventing Meta's template approval process</li>
-            <li>Using the Platform to send messages in bulk to users in countries where you lack legal authorization to do so</li>
-          </ul>
-        </Section>
+          {/* Section 5 */}
+          <section id="sla">
+            <h2 className="text-xl font-bold text-slate-900 pb-2 border-b border-slate-200 flex items-center gap-2 mb-4">
+              <span className="text-indigo-600 font-black">5.</span>
+              <span>Service Level Target (99.9% Cloud Availability)</span>
+            </h2>
+            <p className="mb-2">
+              We target <strong>99.9% monthly uptime</strong> for our core API middleware, webhook receivers, and platform dashboard.
+            </p>
+            <p className="text-sm text-slate-600">
+              Downstream message delivery times and carrier handshakes are governed by Meta Cloud API infrastructure and recipient mobile networks. Scheduled maintenance windows are broadcast at least 24 hours in advance.
+            </p>
+          </section>
 
-        <Section title="9. Suspension & Termination">
-          <ul>
-            <li>We may suspend accounts immediately for violations of these Terms or WhatsApp Business Policy</li>
-            <li>Meta may independently suspend or terminate your WABA for policy violations</li>
-            <li>Terminated accounts will have their data retained for 30 days before deletion</li>
-            <li>You may terminate your account at any time by contacting support</li>
-          </ul>
-        </Section>
+          {/* Section 6 */}
+          <section id="liability">
+            <h2 className="text-xl font-bold text-slate-900 pb-2 border-b border-slate-200 flex items-center gap-2 mb-4">
+              <span className="text-indigo-600 font-black">6.</span>
+              <span>Limitation of Liability</span>
+            </h2>
+            <div className="p-4 rounded-xl bg-slate-100 border border-slate-300/80 text-xs sm:text-sm text-slate-700 font-mono">
+              TO THE MAXIMUM EXTENT PERMISSIBLE BY APPLICABLE LAW, VDAJ SERVICES LLP AND ITS DIRECTORS, EMPLOYEES, AND PARTNERS SHALL NOT BE LIABLE FOR ANY INDIRECT, CONSEQUENTIAL, INCIDENTAL, OR PUNITIVE DAMAGES, LOSS OF PROFITS, OR DATA INTERRUPTION ARISING FROM THE USE OR INABILITY TO USE THE PLATFORM. TOTAL LIABILITY UNDER ANY CLAIM SHALL BE CONFINED TO THE FEES PAID BY THE CLIENT IN THE 30 DAYS PRECEDING THE CLAIM.
+            </div>
+          </section>
 
-        <Section title="10. Limitation of Liability">
-          <p>TO THE MAXIMUM EXTENT PERMITTED BY LAW, VDAJ SERVICES LLP SHALL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, OR CONSEQUENTIAL DAMAGES ARISING FROM YOUR USE OF THE PLATFORM. OUR TOTAL LIABILITY IS LIMITED TO THE AMOUNT PAID BY YOU IN THE 30 DAYS PRECEDING THE CLAIM.</p>
-        </Section>
+          {/* Contact Section */}
+          <section id="contact" className="p-6 rounded-2xl bg-slate-900 text-white mt-10">
+            <h3 className="text-lg font-bold mb-2 flex items-center gap-2">
+              <span className="text-indigo-400">⚖️</span> Legal & Contractual Inquiries
+            </h3>
+            <p className="text-sm text-slate-300 mb-4">
+              For enterprise contract inquiries, SLA negotiations, or legal questions regarding these Terms:
+            </p>
 
-        <Section title="11. Contact">
-          <p><strong>VDAJ Services LLP</strong><br />
-          Email: <a href="mailto:legal@vdajservices.com" style={{ color: '#AFA9EC' }}>legal@vdajservices.com</a><br />
-          Support: <a href="mailto:support@vdajservices.com" style={{ color: '#AFA9EC' }}>support@vdajservices.com</a><br />
-          Website: <a href="https://vdajservices.com" style={{ color: '#AFA9EC' }}>https://vdajservices.com</a></p>
-        </Section>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-slate-300">
+              <div>
+                <strong className="text-white block">Corporate Entity:</strong>
+                VDAJ Services LLP (Registered LLP in India)
+              </div>
+              <div>
+                <strong className="text-white block">Legal & Enterprise Email:</strong>
+                <a href="mailto:info@vdajservices.com" className="text-indigo-300 hover:underline">info@vdajservices.com</a>
+              </div>
+              <div>
+                <strong className="text-white block">Official Domain:</strong>
+                <a href="https://www.vdajservices.com" target="_blank" rel="noopener noreferrer" className="text-indigo-300 hover:underline">https://www.vdajservices.com</a>
+              </div>
+              <div>
+                <strong className="text-white block">Headquarters:</strong>
+                Maharashtra, India
+              </div>
+            </div>
+          </section>
+        </div>
 
-        <div style={{ marginTop: '3rem', paddingTop: '1.5rem', borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', gap: '1.5rem', fontSize: 13, color: 'rgba(255,255,255,0.4)' }}>
-          <a href="/legal/privacy" style={{ color: '#AFA9EC', textDecoration: 'none' }}>Privacy Policy</a>
-          <a href="/login" style={{ color: '#AFA9EC', textDecoration: 'none' }}>← Back to Platform</a>
-          <span>© 2025 VDAJ Services LLP</span>
+        {/* Footer Navigation */}
+        <div className="mt-8 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-4 pt-4 border-t border-slate-200">
+          <div>
+            © 2026 VDAJ Services LLP. All rights reserved.
+          </div>
+          <div className="flex items-center gap-4">
+            <Link to="/legal/privacy" className="text-slate-600 hover:text-indigo-600">Privacy Policy</Link>
+            <Link to="/login" className="text-slate-600 hover:text-indigo-600">Client Portal</Link>
+            <a href="https://www.vdajservices.com" className="text-slate-600 hover:text-indigo-600">vdajservices.com</a>
+          </div>
         </div>
       </main>
     </div>
-  );
-}
-
-function Section({ title, children }) {
-  return (
-    <section style={{ marginBottom: '2rem' }}>
-      <h2 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#AFA9EC', marginBottom: '0.75rem', paddingBottom: '0.5rem', borderBottom: '1px solid rgba(83,74,183,0.2)' }}>{title}</h2>
-      <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: 14, lineHeight: 1.75, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>{children}</div>
-    </section>
   );
 }
