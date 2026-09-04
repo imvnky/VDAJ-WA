@@ -3,55 +3,109 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>VDAJ Services LLP — Enterprise WhatsApp Business Solutions</title>
-  <meta name="description" content="Official WhatsApp Business Solutions by VDAJ Services LLP. Multi-agent team inbox, automated broadcast campaigns, interactive chatbot flows, and verified customer messaging.">
+  <title>VDAJ Services LLP — Enterprise WhatsApp Platform & IT Solutions</title>
+  <meta name="description" content="VDAJ Services LLP is a premier enterprise technology provider delivering official Meta WhatsApp Business Cloud API automation, cloud architecture, custom software development, and AI workflow solutions.">
+  <meta name="keywords" content="VDAJ Services LLP, WhatsApp Business API, Meta Cloud API, Enterprise IT Solutions, Team Inbox, WhatsApp Broadcasts, Cloud Architecture, Software Engineering">
+  <meta name="theme-color" content="#534AB7">
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="VDAJ Services LLP — Enterprise WhatsApp Platform & IT Solutions">
+  <meta property="og:description" content="Official WhatsApp Business Platform and high-performance enterprise IT solutions by VDAJ Services LLP.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://www.vdajservices.com">
+  <meta property="og:image" content="/vdaj_logo.jpg">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/jpeg" href="/vdaj_logo.jpg">
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <link rel="apple-touch-icon" href="/vdaj_logo.jpg">
+
+  <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="icon" type="image/png" href="/favicon.png">
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
   <style>
     :root {
       --brand: #534AB7;
+      --brand-gradient: linear-gradient(135deg, #534AB7 0%, #3B3499 100%);
       --brand-light: #AFA9EC;
-      --brand-dark: #3730A3;
+      --brand-glow: rgba(83, 74, 183, 0.35);
       --teal: #1D9E75;
       --teal-light: #26C18E;
-      --bg: #09090b;
-      --card: #121217;
-      --card-border: rgba(255, 255, 255, 0.08);
-      --text: #F4F4F5;
-      --text-muted: #A1A1AA;
+      --teal-glow: rgba(29, 158, 117, 0.35);
+      --bg-base: #08080C;
+      --bg-card: rgba(18, 18, 26, 0.7);
+      --bg-card-hover: rgba(24, 24, 36, 0.9);
+      --border-subtle: rgba(255, 255, 255, 0.08);
+      --border-hover: rgba(175, 169, 236, 0.28);
+      --text-main: #F8FAFC;
+      --text-muted: #94A3B8;
+      --text-sub: #64748B;
     }
+
     * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+
     body {
-      font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
-      background-color: var(--bg);
-      color: var(--text);
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: var(--bg-base);
+      color: var(--text-main);
       line-height: 1.6;
       overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
     }
-    .glow-top {
+
+    /* Ambient Lighting Background */
+    .ambient-glow {
       position: absolute;
-      top: -200px;
+      top: 0;
       left: 50%;
       transform: translateX(-50%);
-      width: 900px;
-      height: 500px;
-      background: radial-gradient(circle, rgba(83, 74, 183, 0.28) 0%, rgba(29, 158, 117, 0.12) 50%, transparent 80%);
-      filter: blur(80px);
+      width: 100%;
+      max-width: 1400px;
+      height: 800px;
+      background: radial-gradient(circle at 50% 10%, rgba(83, 74, 183, 0.22) 0%, rgba(29, 158, 117, 0.08) 35%, transparent 70%);
+      filter: blur(100px);
       pointer-events: none;
       z-index: 0;
     }
-    header {
-      position: relative;
-      z-index: 10;
+
+    .ambient-glow-it {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 100%;
       max-width: 1200px;
+      height: 600px;
+      background: radial-gradient(circle, rgba(59, 130, 246, 0.15) 0%, rgba(83, 74, 183, 0.1) 40%, transparent 70%);
+      filter: blur(120px);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Header & Navigation */
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(8, 8, 12, 0.85);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border-subtle);
+      transition: all 0.3s ease;
+    }
+
+    .nav-container {
+      max-width: 1280px;
       margin: 0 auto;
-      padding: 1.5rem 2rem;
+      padding: 0.9rem 1.5rem;
       display: flex;
       align-items: center;
       justify-content: space-between;
+      gap: 1.5rem;
     }
+
     .logo {
       display: flex;
       align-items: center;
@@ -59,279 +113,1178 @@
       text-decoration: none;
       color: #fff;
     }
-    .logo-mark {
-      width: 36px;
-      height: 36px;
+
+    .logo-img {
+      width: 38px;
+      height: 38px;
       border-radius: 10px;
-      overflow: hidden;
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      grid-template-rows: 1fr 1fr;
+      object-fit: cover;
+      box-shadow: 0 4px 12px rgba(83, 74, 183, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.12);
     }
-    .logo-mark div:nth-child(1) { background: #534AB7; }
-    .logo-mark div:nth-child(2) { background: #AFA9EC; }
-    .logo-mark div:nth-child(3) { background: #AFA9EC; }
-    .logo-mark div:nth-child(4) { background: #1D9E75; }
-    .logo-text { font-size: 20px; font-weight: 800; letter-spacing: -0.5px; }
-    .logo-text span { color: var(--brand-light); font-weight: 600; font-size: 13px; margin-left: 4px; text-transform: uppercase; letter-spacing: 1px; }
-    .nav-links { display: flex; gap: 2rem; align-items: center; }
-    .nav-links a { color: var(--text-muted); text-decoration: none; font-size: 14px; font-weight: 500; transition: color 0.2s; }
-    .nav-links a:hover { color: #fff; }
+
+    .logo-text {
+      display: flex;
+      flex-direction: column;
+      line-height: 1.1;
+    }
+
+    .logo-title {
+      font-size: 19px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: #FFFFFF;
+    }
+
+    .logo-sub {
+      font-size: 10.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      color: var(--brand-light);
+    }
+
+    .nav-menu {
+      display: flex;
+      gap: 1.8rem;
+      align-items: center;
+      list-style: none;
+    }
+
+    .nav-menu a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 500;
+      transition: color 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .nav-menu a:hover {
+      color: #FFFFFF;
+    }
+
+    .nav-badge {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 6px;
+      background: rgba(29, 158, 117, 0.15);
+      color: var(--teal-light);
+      border: 1px solid rgba(29, 158, 117, 0.3);
+    }
+
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    /* Buttons */
     .btn {
       display: inline-flex;
       align-items: center;
       justify-content: center;
       gap: 8px;
-      padding: 0.7rem 1.4rem;
+      padding: 0.65rem 1.35rem;
       border-radius: 12px;
       font-weight: 600;
       font-size: 14px;
       text-decoration: none;
-      transition: all 0.2s ease;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
       cursor: pointer;
+      white-space: nowrap;
     }
+
     .btn-primary {
-      background: linear-gradient(135deg, var(--brand) 0%, var(--brand-dark) 100%);
-      color: #fff;
+      background: linear-gradient(135deg, #534AB7 0%, #3B3499 100%);
+      color: #FFFFFF;
       border: 1px solid rgba(175, 169, 236, 0.3);
-      box-shadow: 0 4px 20px rgba(83, 74, 183, 0.4);
+      box-shadow: 0 4px 20px var(--brand-glow);
     }
+
     .btn-primary:hover {
       transform: translateY(-2px);
-      box-shadow: 0 6px 24px rgba(83, 74, 183, 0.6);
+      box-shadow: 0 6px 25px rgba(83, 74, 183, 0.55);
+      border-color: rgba(175, 169, 236, 0.6);
     }
+
     .btn-secondary {
       background: rgba(255, 255, 255, 0.05);
-      color: #fff;
-      border: 1px solid var(--card-border);
+      color: #F1F5F9;
+      border: 1px solid var(--border-subtle);
+      backdrop-filter: blur(8px);
     }
+
     .btn-secondary:hover {
-      background: rgba(255, 255, 255, 0.1);
+      background: rgba(255, 255, 255, 0.09);
+      border-color: rgba(255, 255, 255, 0.2);
+      transform: translateY(-2px);
     }
+
+    .btn-teal {
+      background: linear-gradient(135deg, #1D9E75 0%, #148059 100%);
+      color: #FFFFFF;
+      border: 1px solid rgba(167, 243, 208, 0.3);
+      box-shadow: 0 4px 18px var(--teal-glow);
+    }
+
+    .btn-teal:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 22px rgba(29, 158, 117, 0.5);
+    }
+
+    /* Hero Section */
     .hero {
       position: relative;
-      z-index: 5;
-      max-width: 1000px;
-      margin: 4rem auto 5rem;
+      z-index: 10;
+      max-width: 1100px;
+      margin: 4.5rem auto 4rem;
       text-align: center;
       padding: 0 1.5rem;
     }
-    .badge {
+
+    .pill-badge {
       display: inline-flex;
       align-items: center;
       gap: 8px;
-      padding: 6px 14px;
+      padding: 6px 16px;
       border-radius: 9999px;
-      background: rgba(83, 74, 183, 0.15);
+      background: rgba(83, 74, 183, 0.12);
       border: 1px solid rgba(175, 169, 236, 0.25);
-      color: var(--brand-light);
+      color: #E2E8F0;
       font-size: 13px;
       font-weight: 600;
-      margin-bottom: 1.5rem;
+      margin-bottom: 1.8rem;
+      backdrop-filter: blur(12px);
     }
-    .badge-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--teal-light); }
+
+    .live-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--teal-light);
+      box-shadow: 0 0 10px var(--teal-light);
+      position: relative;
+    }
+
+    .live-dot::after {
+      content: '';
+      position: absolute;
+      inset: -3px;
+      border-radius: 50%;
+      border: 1px solid var(--teal-light);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(1); opacity: 1; }
+      100% { transform: scale(2.2); opacity: 0; }
+    }
+
     h1 {
-      font-size: clamp(2.5rem, 5vw, 4rem);
+      font-size: clamp(2.4rem, 5.2vw, 4.2rem);
       font-weight: 800;
-      letter-spacing: -1.5px;
-      line-height: 1.15;
+      letter-spacing: -0.035em;
+      line-height: 1.12;
       margin-bottom: 1.5rem;
+      color: #FFFFFF;
     }
-    h1 .gradient-text {
-      background: linear-gradient(135deg, #FFFFFF 30%, var(--brand-light) 70%, var(--teal-light) 100%);
+
+    .gradient-text-hero {
+      background: linear-gradient(135deg, #FFFFFF 20%, #AFA9EC 65%, #26C18E 100%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
     }
-    .hero p {
-      font-size: clamp(1rem, 2vw, 1.25rem);
+
+    .gradient-text-it {
+      background: linear-gradient(135deg, #FFFFFF 20%, #60A5FA 65%, #A78BFA 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .hero-description {
+      font-size: clamp(1.05rem, 2vw, 1.25rem);
       color: var(--text-muted);
-      max-width: 720px;
+      max-width: 780px;
       margin: 0 auto 2.5rem;
-      line-height: 1.6;
+      line-height: 1.65;
+      font-weight: 400;
     }
-    .hero-actions { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
-    .features {
-      max-width: 1200px;
-      margin: 0 auto 6rem;
-      padding: 0 1.5rem;
-    }
-    .section-title {
-      text-align: center;
+
+    .hero-actions {
+      display: flex;
+      gap: 1.2rem;
+      justify-content: center;
+      flex-wrap: wrap;
       margin-bottom: 3.5rem;
     }
-    .section-title h2 {
-      font-size: 2.2rem;
-      font-weight: 700;
-      letter-spacing: -0.5px;
-      margin-bottom: 0.8rem;
-    }
-    .section-title p { color: var(--text-muted); font-size: 16px; }
-    .grid {
+
+    /* Enterprise Trust Stats Strip */
+    .trust-strip {
+      max-width: 1040px;
+      margin: 0 auto 5rem;
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-      gap: 1.5rem;
-    }
-    .card {
-      background: var(--card);
-      border: 1px solid var(--card-border);
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1rem;
+      padding: 1.25rem;
+      background: rgba(18, 18, 26, 0.6);
+      border: 1px solid var(--border-subtle);
       border-radius: 20px;
-      padding: 2.2rem;
-      transition: all 0.3s ease;
+      backdrop-filter: blur(12px);
+    }
+
+    .trust-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      padding: 0.5rem 1rem;
+    }
+
+    .trust-item:not(:last-child) {
+      border-right: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .trust-val {
+      font-size: 1.8rem;
+      font-weight: 800;
+      color: #FFFFFF;
+      letter-spacing: -0.02em;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+
+    .trust-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-top: 4px;
+    }
+
+    /* Interactive Showcase Mockup */
+    .showcase-wrapper {
+      max-width: 1200px;
+      margin: 0 auto 6.5rem;
+      padding: 0 1.5rem;
       position: relative;
+    }
+
+    .showcase-window {
+      background: #0E0E14;
+      border: 1px solid rgba(175, 169, 236, 0.2);
+      border-radius: 24px;
+      box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.8), 0 0 40px rgba(83, 74, 183, 0.15);
       overflow: hidden;
     }
-    .card:hover {
-      border-color: rgba(175, 169, 236, 0.3);
-      transform: translateY(-4px);
+
+    .window-header {
+      background: rgba(24, 24, 32, 0.8);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 0.85rem 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
     }
-    .card-icon {
-      width: 48px;
-      height: 48px;
+
+    .window-dots {
+      display: flex;
+      gap: 6px;
+    }
+
+    .window-dot {
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+    }
+
+    .dot-red { background: #EF4444; }
+    .dot-yellow { background: #F59E0B; }
+    .dot-green { background: #10B981; }
+
+    .window-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .window-body {
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      min-height: 480px;
+      background: #0B0B10;
+    }
+
+    /* Simulation Sidebar */
+    .sim-sidebar {
+      border-right: 1px solid rgba(255, 255, 255, 0.06);
+      background: rgba(14, 14, 20, 0.6);
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .sim-sidebar-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.5rem 0.5rem 0.75rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .sim-chat-item {
+      padding: 0.75rem 0.85rem;
       border-radius: 12px;
+      display: flex;
+      gap: 10px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      background: transparent;
+      border: 1px solid transparent;
+    }
+
+    .sim-chat-item.active {
+      background: rgba(83, 74, 183, 0.15);
+      border-color: rgba(83, 74, 183, 0.35);
+    }
+
+    .sim-avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: #3B3499;
+      color: #fff;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 24px;
+      font-weight: 700;
+      font-size: 13px;
+      shrink-0: 0;
+    }
+
+    /* Simulation Chat View */
+    .sim-chat-content {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      background: radial-gradient(circle at top right, rgba(83, 74, 183, 0.08) 0%, transparent 60%);
+    }
+
+    .sim-chat-header {
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(14, 14, 20, 0.4);
+    }
+
+    .sim-messages {
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      overflow-y: auto;
+    }
+
+    .bubble {
+      max-width: 75%;
+      padding: 0.85rem 1.15rem;
+      border-radius: 16px;
+      font-size: 13.5px;
+      line-height: 1.55;
+    }
+
+    .bubble-in {
+      align-self: flex-start;
+      background: #1C1C26;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: #F1F5F9;
+      border-bottom-left-radius: 4px;
+    }
+
+    .bubble-out {
+      align-self: flex-end;
+      background: linear-gradient(135deg, #534AB7 0%, #4338CA 100%);
+      color: #FFFFFF;
+      border-bottom-right-radius: 4px;
+      box-shadow: 0 4px 14px rgba(83, 74, 183, 0.3);
+    }
+
+    .bubble-meta {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 4px;
+      font-size: 10px;
+      opacity: 0.75;
+      margin-top: 4px;
+    }
+
+    .sim-composer {
+      padding: 1rem 1.5rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+      display: flex;
+      gap: 10px;
+      background: rgba(14, 14, 20, 0.5);
+    }
+
+    .sim-input {
+      flex: 1;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      padding: 0.6rem 1rem;
+      color: #fff;
+      font-size: 13px;
+      outline: none;
+    }
+
+    /* Section General */
+    section {
+      position: relative;
+      z-index: 10;
+    }
+
+    .section-header {
+      text-align: center;
+      max-width: 800px;
+      margin: 0 auto 3.5rem;
+      padding: 0 1.5rem;
+    }
+
+    .section-eyebrow {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      color: var(--teal-light);
+      margin-bottom: 0.75rem;
+      display: inline-block;
+    }
+
+    .section-eyebrow-it {
+      color: #60A5FA;
+    }
+
+    .section-title {
+      font-size: clamp(2rem, 3.6vw, 2.8rem);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1.2;
+      color: #FFFFFF;
+      margin-bottom: 1rem;
+    }
+
+    .section-subtitle {
+      font-size: 16px;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+
+    .container {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 0 1.5rem;
+    }
+
+    /* Feature Grid (WhatsApp Platform) */
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 7rem;
+    }
+
+    .feature-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 20px;
+      padding: 2.25rem;
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .feature-card:hover {
+      background: var(--bg-card-hover);
+      border-color: var(--border-hover);
+      transform: translateY(-4px);
+      box-shadow: 0 12px 30px -10px rgba(83, 74, 183, 0.25);
+    }
+
+    .feature-icon-box {
+      width: 48px;
+      height: 48px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
       margin-bottom: 1.5rem;
       background: rgba(83, 74, 183, 0.15);
-      border: 1px solid rgba(83, 74, 183, 0.3);
+      border: 1px solid rgba(175, 169, 236, 0.25);
+      color: var(--brand-light);
     }
-    .card h3 { font-size: 1.25rem; font-weight: 700; margin-bottom: 0.75rem; }
-    .card p { color: var(--text-muted); font-size: 14px; line-height: 1.6; }
-    .about-box {
-      max-width: 1200px;
-      margin: 0 auto 6rem;
-      padding: 3rem;
-      background: linear-gradient(135deg, rgba(83, 74, 183, 0.1) 0%, rgba(29, 158, 117, 0.05) 100%);
-      border: 1px solid var(--card-border);
-      border-radius: 24px;
+
+    .feature-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #FFFFFF;
+      margin-bottom: 0.75rem;
+      letter-spacing: -0.01em;
+    }
+
+    .feature-desc {
+      font-size: 14px;
+      color: var(--text-muted);
+      line-height: 1.65;
+    }
+
+    /* Full IT Solutions Suite Section */
+    .it-solutions-section {
+      padding: 5rem 0 7rem;
+      background: linear-gradient(180deg, rgba(8, 8, 12, 0) 0%, rgba(15, 23, 42, 0.4) 50%, rgba(8, 8, 12, 0) 100%);
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      position: relative;
+    }
+
+    .it-grid {
       display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 3rem;
-      align-items: center;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.5rem;
     }
-    .about-info h3 { font-size: 2rem; font-weight: 700; margin-bottom: 1rem; }
-    .about-info p { color: var(--text-muted); font-size: 15px; margin-bottom: 1.5rem; }
-    .contact-details { list-style: none; display: flex; flex-direction: column; gap: 0.8rem; }
-    .contact-details li { display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--text); }
-    footer {
-      border-top: 1px solid var(--card-border);
-      padding: 3rem 1.5rem;
+
+    .it-card {
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid rgba(59, 130, 246, 0.15);
+      border-radius: 20px;
+      padding: 2.25rem 2rem;
+      transition: all 0.3s ease;
+      position: relative;
+    }
+
+    .it-card:hover {
+      border-color: rgba(96, 165, 250, 0.4);
+      transform: translateY(-4px);
+      box-shadow: 0 14px 35px -10px rgba(37, 99, 235, 0.25);
+    }
+
+    .it-icon-box {
+      width: 48px;
+      height: 48px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      margin-bottom: 1.5rem;
+      background: rgba(37, 99, 235, 0.15);
+      border: 1px solid rgba(96, 165, 250, 0.3);
+      color: #60A5FA;
+    }
+
+    .it-card h3 {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #FFFFFF;
+      margin-bottom: 0.75rem;
+    }
+
+    .it-card p {
+      font-size: 13.5px;
+      color: var(--text-muted);
+      line-height: 1.6;
+      margin-bottom: 1.25rem;
+    }
+
+    .it-pill-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .it-pill {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.05);
+      color: #CBD5E1;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    /* Enterprise About & Corporate Profile */
+    .corporate-box {
       max-width: 1200px;
+      margin: 6rem auto;
+      padding: 3.5rem;
+      background: linear-gradient(135deg, rgba(83, 74, 183, 0.12) 0%, rgba(15, 23, 42, 0.8) 50%, rgba(29, 158, 117, 0.08) 100%);
+      border: 1px solid var(--border-hover);
+      border-radius: 28px;
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 3.5rem;
+      align-items: center;
+      box-shadow: 0 20px 50px -15px rgba(0, 0, 0, 0.6);
+    }
+
+    .corporate-info h3 {
+      font-size: 2.2rem;
+      font-weight: 800;
+      color: #FFFFFF;
+      margin-bottom: 1rem;
+      letter-spacing: -0.02em;
+    }
+
+    .corporate-info p {
+      color: var(--text-muted);
+      font-size: 15px;
+      line-height: 1.7;
+      margin-bottom: 1.8rem;
+    }
+
+    .credentials-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.9rem;
+    }
+
+    .credentials-list li {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 14px;
+      color: #E2E8F0;
+    }
+
+    .credentials-list strong {
+      color: #FFFFFF;
+    }
+
+    .cta-card {
+      background: rgba(18, 18, 28, 0.9);
+      border: 1px solid rgba(175, 169, 236, 0.25);
+      border-radius: 20px;
+      padding: 2.25rem;
+      text-align: center;
+    }
+
+    .cta-card h4 {
+      font-size: 1.35rem;
+      font-weight: 800;
+      color: #FFFFFF;
+      margin-bottom: 0.75rem;
+    }
+
+    .cta-card p {
+      font-size: 13.5px;
+      color: var(--text-muted);
+      margin-bottom: 1.75rem;
+      line-height: 1.55;
+    }
+
+    /* Footer */
+    footer {
+      border-top: 1px solid var(--border-subtle);
+      background: #050508;
+      padding: 4.5rem 1.5rem 2.5rem;
+      color: var(--text-muted);
+      font-size: 13.5px;
+    }
+
+    .footer-container {
+      max-width: 1280px;
       margin: 0 auto;
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr 1fr;
+      gap: 3rem;
+      margin-bottom: 3.5rem;
+    }
+
+    .footer-brand p {
+      max-width: 320px;
+      margin-top: 1rem;
+      line-height: 1.6;
+      font-size: 13px;
+    }
+
+    .footer-column h4 {
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: #FFFFFF;
+      margin-bottom: 1.25rem;
+    }
+
+    .footer-column ul {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .footer-column a {
+      color: var(--text-muted);
+      text-decoration: none;
+      transition: color 0.2s ease;
+    }
+
+    .footer-column a:hover {
+      color: #FFFFFF;
+    }
+
+    .footer-bottom {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding-top: 2rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
       display: flex;
       justify-content: space-between;
       align-items: center;
       flex-wrap: wrap;
-      gap: 1.5rem;
-      color: var(--text-muted);
-      font-size: 13px;
+      gap: 1rem;
+      font-size: 12.5px;
     }
-    .footer-links { display: flex; gap: 1.5rem; }
-    .footer-links a { color: var(--text-muted); text-decoration: none; transition: color 0.2s; }
-    .footer-links a:hover { color: #fff; }
+
+    /* Responsive */
+    @media (max-width: 960px) {
+      .trust-strip { grid-template-columns: repeat(2, 1fr); gap: 1.5rem; }
+      .trust-item:nth-child(2) { border-right: none; }
+      .window-body { grid-template-columns: 1fr; }
+      .sim-sidebar { display: none; }
+      .corporate-box { grid-template-columns: 1fr; padding: 2.5rem; }
+      .footer-container { grid-template-columns: 1fr 1fr; }
+    }
+
     @media (max-width: 768px) {
-      .about-box { grid-template-columns: 1fr; padding: 2rem; }
-      .nav-links { display: none; }
+      .nav-menu { display: none; }
+      .trust-strip { grid-template-columns: 1fr; }
+      .trust-item { border-right: none !important; border-bottom: 1px solid rgba(255, 255, 255, 0.06); padding-bottom: 1rem; }
+      .footer-container { grid-template-columns: 1fr; }
     }
   </style>
 </head>
 <body>
-  <div class="glow-top"></div>
+
+  <!-- Background Ambient Glow -->
+  <div class="ambient-glow"></div>
+
+  <!-- Top Navigation -->
   <header>
-    <a href="/" class="logo">
-      <div class="logo-mark">
-        <div></div><div></div><div></div><div></div>
+    <div class="nav-container">
+      <a href="/" class="logo">
+        <img src="/vdaj_logo.jpg" alt="VDAJ Services LLP" class="logo-img" onerror="this.src='vdaj_logo.jpg'">
+        <div class="logo-text">
+          <span class="logo-title">VDAJ</span>
+          <span class="logo-sub">Services LLP</span>
+        </div>
+      </a>
+
+      <ul class="nav-menu">
+        <li><a href="#whatsapp">WhatsApp Platform <span class="nav-badge">Meta Live</span></a></li>
+        <li><a href="#it-solutions">IT Solutions</a></li>
+        <li><a href="#features">Features</a></li>
+        <li><a href="#about">About LLP</a></li>
+        <li><a href="https://wa.vdajservices.com/legal/privacy" target="_blank">Privacy</a></li>
+      </ul>
+
+      <div class="nav-actions">
+        <a href="mailto:info@vdajservices.com" class="btn btn-secondary" style="display: none; @media(min-width:640px){display:inline-flex;}">Contact Sales</a>
+        <a href="https://wa.vdajservices.com/login" class="btn btn-primary">Client Portal →</a>
       </div>
-      <div class="logo-text">VDAJ<span>Services</span></div>
-    </a>
-    <nav class="nav-links">
-      <a href="#features">Features</a>
-      <a href="#about">About</a>
-      <a href="https://wa.vdajservices.com/legal/privacy" target="_blank">Privacy</a>
-      <a href="https://wa.vdajservices.com/legal/terms" target="_blank">Terms</a>
-    </nav>
-    <a href="https://wa.vdajservices.com/login" class="btn btn-primary">Client Portal →</a>
+    </div>
   </header>
 
+  <!-- Hero Section -->
   <section class="hero">
-    <div class="badge">
-      <div class="badge-dot"></div>
-      Meta Business Tech Provider & Solutions
+    <div class="pill-badge">
+      <span class="live-dot"></span>
+      <span>Official Meta Tech Provider & Enterprise IT Solutions Partner</span>
     </div>
-    <h1>Scale Customer Conversations with <span class="gradient-text">Enterprise WhatsApp Automation</span></h1>
-    <p>Empower your organization with multi-agent team inbox, automated broadcast campaigns, interactive flow builder, and verified Meta WhatsApp Business Platform APIs.</p>
+
+    <h1>
+      Scale Customer Conversations with <br>
+      <span class="gradient-text-hero">Enterprise WhatsApp Automation</span>
+    </h1>
+
+    <p class="hero-description">
+      <strong>VDAJ Services LLP</strong> empowers modern enterprises with official Meta WhatsApp Business Cloud API infrastructures, multi-agent team inboxes, intelligent automated campaigns, and full-spectrum custom IT solutions.
+    </p>
+
     <div class="hero-actions">
-      <a href="https://wa.vdajservices.com/login" class="btn btn-primary">Access WhatsApp Portal</a>
-      <a href="mailto:info@vdajservices.com" class="btn btn-secondary">Contact Enterprise Sales</a>
+      <a href="https://wa.vdajservices.com/login" class="btn btn-primary" style="padding: 0.85rem 1.85rem; font-size: 15px;">
+        Access WhatsApp Portal →
+      </a>
+      <a href="#it-solutions" class="btn btn-secondary" style="padding: 0.85rem 1.65rem; font-size: 15px;">
+        Explore IT Solutions Suite ↓
+      </a>
+      <a href="mailto:info@vdajservices.com" class="btn btn-teal" style="padding: 0.85rem 1.65rem; font-size: 15px;">
+        Schedule Enterprise Consultation
+      </a>
     </div>
-  </section>
 
-  <section class="features" id="features">
-    <div class="section-title">
-      <h2>Built for Modern Business Communication</h2>
-      <p>A reliable, scalable communication stack tailored for organizations and tech-enabled enterprises.</p>
-    </div>
-    <div class="grid">
-      <div class="card">
-        <div class="card-icon">💬</div>
-        <h3>Multi-Agent Team Inbox</h3>
-        <p>Enable support and sales teams to collaborate in real-time on unified WhatsApp conversation threads with smart assignment and agent tags.</p>
+    <!-- Enterprise Trust Metric Strip -->
+    <div class="trust-strip">
+      <div class="trust-item">
+        <span class="trust-val">99.99%</span>
+        <span class="trust-label">Cloud Uptime SLA</span>
       </div>
-      <div class="card">
-        <div class="card-icon">📢</div>
-        <h3>High-Throughput Broadcasts</h3>
-        <p>Deliver personalized notifications, order alerts, and marketing campaigns with real-time delivery and read tracking at scale.</p>
+      <div class="trust-item">
+        <span class="trust-val">&lt; 250ms</span>
+        <span class="trust-label">Message Dispatch Latency</span>
       </div>
-      <div class="card">
-        <div class="card-icon">⚡</div>
-        <h3>Visual Chatbots & Flows</h3>
-        <p>Automate 24/7 lead qualification, booking systems, appointment confirmations, and customer FAQs without writing code.</p>
+      <div class="trust-item">
+        <span class="trust-val">Tier-1</span>
+        <span class="trust-label">Direct Meta Cloud API</span>
       </div>
-      <div class="card">
-        <div class="card-icon">🔗</div>
-        <h3>Embedded Client Onboarding</h3>
-        <p>Seamless 1-click WhatsApp Business Account connection for multi-tenant businesses with direct Meta Embedded Signup.</p>
-      </div>
-      <div class="card">
-        <div class="card-icon">📊</div>
-        <h3>Actionable Analytics</h3>
-        <p>Monitor campaign delivery rates, message reads, incoming inquiries, agent response speeds, and WhatsApp quality ratings in real-time.</p>
-      </div>
-      <div class="card">
-        <div class="card-icon">🛡️</div>
-        <h3>Privacy & Compliance Built-in</h3>
-        <p>Strict data segregation, end-to-end encryption, automated STOP opt-out handlers, and full GDPR / DPDP compliance.</p>
+      <div class="trust-item">
+        <span class="trust-val">100%</span>
+        <span class="trust-label">DPDP & Meta Compliant</span>
       </div>
     </div>
   </section>
 
-  <section class="about-box" id="about">
-    <div class="about-info">
-      <h3>About VDAJ Services LLP</h3>
-      <p>VDAJ Services LLP is an Indian registered technology provider delivering enterprise software and communication solutions. We provide scalable infrastructure enabling businesses to modernize customer engagement through verified WhatsApp APIs.</p>
-      <ul class="contact-details">
-        <li>🏢 <strong>Legal Entity:</strong> VDAJ Services LLP</li>
-        <li>✉️ <strong>Official Inquiries:</strong> <a href="mailto:info@vdajservices.com" style="color:var(--brand-light); text-decoration:none;">info@vdajservices.com</a></li>
-        <li>📞 <strong>Support Phone:</strong> +91 80077 73138</li>
-        <li>🌐 <strong>Headquarters:</strong> Maharashtra, India</li>
-      </ul>
+  <!-- Interactive Platform Simulation Showcase -->
+  <div class="showcase-wrapper" id="whatsapp">
+    <div class="showcase-window">
+      <div class="window-header">
+        <div class="window-dots">
+          <div class="window-dot dot-red"></div>
+          <div class="window-dot dot-yellow"></div>
+          <div class="window-dot dot-green"></div>
+        </div>
+        <div class="window-title">
+          <span>🛡️ VDAJ Services LLP — Enterprise Command Center</span>
+          <span style="color: var(--teal-light);">● Connected to Meta Cloud API v21.0</span>
+        </div>
+        <div style="font-size: 11px; color: var(--text-muted); font-family: monospace;">Workspace: LIVE_PROD</div>
+      </div>
+
+      <div class="window-body">
+        <!-- Sidebar simulation -->
+        <div class="sim-sidebar">
+          <div class="sim-sidebar-header">
+            <span style="font-size: 12px; font-weight: 700; color: #fff;">Live Conversations</span>
+            <span style="font-size: 10px; background: rgba(29, 158, 117, 0.2); color: var(--teal-light); padding: 2px 6px; border-radius: 4px; font-weight: 700;">Live Sync</span>
+          </div>
+
+          <div class="sim-chat-item active">
+            <div class="sim-avatar" style="background: #534AB7;">SC</div>
+            <div style="flex:1; min-width:0;">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span style="font-size: 12px; font-weight: 700; color: #fff;">Shankar Channe</span>
+                <span style="font-size: 10px; color: var(--text-muted);">just now</span>
+              </div>
+              <p style="font-size: 11px; color: var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Order #88391 status inquiry</p>
+            </div>
+          </div>
+
+          <div class="sim-chat-item">
+            <div class="sim-avatar" style="background: #1D9E75;">VJ</div>
+            <div style="flex:1; min-width:0;">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span style="font-size: 12px; font-weight: 700; color: #fff;">Venkatesh Joshi</span>
+                <span style="font-size: 10px; color: var(--text-muted);">4m ago</span>
+              </div>
+              <p style="font-size: 11px; color: var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Enterprise plan onboarding</p>
+            </div>
+          </div>
+
+          <div class="sim-chat-item">
+            <div class="sim-avatar" style="background: #3B82F6;">AC</div>
+            <div style="flex:1; min-width:0;">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span style="font-size: 12px; font-weight: 700; color: #fff;">Acme Logistics</span>
+                <span style="font-size: 10px; color: var(--text-muted);">18m ago</span>
+              </div>
+              <p style="font-size: 11px; color: var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">API integration confirmed</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Chat thread simulation -->
+        <div class="sim-chat-content">
+          <div class="sim-chat-header">
+            <div style="display:flex; align-items:center; gap:10px;">
+              <div class="sim-avatar" style="background: #534AB7;">SC</div>
+              <div>
+                <div style="display:flex; align-items:center; gap:6px;">
+                  <span style="font-size: 13px; font-weight: 700; color: #fff;">Shankar Channe</span>
+                  <span style="color: #22c55e; font-size: 12px;">✓ Verified Customer</span>
+                </div>
+                <span style="font-size: 10.5px; color: var(--text-muted); font-family: monospace;">+91 94229 • Assigned to: Venkatesh Joshi</span>
+              </div>
+            </div>
+
+            <div style="display:flex; gap:8px;">
+              <span style="font-size: 11px; padding: 3px 8px; border-radius: 6px; background: rgba(29, 158, 117, 0.15); color: var(--teal-light); border: 1px solid rgba(29, 158, 117, 0.3); font-weight: 600;">
+                ⏱ 24h Window Active (23h 48m)
+              </span>
+            </div>
+          </div>
+
+          <div class="sim-messages">
+            <div class="bubble bubble-in">
+              Hello VDAJ Support, could you please share the tracking updates for our latest dispatch batch?
+              <div class="bubble-meta"><span>10:24 AM</span></div>
+            </div>
+
+            <div class="bubble bubble-out">
+              Hello Shankar! Your order dispatch batch has been verified and processed successfully via the Meta Cloud API. Tracking ID: <strong>#VDAJ-99281-EXP</strong>. Expected arrival tomorrow morning.
+              <div class="bubble-meta">
+                <span>10:25 AM</span>
+                <span style="color: #34D399;">✓✓</span>
+              </div>
+            </div>
+
+            <div class="bubble bubble-in">
+              Superb turnaround speed, thank you!
+              <div class="bubble-meta"><span>10:26 AM</span></div>
+            </div>
+          </div>
+
+          <div class="sim-composer">
+            <input type="text" class="sim-input" placeholder="Type a verified WhatsApp response or select a pre-approved template…" readonly value="Type a reply… (Press Enter to send)">
+            <button class="btn btn-primary" style="padding: 0.5rem 1rem; font-size: 13px;">Send ↵</button>
+          </div>
+        </div>
+      </div>
     </div>
-    <div class="card" style="background: rgba(18,18,23,0.85);">
-      <h3 style="margin-bottom:1rem;">Ready to get started?</h3>
-      <p style="margin-bottom:1.5rem;">Join forward-thinking businesses managing customer relationships at scale with VDAJ Services WhatsApp Platform.</p>
-      <a href="https://wa.vdajservices.com/login" class="btn btn-primary" style="width:100%;">Sign In to Workspace</a>
+  </div>
+
+  <!-- WhatsApp Platform Core Features Section -->
+  <section id="features" class="container" style="margin-bottom: 7rem;">
+    <div class="section-header">
+      <span class="section-eyebrow">Enterprise WhatsApp Platform</span>
+      <h2 class="section-title">Engineered for High-Scale Communication</h2>
+      <p class="section-subtitle">A robust, carrier-grade messaging infrastructure built to deliver seamless customer interactions, compliance, and multi-team collaboration.</p>
+    </div>
+
+    <div class="feature-grid">
+      <div class="feature-card">
+        <div class="feature-icon-box">💬</div>
+        <h3 class="feature-title">Multi-Agent Team Inbox</h3>
+        <p class="feature-desc">Unify your sales and support departments into a single collaborative inbox with smart agent assignment, status tagging, canned templates, and internal notes.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon-box">📢</div>
+        <h3 class="feature-title">High-Throughput Broadcasts</h3>
+        <p class="feature-desc">Dispatch millions of personalized notifications, transactional receipts, and marketing updates with 99.9% deliverability and zero rate limiting on Meta Cloud API.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon-box">⚡</div>
+        <h3 class="feature-title">Visual Automation & Flows</h3>
+        <p class="feature-desc">Build 24/7 self-service chatbots, interactive menu buttons, order tracking bots, and automated lead qualifiers without writing a single line of backend code.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon-box">🔗</div>
+        <h3 class="feature-title">Embedded Meta Onboarding</h3>
+        <p class="feature-desc">Connect customer WhatsApp Business Accounts in under 3 minutes with native Meta Embedded Signup, automated WABA linking, and real-time token synchronization.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon-box">📊</div>
+        <h3 class="feature-title">Real-Time Delivery Intelligence</h3>
+        <p class="feature-desc">Gain instantaneous visibility into delivery rates, read receipts, engagement metrics, agent response speeds, and WhatsApp quality ratings with deep analytics.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon-box">🛡️</div>
+        <h3 class="feature-title">Compliance & Data Sovereignty</h3>
+        <p class="feature-desc">Strict tenant data isolation, encrypted message payloads, automated 24-hour service window enforcement, and built-in opt-out (STOP) compliance.</p>
+      </div>
     </div>
   </section>
 
+  <!-- Comprehensive Enterprise IT Solutions Suite Section -->
+  <section class="it-solutions-section" id="it-solutions">
+    <div class="ambient-glow-it"></div>
+    <div class="container">
+      <div class="section-header">
+        <span class="section-eyebrow section-eyebrow-it">Beyond Messaging: Full-Spectrum IT Capabilities</span>
+        <h2 class="section-title">
+          Enterprise <span class="gradient-text-it">IT Solutions & Engineering</span>
+        </h2>
+        <p class="section-subtitle">
+          VDAJ Services LLP partners with growing startups and mature enterprises to design, build, and deploy mission-critical software, cloud architectures, and digital transformation systems.
+        </p>
+      </div>
+
+      <div class="it-grid">
+        <!-- IT Service 1 -->
+        <div class="it-card">
+          <div class="it-icon-box">☁️</div>
+          <h3>Cloud & DevOps Architecture</h3>
+          <p>End-to-end cloud infrastructure engineering on AWS, GCP, and Azure. We build auto-scaling Kubernetes clusters, Dockerized microservices, and automated CI/CD deployment pipelines.</p>
+          <div class="it-pill-tags">
+            <span class="it-pill">Kubernetes</span>
+            <span class="it-pill">AWS / GCP</span>
+            <span class="it-pill">Docker</span>
+            <span class="it-pill">CI/CD Pipelines</span>
+            <span class="it-pill">Terraform</span>
+          </div>
+        </div>
+
+        <!-- IT Service 2 -->
+        <div class="it-card">
+          <div class="it-icon-box">💻</div>
+          <h3>Custom Web & Mobile Development</h3>
+          <p>Bespoke web applications, high-throughput SaaS portals, and cross-platform mobile apps engineered with modern stacks for peak performance, security, and responsive UI/UX.</p>
+          <div class="it-pill-tags">
+            <span class="it-pill">React / Next.js</span>
+            <span class="it-pill">Node.js</span>
+            <span class="it-pill">Flutter / React Native</span>
+            <span class="it-pill">PostgreSQL / Redis</span>
+          </div>
+        </div>
+
+        <!-- IT Service 3 -->
+        <div class="it-card">
+          <div class="it-icon-box">🤖</div>
+          <h3>AI & Workflow Automation</h3>
+          <p>Integrate intelligent generative AI agents, automated customer routing pipelines, document processing bots, and custom workflow triggers into your core business operations.</p>
+          <div class="it-pill-tags">
+            <span class="it-pill">LLM Integrations</span>
+            <span class="it-pill">Process Automation</span>
+            <span class="it-pill">CRM Integrations</span>
+            <span class="it-pill">Smart Routing</span>
+          </div>
+        </div>
+
+        <!-- IT Service 4 -->
+        <div class="it-card">
+          <div class="it-icon-box">🔌</div>
+          <h3>API Middleware & Integrations</h3>
+          <p>Seamless connectivity between ERPs, payment gateways (Stripe, Razorpay), custom CRMs, and third-party APIs with secure webhook streaming and high-reliability data synchronization.</p>
+          <div class="it-pill-tags">
+            <span class="it-pill">Payment Gateways</span>
+            <span class="it-pill">Webhooks</span>
+            <span class="it-pill">REST / GraphQL</span>
+            <span class="it-pill">Legacy Modernization</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Corporate Profile & About VDAJ Services LLP -->
+  <section class="container" id="about">
+    <div class="corporate-box">
+      <div class="corporate-info">
+        <span class="section-eyebrow">Corporate Governance</span>
+        <h3>VDAJ Services LLP</h3>
+        <p>
+          VDAJ Services LLP is an officially registered Limited Liability Partnership in India delivering cutting-edge digital communications and enterprise information technology solutions. From carrier-grade messaging backbones to custom enterprise software, we engineer dependable solutions that power business growth worldwide.
+        </p>
+
+        <ul class="credentials-list">
+          <li>
+            <span>🏢</span>
+            <div><strong>Registered Entity:</strong> VDAJ Services LLP (India)</div>
+          </li>
+          <li>
+            <span>✉️</span>
+            <div><strong>Official Correspondence:</strong> <a href="mailto:info@vdajservices.com" style="color: var(--brand-light); text-decoration: none; font-weight: 600;">info@vdajservices.com</a></div>
+          </li>
+          <li>
+            <span>📞</span>
+            <div><strong>Enterprise Hotline:</strong> +91 80077 73138</div>
+          </li>
+          <li>
+            <span>🌐</span>
+            <div><strong>Operational Headquarters:</strong> Maharashtra, India</div>
+          </li>
+          <li>
+            <span>🛡️</span>
+            <div><strong>Compliance Standards:</strong> DPDP Compliant • Official Meta Tech Partner • ISO Security Aligned</div>
+          </li>
+        </ul>
+      </div>
+
+      <div class="cta-card">
+        <h4>Deploy Your Workspace Today</h4>
+        <p>Connect your business to the official Meta WhatsApp Business Cloud API or discuss a tailored enterprise IT architecture with our solutions team.</p>
+        <div style="display:flex; flex-direction:column; gap:0.75rem;">
+          <a href="https://wa.vdajservices.com/login" class="btn btn-primary" style="width: 100%;">
+            Sign In to Client Portal →
+          </a>
+          <a href="mailto:info@vdajservices.com?subject=Enterprise%20Inquiry%20-%20VDAJ%20Services%20LLP" class="btn btn-secondary" style="width: 100%;">
+            Contact Solutions Team
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Executive Footer -->
   <footer>
-    <div>© 2025 VDAJ Services LLP. All rights reserved.</div>
-    <div class="footer-links">
-      <a href="https://wa.vdajservices.com/legal/privacy" target="_blank">Privacy Policy</a>
-      <a href="https://wa.vdajservices.com/legal/terms" target="_blank">Terms of Service</a>
-      <a href="https://wa.vdajservices.com/login">Portal</a>
-      <a href="mailto:info@vdajservices.com">Support</a>
+    <div class="footer-container">
+      <div class="footer-brand">
+        <a href="/" class="logo">
+          <img src="/vdaj_logo.jpg" alt="VDAJ Services LLP" class="logo-img" onerror="this.src='vdaj_logo.jpg'">
+          <div class="logo-text">
+            <span class="logo-title">VDAJ</span>
+            <span class="logo-sub">Services LLP</span>
+          </div>
+        </a>
+        <p>
+          Enterprise WhatsApp Business Cloud API solutions and full-stack information technology engineering by VDAJ Services LLP.
+        </p>
+      </div>
+
+      <div class="footer-column">
+        <h4>WhatsApp Platform</h4>
+        <ul>
+          <li><a href="https://wa.vdajservices.com/login">Team Inbox</a></li>
+          <li><a href="https://wa.vdajservices.com/login">Broadcast Campaigns</a></li>
+          <li><a href="https://wa.vdajservices.com/login">Interactive Chatbots</a></li>
+          <li><a href="https://wa.vdajservices.com/login">Meta Cloud API</a></li>
+          <li><a href="https://wa.vdajservices.com/login">Analytics Dashboard</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-column">
+        <h4>IT Solutions</h4>
+        <ul>
+          <li><a href="#it-solutions">Cloud & DevOps</a></li>
+          <li><a href="#it-solutions">Web & App Development</a></li>
+          <li><a href="#it-solutions">AI & Automation</a></li>
+          <li><a href="#it-solutions">API Integrations</a></li>
+          <li><a href="#it-solutions">Custom Enterprise SaaS</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-column">
+        <h4>Legal & Compliance</h4>
+        <ul>
+          <li><a href="https://wa.vdajservices.com/legal/privacy" target="_blank">Privacy Policy</a></li>
+          <li><a href="https://wa.vdajservices.com/legal/terms" target="_blank">Terms of Service</a></li>
+          <li><a href="mailto:info@vdajservices.com">Security & Compliance</a></li>
+          <li><a href="mailto:info@vdajservices.com">Enterprise Support</a></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="footer-bottom">
+      <div>© 2026 VDAJ Services LLP. All rights reserved. Registered in India.</div>
+      <div>Designed with MNC Enterprise Standards · Powered by Meta Business Cloud API</div>
     </div>
   </footer>
+
 </body>
 </html>
