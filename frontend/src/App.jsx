@@ -80,6 +80,7 @@ import SuperAdminTenantsPage from './pages/admin/SuperAdminTenantsPage';
 import SuperAdminUsersPage   from './pages/admin/SuperAdminUsersPage';
 import PrivacyPolicyPage  from './pages/PrivacyPolicyPage';
 import TermsOfServicePage from './pages/TermsOfServicePage';
+import DataDeletionPage  from './pages/DataDeletionPage';
 
 // ── Loading Spinner ───────────────────────────────────────────
 function FullPageLoader() {
@@ -157,9 +158,13 @@ export default function App() {
         {/* Public */}
         <Route path="/login"          element={<LoginPage />} />
         <Route path="/"               element={<RootRedirect />} />
-        {/* Legal — public, no auth required for Meta App Review */}
-        <Route path="/legal/privacy"  element={<PrivacyPolicyPage />} />
-        <Route path="/legal/terms"    element={<TermsOfServicePage />} />
+        {/* Legal & Compliance — public, no auth required for Meta App Review */}
+        <Route path="/privacy"             element={<PrivacyPolicyPage />} />
+        <Route path="/legal/privacy"       element={<PrivacyPolicyPage />} />
+        <Route path="/terms"               element={<TermsOfServicePage />} />
+        <Route path="/legal/terms"         element={<TermsOfServicePage />} />
+        <Route path="/data-deletion"       element={<DataDeletionPage />} />
+        <Route path="/legal/data-deletion" element={<DataDeletionPage />} />
 
         {/* Protected */}
         <Route element={<RequireAuth />}>
