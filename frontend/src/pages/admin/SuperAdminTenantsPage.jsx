@@ -20,6 +20,7 @@ import { clsx } from 'clsx';
 import { useNavigate } from 'react-router-dom';
 import { superAdminApi, authApi } from '../../lib/api';
 import { showSuccess, showError } from '../../components/atoms/Toast/Toast.jsx';
+import { ErrorState, parseApiError } from '../../components/atoms/ErrorState/ErrorState.jsx';
 import useAuthStore from '../../store/authStore';
 
 // ── Constants ─────────────────────────────────────────────────
@@ -481,13 +482,18 @@ export default function SuperAdminTenantsPage() {
   const [confirm, setConfirm] = useState(null);
   // { type: 'suspend'|'activate'|'impersonate', tenant, loading }
 
+  const [error,        setError]        = useState(null);
+
   // ── Loaders ─────────────────────────────────────────────────
   const loadTenants = useCallback(async () => {
     setLoading(true);
     try {
       const res = await superAdminApi.listTenants({ silent: true });
       setTenants(res?.data || []);
-    } catch {} finally { setLoading(false); }
+      setError(null);
+    } catch (err) {
+      setError(parseApiError(err));
+    } finally { setLoading(false); }
   }, []);
 
   const loadOverview = useCallback(async () => {
@@ -633,6 +639,18 @@ export default function SuperAdminTenantsPage() {
                     ))}
                   </tr>
                 ))
+              ) : error ? (
+                <tr>
+                  <td colSpan={12} className="p-8">
+                    <ErrorState
+                      title="Failed to load client tenants"
+                      message={error.message}
+                      httpCode={error.httpCode}
+                      errorCode={error.errorCode}
+                      onRetry={loadTenants}
+                    />
+                  </td>
+                </tr>
               ) : tenants.length === 0 ? (
                 <tr>
                   <td colSpan={12} className="py-16 text-center" style={{ color: 'var(--text-muted)' }}>

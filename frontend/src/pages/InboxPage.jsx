@@ -18,6 +18,7 @@ import { clsx } from 'clsx';
 import { inboxApi, teamApi, templateApi, WS_BASE } from '../lib/api';
 import useAuthStore from '../store/authStore';
 import { showSuccess, showError } from '../components/atoms/Toast/Toast.jsx';
+import { ErrorState, parseApiError } from '../components/atoms/ErrorState/ErrorState.jsx';
 
 // ── Helpers ──────────────────────────────────────────────────
 function timeAgo(ts) {
@@ -469,6 +470,8 @@ export default function InboxPage() {
       .catch(() => {});
   }, []);
 
+  const [convError,         setConvError]         = useState(null);
+
   // ── Load conversations ────────────────────────────────────
   const loadConversations = useCallback(async () => {
     setLoading(true);
@@ -483,6 +486,7 @@ export default function InboxPage() {
       const res = await inboxApi.conversations(params, { silent: true });
       const convList = res?.data || [];
       setConversations(convList);
+      setConvError(null);
 
       // Handle ?phone= URL query parameter to auto-select or initiate chat
       const urlParams = new URLSearchParams(window.location.search);
@@ -502,7 +506,9 @@ export default function InboxPage() {
           }).catch(() => {});
         }
       }
-    } catch {} finally { setLoading(false); }
+    } catch (err) {
+      setConvError(parseApiError(err));
+    } finally { setLoading(false); }
   }, [filterTab, statusTab, searchText, activeConv]);
 
   useEffect(() => { loadConversations(); }, [loadConversations]);
@@ -790,6 +796,16 @@ export default function InboxPage() {
                   </div>
                 </div>
               ))}
+            </div>
+          ) : convError ? (
+            <div className="p-4">
+              <ErrorState
+                title="Failed to load conversations"
+                message={convError.message}
+                httpCode={convError.httpCode}
+                errorCode={convError.errorCode}
+                onRetry={loadConversations}
+              />
             </div>
           ) : conversations.length === 0 ? (
             <EmptyInbox onReset={() => { setFilterTab('all'); setStatusTab('open'); setSearchText(''); }} />

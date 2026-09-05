@@ -44,6 +44,7 @@ const sendError = (res, statusCode, errorCode, message, details = null) => {
     success: false,
     errorCode,
     message,
+    error: message,
   };
   if (details && process.env.NODE_ENV !== 'production') {
     response.details = details;

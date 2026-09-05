@@ -13,6 +13,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { clsx } from 'clsx';
 import { superAdminApi } from '../../lib/api';
 import { showSuccess } from '../../components/atoms/Toast/Toast.jsx';
+import { ErrorState, parseApiError } from '../../components/atoms/ErrorState/ErrorState.jsx';
 
 // ── Constants ─────────────────────────────────────────────────
 const ROLES = ['tenant_admin', 'manager', 'agent', 'tenant_user'];
@@ -217,6 +218,7 @@ export default function SuperAdminUsersPage() {
   const [resetResult, setResetResult] = useState(null); // { user, password }
   const [search,     setSearch]     = useState('');
   const [roleFilter, setRoleFilter] = useState('');
+  const [error,      setError]      = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -225,7 +227,12 @@ export default function SuperAdminUsersPage() {
         superAdminApi.listUsers({ silent: true }),
         superAdminApi.listTenants({ silent: true }),
       ]);
-      if (usersRes.status   === 'fulfilled') setUsers(usersRes.value?.data || []);
+      if (usersRes.status === 'fulfilled') {
+        setUsers(usersRes.value?.data || []);
+        setError(null);
+      } else {
+        setError(parseApiError(usersRes.reason));
+      }
       if (tenantsRes.status === 'fulfilled') setTenants(tenantsRes.value?.data || []);
     } finally {
       setLoading(false);
@@ -328,6 +335,18 @@ export default function SuperAdminUsersPage() {
                     ))}
                   </tr>
                 ))
+              ) : error ? (
+                <tr>
+                  <td colSpan={7} className="p-8">
+                    <ErrorState
+                      title="Failed to load platform users"
+                      message={error.message}
+                      httpCode={error.httpCode}
+                      errorCode={error.errorCode}
+                      onRetry={load}
+                    />
+                  </td>
+                </tr>
               ) : filtered.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="py-16 text-center" style={{ color: 'var(--text-muted)' }}>

@@ -12,6 +12,7 @@ import { clsx } from 'clsx';
 import useAuthStore from '../store/authStore';
 import { authApi } from '../lib/api';
 import { showSuccess } from '../components/atoms/Toast/Toast.jsx';
+import PageErrorBoundary from '../components/atoms/ErrorBoundary/PageErrorBoundary.jsx';
 import Logo from '../components/atoms/Logo.jsx';
 import NotificationBell, { useNotificationWS } from '../components/NotificationBell.jsx';
 import UpdateBanner from '../components/organisms/UpdateBanner.jsx';
@@ -235,7 +236,9 @@ export default function DashboardLayout() {
           "flex-1 min-h-0 flex flex-col",
           isInbox ? "overflow-hidden p-2.5 sm:p-4 w-full" : "overflow-y-auto p-4 sm:p-6 lg:px-8 lg:py-7 w-full min-w-0"
         )}>
-          <Outlet />
+          <PageErrorBoundary key={location.pathname}>
+            <Outlet />
+          </PageErrorBoundary>
         </main>
       </div>
     </div>

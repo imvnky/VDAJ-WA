@@ -89,12 +89,13 @@ router.post('/', catchAsync(async (req, res) => {
   );
 
   // Attempt Meta submission — non-fatal if credentials missing
-  const { wabaId, metaSystemToken } = req.tenant || {};
+  const effectiveWabaId = req.tenant?.wabaId || process.env.META_WABA_ID;
+  const effectiveToken = req.tenant?.metaSystemToken || process.env.META_ACCESS_TOKEN;
 
-  if (wabaId && metaSystemToken) {
+  if (effectiveWabaId && effectiveToken) {
     try {
       const { metaTemplateId, status: metaStatus } = await createMetaTemplate(
-        { wabaId, accessToken: metaSystemToken },
+        { wabaId: effectiveWabaId, accessToken: effectiveToken },
         template
       );
 
@@ -122,7 +123,7 @@ router.post('/', catchAsync(async (req, res) => {
   return sendCreated(
     res,
     template,
-    wabaId && metaSystemToken
+    effectiveWabaId && effectiveToken
       ? `Template saved locally but Meta submission failed: ${req.metaError}. Retry via /templates/${template.id}/sync.`
       : 'Template saved locally. Connect WhatsApp (at /whatsapp-setup) to submit to Meta for approval.'
   );
@@ -165,10 +166,12 @@ router.post('/:id/sync', catchAsync(async (req, res) => {
     }
   }
 
-  const { wabaId, metaSystemToken } = tenant || {};
-  if (!wabaId || !metaSystemToken) {
+  const effectiveWabaId = tenant?.wabaId || process.env.META_WABA_ID;
+  const effectiveToken = tenant?.metaSystemToken || process.env.META_ACCESS_TOKEN;
+
+  if (!effectiveWabaId || !effectiveToken) {
     throw new AppError(
-      'WhatsApp not configured for this template\'s tenant. Connect at /whatsapp-setup first.',
+      'WhatsApp credentials not configured for this template\'s tenant. Connect at /whatsapp-setup first.',
       400,
       'ERR_META_006'
     );
@@ -177,7 +180,7 @@ router.post('/:id/sync', catchAsync(async (req, res) => {
   if (!template.meta_template_id) {
     // Not yet submitted — attempt initial submission now
     const { metaTemplateId, status: metaStatus } = await createMetaTemplate(
-      { wabaId, accessToken: metaSystemToken },
+      { wabaId: effectiveWabaId, accessToken: effectiveToken },
       template
     );
 
@@ -195,8 +198,8 @@ router.post('/:id/sync', catchAsync(async (req, res) => {
   // Already submitted — poll Meta for current approval status
 
   const { status: metaStatus, rejectionReason } = await syncMetaTemplateStatus(
-    wabaId,
-    metaSystemToken,
+    effectiveWabaId,
+    effectiveToken,
     template.meta_template_id
   );
 

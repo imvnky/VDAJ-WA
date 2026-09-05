@@ -135,8 +135,8 @@ const enqueueCampaign = async (campaign, messages) => {
       tenantId: campaign.tenant_id,
       chunkIndex: index,
       totalChunks,
-      phoneNumberId: campaign.phone_number_id,
-      metaSystemToken: campaign.meta_system_token,
+      phoneNumberId: campaign.phone_number_id || process.env.META_PHONE_NUMBER_ID,
+      metaSystemToken: campaign.meta_system_token || process.env.META_ACCESS_TOKEN,
       templateName: campaign.template_name,
       templateLanguage: campaign.template_language,
       messages: chunk,
@@ -169,9 +169,19 @@ const enqueueCampaign = async (campaign, messages) => {
  * @returns {Promise<{success: boolean, metaMessageId?: string, error?: string}>}
  */
 const processMessage = async (msg, jobData) => {
-  const { phoneNumberId, metaSystemToken, templateName, templateLanguage } = jobData;
+  const { templateName, templateLanguage } = jobData;
+  const phoneNumberId = jobData.phoneNumberId || process.env.META_PHONE_NUMBER_ID;
+  const metaSystemToken = jobData.metaSystemToken || process.env.META_ACCESS_TOKEN;
 
   try {
+    if (!phoneNumberId || !metaSystemToken) {
+      throw new AppError(
+        'WhatsApp Phone Number ID or Access Token is missing. Configure credentials in Settings -> WhatsApp.',
+        400,
+        'ERR_META_006'
+      );
+    }
+
     // Validate E.164 format
     if (!/^\+[1-9]\d{7,14}$/.test(msg.phone_e164)) {
       throw new AppError(`Invalid phone: ${msg.phone_e164}`, 400, 'ERR_VDAJ_VAL_002');

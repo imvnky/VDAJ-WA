@@ -10,6 +10,7 @@ import { clsx } from 'clsx';
 import { templateApi } from '../lib/api';
 import { showSuccess, showError, showInfo } from '../components/atoms/Toast/Toast.jsx';
 import Button, { PrimaryButton, GhostButton } from '../components/atoms/Button/Button.jsx';
+import { ErrorState, parseApiError } from '../components/atoms/ErrorState/ErrorState.jsx';
 
 // ── Categories & Status Configuration ──────────────────────────
 const CATEGORIES = [
@@ -793,11 +794,18 @@ export default function TemplatesPage() {
   const [categoryFilter, setCategoryFilter] = useState('ALL');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [syncAllLoading, setSyncAllLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   const loadTemplates = () => {
+    setLoading(true);
     templateApi.list({ silent: true })
-      .then((res) => setTemplates(res?.data || []))
-      .catch(() => {})
+      .then((res) => {
+        setTemplates(res?.data || []);
+        setError(null);
+      })
+      .catch((err) => {
+        setError(parseApiError(err));
+      })
       .finally(() => setLoading(false));
   };
 
@@ -989,6 +997,14 @@ export default function TemplatesPage() {
             <div key={i} className="h-56 bg-[#FFFFFF] border border-[#E2E8F0] rounded-2xl animate-pulse p-5" />
           ))}
         </div>
+      ) : error ? (
+        <ErrorState
+          title="Failed to load templates"
+          message={error.message}
+          httpCode={error.httpCode}
+          errorCode={error.errorCode}
+          onRetry={loadTemplates}
+        />
       ) : filteredTemplates.length === 0 ? (
         <div className="bg-[#FFFFFF] border border-[#E2E8F0] rounded-3xl p-12 text-center shadow-sm space-y-4 max-w-lg mx-auto">
           <div className="w-14 h-14 bg-[#F3F2FD] text-[#534AB7] rounded-2xl flex items-center justify-center text-2xl mx-auto shadow-sm">

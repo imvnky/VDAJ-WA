@@ -3,13 +3,14 @@
  * Campaign list + Composer Modal with live WhatsApp chat preview.
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { clsx } from 'clsx';
 import { campaignApi, contactApi, templateApi } from '../lib/api';
 import { showSuccess, showError } from '../components/atoms/Toast/Toast.jsx';
 import Button, { PrimaryButton, DangerButton, GhostButton, SecondaryButton } from '../components/atoms/Button/Button.jsx';
 import Input, { Select, Textarea } from '../components/atoms/Input/Input.jsx';
 import CampaignDetailView from '../components/organisms/CampaignDetailView.jsx';
+import { ErrorState, parseApiError } from '../components/atoms/ErrorState/ErrorState.jsx';
 
 // ---- Status Badge ----
 const STATUS = {
@@ -471,23 +472,32 @@ export default function CampaignsPage() {
     return params.get('id') || null;
   });
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const [campRes, listRes, tmplRes] = await Promise.allSettled([
-          campaignApi.list({ limit: 50 }, { silent: true }),
-          contactApi.lists({ silent: true }),
-          templateApi.list({ silent: true }),
-        ]);
-        if (campRes.status === 'fulfilled') setCampaigns(campRes.value?.data || []);
-        if (listRes.status === 'fulfilled') setContactLists(listRes.value?.data || []);
-        if (tmplRes.status === 'fulfilled') setTemplates(tmplRes.value?.data || []);
-      } finally {
-        setLoading(false);
+  const [error, setError] = useState(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [campRes, listRes, tmplRes] = await Promise.allSettled([
+        campaignApi.list({ limit: 50 }, { silent: true }),
+        contactApi.lists({ silent: true }),
+        templateApi.list({ silent: true }),
+      ]);
+      if (campRes.status === 'fulfilled') {
+        setCampaigns(campRes.value?.data || []);
+        setError(null);
+      } else {
+        setError(parseApiError(campRes.reason));
       }
-    };
-    load();
+      if (listRes.status === 'fulfilled') setContactLists(listRes.value?.data || []);
+      if (tmplRes.status === 'fulfilled') setTemplates(tmplRes.value?.data || []);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const setAction = (id, val) => setActionLoading((p) => ({ ...p, [id]: val }));
 
@@ -609,6 +619,14 @@ export default function CampaignsPage() {
             <div key={i} className="h-28 animate-pulse rounded-2xl bg-white border border-[#E6E4F5]" />
           ))}
         </div>
+      ) : error ? (
+        <ErrorState
+          title="Failed to load campaigns"
+          message={error.message}
+          httpCode={error.httpCode}
+          errorCode={error.errorCode}
+          onRetry={load}
+        />
       ) : campaigns.length === 0 ? (
         <div className="glass-card flex flex-col items-center justify-center py-20 text-center bg-white border border-[#E6E4F5]">
           <svg className="w-14 h-14 text-[#9494A8]/40 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.2}>

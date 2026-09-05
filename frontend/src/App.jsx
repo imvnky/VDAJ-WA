@@ -21,17 +21,30 @@ class ErrorBoundary extends Component {
   render() {
     if (this.state.hasError) {
       return (
-        <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0f0f1a', padding: '2rem' }}>
-          <div style={{ maxWidth: 600, width: '100%', background: '#1a1a2e', border: '1px solid #ef4444', borderRadius: 16, padding: '2rem' }}>
-            <h1 style={{ color: '#ef4444', fontSize: '1.25rem', fontWeight: 700, marginBottom: 8 }}>⚠️ Something went wrong</h1>
-            <p style={{ color: '#94a3b8', fontSize: '0.875rem', marginBottom: 16 }}>A runtime error occurred. Copy the details below and report it:</p>
-            <pre style={{ background: '#0f0f1a', color: '#fbbf24', padding: '1rem', borderRadius: 8, fontSize: '0.75rem', overflowX: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+        <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F8F7FF', padding: '2rem' }}>
+          <div style={{ maxWidth: 580, width: '100%', background: '#FFFFFF', border: '1px solid #E6E4F5', borderRadius: 20, padding: '2rem', boxShadow: '0 8px 30px rgba(83, 74, 183, 0.08)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
+              <div style={{ width: 40, height: 40, borderRadius: 12, background: '#FEE2E2', border: '1px solid #FECDD3', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#DC2626', fontSize: '1.25rem' }}>
+                ⚠️
+              </div>
+              <div>
+                <h1 style={{ color: '#0F0F0F', fontSize: '1.15rem', fontWeight: 700, margin: 0 }}>System Alert — Application Error</h1>
+                <p style={{ color: '#5A5A6E', fontSize: '0.75rem', margin: '2px 0 0 0' }}>An unhandled application error occurred.</p>
+              </div>
+            </div>
+            <pre style={{ background: '#F8F7FF', color: '#DC2626', border: '1px solid #E6E4F5', padding: '0.875rem', borderRadius: 12, fontSize: '0.75rem', fontFamily: 'monospace', overflowX: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-all', margin: '1rem 0' }}>
               {this.state.error?.toString()}
             </pre>
-            <button onClick={() => window.location.href = '/login'}
-              style={{ marginTop: 16, padding: '0.5rem 1.5rem', background: '#534AB7', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600 }}>
-              Back to Login
-            </button>
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '1.25rem' }}>
+              <button onClick={() => window.location.reload()}
+                style={{ padding: '0.5rem 1.25rem', background: '#F8F7FF', color: '#0F0F0F', border: '1px solid #E6E4F5', borderRadius: 10, cursor: 'pointer', fontWeight: 600, fontSize: '0.75rem' }}>
+                Reload
+              </button>
+              <button onClick={() => window.location.href = '/login'}
+                style={{ padding: '0.5rem 1.25rem', background: '#534AB7', color: '#fff', border: 'none', borderRadius: 10, cursor: 'pointer', fontWeight: 600, fontSize: '0.75rem' }}>
+                Back to Login
+              </button>
+            </div>
           </div>
         </div>
       );

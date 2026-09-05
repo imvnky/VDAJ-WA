@@ -37,13 +37,19 @@ export const VdajToaster = () => (
 
 const ERROR_TIPS = {
   ERR_TEMPLATE_NO_OPTOUT: 'Include an opt-out instruction like "Reply STOP to unsubscribe" in the body or footer.',
-  ERR_META_006: 'WhatsApp credentials (WABA ID or Token) are missing or not linked for this workspace.',
+  ERR_META_006: 'WhatsApp credentials (WABA ID or Token) are missing or not linked for this workspace. Connect at Settings -> WhatsApp.',
   ERR_META_AUTH: 'OAuth access token is invalid or expired. Check your Permanent Token in Settings.',
   ERR_VDAJ_VAL_001: 'Please check the required fields highlighted in red.',
+  ERR_VDAJ_VAL_002: 'Phone number must be formatted in valid international E.164 standard (e.g. +919876543210).',
+  ERR_VDAJ_VAL_005: 'Campaign or template validation failed. Check that name and audience are properly selected.',
   ERR_VDAJ_AUTH_001: 'Invalid email or password. Please verify your login credentials.',
   ERR_VDAJ_AUTH_002: 'Your session has expired. Please sign in again.',
-  ERR_VDAJ_SRV_001: 'Internal server error. The backend team has been alerted.',
+  ERR_VDAJ_SRV_001: 'Internal server error. The backend engineering team has been alerted.',
   ERR_VDAJ_TENANT_001: 'The requested client workspace could not be found.',
+  ERR_TIMEOUT_30S: 'The operation exceeded the 30-second timeout threshold. Please retry or check backend health.',
+  ERR_NETWORK_DISCONNECTED: 'Unable to establish connection to api.vdajservices.com. Check internet or DNS connectivity.',
+  ERR_RATE_LIMIT_429: 'Meta API rate limit reached. The queue will automatically stagger further requests.',
+  ERR_FORBIDDEN_403: 'You do not have administrative clearance for this operation.',
 };
 
 // ============================================================
@@ -218,10 +224,35 @@ export const showInfo = (message, title = 'Information') =>
  */
 export const showApiError = (axiosError) => {
   const data = axiosError?.response?.data;
-  const message = data?.message || axiosError?.message || 'An unexpected error occurred. Please try again.';
-  const errorCode = data?.errorCode || (axiosError?.response?.status ? `HTTP_${axiosError.response.status}` : undefined);
+  const status = axiosError?.response?.status;
+  let message = data?.message || data?.error;
+  let errorCode = data?.errorCode || (status ? `HTTP_${status}` : undefined);
   const details = data?.errors || null;
   const suggestion = data?.suggestion || null;
+
+  if (!message) {
+    if (axiosError?.code === 'ECONNABORTED') {
+      message = 'Request timed out after 30s. Please retry.';
+      errorCode = errorCode || 'ERR_TIMEOUT_30S';
+    } else if (axiosError?.code === 'ERR_NETWORK' || !axiosError?.response) {
+      message = 'Network connection failed. Unable to reach server.';
+      errorCode = errorCode || 'ERR_NETWORK_DISCONNECTED';
+    } else if (status === 403) {
+      message = 'Access forbidden (HTTP 403).';
+      errorCode = errorCode || 'ERR_FORBIDDEN_403';
+    } else if (status === 404) {
+      message = 'Requested resource was not found (HTTP 404).';
+      errorCode = errorCode || 'ERR_NOT_FOUND_404';
+    } else if (status === 429) {
+      message = 'Too many requests (HTTP 429). Rate limit reached.';
+      errorCode = errorCode || 'ERR_RATE_LIMIT_429';
+    } else if (status && status >= 500) {
+      message = `Server error (HTTP ${status}). The service is currently restarting.`;
+      errorCode = errorCode || `HTTP_${status}`;
+    } else {
+      message = axiosError?.message || 'API request failed. Please check your inputs.';
+    }
+  }
 
   showError(message, errorCode, 'Action Required', details, suggestion);
 };

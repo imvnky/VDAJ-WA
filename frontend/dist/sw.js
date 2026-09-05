@@ -1,5 +1,5 @@
 /**
- * VDAJ WhatsApp Platform — Service Worker (sw.js)
+ * VDAJ Services — Enterprise Platform Service Worker (sw.js)
  *
  * Strategy:
  *  - Static assets: Cache-First (app shell)
@@ -93,7 +93,7 @@ self.addEventListener('fetch', (event) => {
 
 // ── Push: display notification ────────────────────────────────
 self.addEventListener('push', (event) => {
-  let data = { title: 'VDAJ WA', body: 'You have a new notification.' };
+  let data = { title: 'VDAJ Services', body: 'You have a new notification.' };
   try {
     data = event.data?.json() || data;
   } catch {

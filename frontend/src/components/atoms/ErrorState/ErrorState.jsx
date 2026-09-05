@@ -10,7 +10,7 @@ import React from 'react';
 // ── ErrorState — for API/network failures ─────────────────────
 export function ErrorState({
   title = 'Failed to load data',
-  message = 'An unexpected error occurred.',
+  message = 'Unable to fetch the requested records.',
   httpCode = null,
   errorCode = null,
   onRetry = null,
@@ -90,15 +90,33 @@ export function EmptyState({
 export function parseApiError(err) {
   const status = err?.response?.status;
   const data   = err?.response?.data;
-  const message = data?.message
-    || (status === 404 ? 'Resource not found.'
-      : status === 403 ? 'You do not have permission to access this resource.'
-      : status === 401 ? 'Your session has expired. Please log in again.'
-      : status >= 500 ? 'A server error occurred. Our team has been notified.'
-      : err?.message || 'An unexpected error occurred.');
+  let message = data?.message || data?.error;
+
+  if (!message) {
+    if (err?.code === 'ECONNABORTED') {
+      message = 'Request timed out after 30 seconds. Please check your internet connection or server status.';
+    } else if (err?.code === 'ERR_NETWORK' || !err?.response) {
+      message = 'Network connection failed. Unable to communicate with the API server.';
+    } else if (status === 404) {
+      message = 'The requested resource could not be found (HTTP 404).';
+    } else if (status === 403) {
+      message = 'Access forbidden (HTTP 403). You do not have permission to access this resource.';
+    } else if (status === 401) {
+      message = 'Your session has expired. Please log in again to continue.';
+    } else if (status === 429) {
+      message = 'API rate limit reached (HTTP 429). Please wait a moment before trying again.';
+    } else if (status >= 502 && status <= 504) {
+      message = `Gateway error (HTTP ${status}). The service or proxy is temporarily unavailable.`;
+    } else if (status >= 500) {
+      message = `Server error (HTTP ${status}). The backend engineering team has been notified.`;
+    } else {
+      message = err?.message || 'Unable to complete request. Please verify server status.';
+    }
+  }
+
   return {
     httpCode:  status || null,
-    errorCode: data?.errorCode || null,
+    errorCode: data?.errorCode || (status ? `HTTP_${status}` : (err?.code || null)),
     message,
   };
 }

@@ -54,8 +54,11 @@ client.interceptors.response.use(
   (res) => res.data,
   (err) => {
     const silent = err.config?.silent;
+    const status = err.response?.status;
+    const d = err.response?.data;
+
     // On 401, redirect to login ONLY if not silent and not already on login page
-    if (err.response?.status === 401 && !silent && !window.location.pathname.startsWith('/login')) {
+    if (status === 401 && !silent && !window.location.pathname.startsWith('/login')) {
       // Check if user was already authenticated by login flow before redirecting
       // This prevents the /auth/me revalidation race from overriding a successful login
       const authStore = typeof window !== 'undefined' && window.__vdaj_auth_store;
@@ -64,9 +67,40 @@ client.interceptors.response.use(
         return Promise.reject(err);
       }
     }
+
     if (!silent) {
-      const d = err.response?.data;
-      showError(d?.message || 'An unexpected error occurred.', d?.errorCode);
+      let message = d?.message || d?.error;
+      let errorCode = d?.errorCode;
+
+      if (!message) {
+        if (err.code === 'ECONNABORTED' || (err.message && err.message.toLowerCase().includes('timeout'))) {
+          message = 'API request timed out after 30s. Please verify server connectivity.';
+          errorCode = errorCode || 'ERR_TIMEOUT_30S';
+        } else if (err.code === 'ERR_NETWORK' || !err.response) {
+          message = 'Network connection failed. Unable to reach API gateway (api.vdajservices.com).';
+          errorCode = errorCode || 'ERR_NETWORK_DISCONNECTED';
+        } else if (status === 403) {
+          message = 'Access forbidden (HTTP 403). You do not have permission to perform this action.';
+          errorCode = errorCode || 'ERR_FORBIDDEN_403';
+        } else if (status === 404) {
+          message = 'Resource not found (HTTP 404).';
+          errorCode = errorCode || 'ERR_NOT_FOUND_404';
+        } else if (status === 429) {
+          message = 'Too many requests (HTTP 429). API rate limit reached. Please wait a moment before retrying.';
+          errorCode = errorCode || 'ERR_RATE_LIMIT_429';
+        } else if (status >= 502 && status <= 504) {
+          message = `Gateway unavailable (HTTP ${status}). The backend API service is restarting.`;
+          errorCode = errorCode || `HTTP_${status}`;
+        } else if (status >= 500) {
+          message = `Internal server error (HTTP ${status}). The engineering team has been alerted.`;
+          errorCode = errorCode || 'ERR_SERVER_500';
+        } else {
+          message = err.message || `Request failed with status code ${status || 'unknown'}.`;
+          errorCode = errorCode || (status ? `HTTP_${status}` : 'ERR_CLIENT');
+        }
+      }
+
+      showError(message, errorCode, 'Action Required', d?.errors || null, d?.suggestion || null);
     }
     return Promise.reject(err);
   }
