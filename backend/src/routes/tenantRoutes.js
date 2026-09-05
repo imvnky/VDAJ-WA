@@ -18,6 +18,7 @@ const { query } = require('../config/database');
 const { sendSuccess, sendCreated, catchAsync } = require('../middleware/responseHandler');
 const { authenticate, authorize } = require('../middleware/authMiddleware');
 const AppError = require('../utils/AppError');
+const { recordAudit } = require('../services/auditService');
 
 router.use(authenticate);
 
@@ -209,6 +210,25 @@ router.post('/', authorize('super_admin'), catchAsync(async (req, res) => {
       monthlyMessageQuota || 30000,
     ]
   );
+  recordAudit({
+    tenantId: tenant.id,
+    userId: req.user.id,
+    action: 'TENANT_CREATED',
+    resourceType: 'tenant',
+    resourceId: tenant.id,
+    status: 'SUCCESS',
+    meta: {
+      name: tenant.name,
+      slug: tenant.slug,
+      plan: tenant.plan,
+    },
+    subTasks: [
+      { name: 'Slug & Namespace Reservation', details: `Validated unique tenant slug: ${tenant.slug}`, component: 'Namespace Service', status: 'SUCCESS' },
+      { name: 'Tenant Profile Initialized', details: `Created tenant record in database with plan ${tenant.plan}`, component: 'PostgreSQL Store', status: 'SUCCESS' },
+    ],
+    ipAddress: req.ip,
+  }).catch(() => {});
+
   return sendCreated(res, tenant, 'Tenant created.');
 }));
 
@@ -227,6 +247,24 @@ router.patch('/:id/status', authorize('super_admin'), catchAsync(async (req, res
     [isActive, req.params.id]
   );
   if (!tenant) throw new AppError('Tenant not found.', 404, 'ERR_VDAJ_TENANT_001');
+
+  recordAudit({
+    tenantId: tenant.id,
+    userId: req.user.id,
+    action: isActive ? 'TENANT_ACTIVATED' : 'TENANT_DEACTIVATED',
+    resourceType: 'tenant',
+    resourceId: tenant.id,
+    status: isActive ? 'SUCCESS' : 'WARNING',
+    meta: {
+      tenantName: tenant.name,
+      isActive,
+    },
+    subTasks: [
+      { name: 'Update Tenant Activation Flag', details: `Set is_active=${isActive} in database`, component: 'PostgreSQL Store', status: 'SUCCESS' },
+    ],
+    ipAddress: req.ip,
+  }).catch(() => {});
+
   return sendSuccess(res, tenant, `Tenant ${isActive ? 'activated' : 'deactivated'}.`);
 }));
 

@@ -291,9 +291,9 @@ router.post('/:id/launch', uuidParamValidator('id'), validate, catchAsync(async 
       templateName: result.campaign.template_name,
     },
     subTasks: [
-      { task: 'Verify Meta WhatsApp Business WABA credentials', status: 'SUCCESS' },
-      { task: `Queue ${result.messages.length} messages in Bull engine`, status: 'SUCCESS' },
-      { task: 'Initialize delivery status tracking', status: 'SUCCESS' },
+      { name: 'Validate WABA Credentials', details: 'Verify Meta WhatsApp Business WABA credentials and access token', component: 'Meta Gateway', status: 'SUCCESS' },
+      { name: 'Queue Recipient Batches', details: `Queued ${result.messages.length} messages in Bull queue engine for dispatch`, component: 'Bull Queue', status: 'SUCCESS' },
+      { name: 'Initialize Delivery Tracking', details: 'Initialized delivery status tracking records in PostgreSQL store', component: 'PostgreSQL Store', status: 'SUCCESS' },
     ],
     ipAddress: req.ip,
   }).catch(() => {});
@@ -403,9 +403,9 @@ router.post('/:id/retry-failed', uuidParamValidator('id'), validate, catchAsync(
       templateName: result.campaign.template_name,
     },
     subTasks: [
-      { task: `Identified ${result.messages.length} failed/stuck recipients for re-dispatch`, status: 'SUCCESS' },
-      { task: 'Reset message delivery state to queued in database', status: 'SUCCESS' },
-      { task: 'Re-dispatched chunk jobs to Bull queue engine', status: 'SUCCESS' },
+      { name: 'Identify Stalled Recipients', details: `Identified ${result.messages.length} failed/stuck recipients for re-dispatch`, component: 'Audience Engine', status: 'SUCCESS' },
+      { name: 'Reset Delivery State', details: 'Reset message delivery state to queued in PostgreSQL database', component: 'PostgreSQL Store', status: 'SUCCESS' },
+      { name: 'Re-enqueue Message Chunks', details: 'Re-dispatched chunk jobs into Bull priority queue engine', component: 'Bull Queue', status: 'SUCCESS' },
     ],
     ipAddress: req.ip,
   }).catch(() => {});
@@ -522,8 +522,8 @@ router.post('/:id/resend', uuidParamValidator('id'), validate, catchAsync(async 
       templateName: result.campaign.template_name,
     },
     subTasks: [
-      { task: `Reset and queued ${result.messages.length} messages for campaign resend`, status: 'SUCCESS' },
-      { task: 'Dispatched chunk jobs to Bull queue engine', status: 'SUCCESS' },
+      { name: 'Reset Campaign Delivery State', details: `Reset and queued ${result.messages.length} messages for campaign resend`, component: 'PostgreSQL Store', status: 'SUCCESS' },
+      { name: 'Dispatch Priority Chunks', details: 'Dispatched chunk jobs to Bull priority queue engine for delivery', component: 'Bull Queue', status: 'SUCCESS' },
     ],
     ipAddress: req.ip,
   }).catch(() => {});

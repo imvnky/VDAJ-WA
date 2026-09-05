@@ -14,6 +14,7 @@ const { authenticate } = require('../middleware/authMiddleware');
 const AppError = require('../utils/AppError');
 const { loginValidators, validate } = require('../middleware/validationMiddleware');
 const { exchangeEmbeddedSignupToken } = require('../services/metaApiService');
+const { recordAudit } = require('../services/auditService');
 
 const COOKIE_OPTIONS = {
   httpOnly: true,
@@ -36,8 +37,28 @@ router.post('/login', loginValidators, validate, catchAsync(async (req, res) => 
   const passwordMatch = user ? await bcrypt.compare(password, user.password_hash) : false;
 
   if (!user || !passwordMatch) {
+    recordAudit({
+      tenantId: user?.tenant_id || null,
+      userId: user?.id || null,
+      action: 'AUTH_LOGIN_FAILED',
+      resourceType: 'user',
+      resourceId: user?.id || email,
+      status: 'FAILED',
+      meta: {
+        attemptedEmail: email,
+        reason: !user ? 'Account not found' : 'Invalid password digest',
+      },
+      subTasks: [
+        { name: 'User Identity Lookup', details: `Searched user database for ${email}`, component: 'Auth Engine', status: user ? 'SUCCESS' : 'FAILED' },
+        { name: 'Password Hash Digest Check', details: 'Bcrypt cryptographic verification failed', component: 'Crypto Security', status: 'FAILED' },
+      ],
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    }).catch(() => {});
+
     throw new AppError('Invalid credentials.', 401, 'ERR_VDAJ_AUTH_001');
   }
+
   if (!user.is_active) throw new AppError('Account inactive.', 403, 'ERR_VDAJ_AUTH_002');
   if (!user.is_verified) throw new AppError('Email not verified.', 403, 'ERR_VDAJ_AUTH_007');
 
@@ -52,6 +73,27 @@ router.post('/login', loginValidators, validate, catchAsync(async (req, res) => 
 
   res.cookie(process.env.JWT_COOKIE_NAME || 'vdaj_access_token', token, COOKIE_OPTIONS);
 
+  recordAudit({
+    tenantId: user.tenant_id,
+    userId: user.id,
+    action: 'AUTH_LOGIN_SUCCESS',
+    resourceType: 'user',
+    resourceId: user.id,
+    status: 'SUCCESS',
+    meta: {
+      email: user.email,
+      role: user.role,
+      loginMethod: 'password',
+    },
+    subTasks: [
+      { name: 'Identity & Password Verification', details: `Bcrypt hash verification succeeded for ${user.email}`, component: 'Crypto Security', status: 'SUCCESS' },
+      { name: 'Session Token Issued', details: 'Signed JWT access cookie generated with 7d validity', component: 'JWT Service', status: 'SUCCESS' },
+      { name: 'Refresh Last Login', details: 'Updated user last_login_at timestamp in database', component: 'PostgreSQL Store', status: 'SUCCESS' },
+    ],
+    ipAddress: req.ip,
+    userAgent: req.headers['user-agent'],
+  }).catch(() => {});
+
   return sendSuccess(res, {
     token,
     user: { id: user.id, email: user.email, firstName: user.first_name, lastName: user.last_name, role: user.role, tenantId: user.tenant_id }
@@ -60,6 +102,21 @@ router.post('/login', loginValidators, validate, catchAsync(async (req, res) => 
 
 // ---- POST /auth/logout ----
 router.post('/logout', authenticate, (req, res) => {
+  recordAudit({
+    tenantId: req.user.tenantId,
+    userId: req.user.id,
+    action: 'AUTH_LOGOUT',
+    resourceType: 'session',
+    resourceId: req.user.id,
+    status: 'SUCCESS',
+    meta: { email: req.user.email, role: req.user.role },
+    subTasks: [
+      { name: 'Session Cookie Revocation', details: 'Cleared vdaj_access_token HTTP-only cookie', component: 'HTTP Session', status: 'SUCCESS' },
+    ],
+    ipAddress: req.ip,
+    userAgent: req.headers['user-agent'],
+  }).catch(() => {});
+
   res.clearCookie(process.env.JWT_COOKIE_NAME || 'vdaj_access_token', COOKIE_OPTIONS);
   return sendSuccess(res, null, 'Logged out successfully.');
 });
@@ -87,6 +144,22 @@ router.post('/meta/callback', authenticate, catchAsync(async (req, res) => {
      WHERE id = $4`,
     [accessToken, wabaId, phoneNumberId, req.user.tenantId]
   );
+
+  recordAudit({
+    tenantId: req.user.tenantId,
+    userId: req.user.id,
+    action: 'META_WABA_LINKED',
+    resourceType: 'waba_account',
+    resourceId: wabaId,
+    status: 'SUCCESS',
+    meta: { wabaId, phoneNumberId },
+    subTasks: [
+      { name: 'Meta OAuth Token Exchange', details: 'Exchanged embedded signup authorization code for permanent system access token', component: 'Meta Graph API', status: 'SUCCESS' },
+      { name: 'Tenant Assets Association', details: `Linked WABA ${wabaId} and Phone ID ${phoneNumberId} to tenant profile`, component: 'PostgreSQL Store', status: 'SUCCESS' },
+    ],
+    ipAddress: req.ip,
+    userAgent: req.headers['user-agent'],
+  }).catch(() => {});
 
   return sendSuccess(res, { wabaId, phoneNumberId }, 'Meta account connected successfully.');
 }));

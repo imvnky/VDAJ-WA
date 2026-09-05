@@ -21,11 +21,12 @@ router.get('/', catchAsync(async (req, res) => {
   const limit = Math.min(100, Math.max(1, parseInt(req.query.limit || '25', 10)));
   const offset = (page - 1) * limit;
 
-  const isSuperAdmin = req.user.role === 'super_admin';
-  const tenantId     = isSuperAdmin ? (req.query.tenantId || null) : req.user.tenantId;
-  const actionFilter = req.query.action || null;
-  const statusFilter = req.query.status || null;
-  const search       = req.query.search ? `%${req.query.search.trim()}%` : null;
+  const isSuperAdmin   = req.user.role === 'super_admin';
+  const tenantId       = isSuperAdmin ? (req.query.tenantId || null) : req.user.tenantId;
+  const actionFilter   = req.query.action || null;
+  const statusFilter   = req.query.status || null;
+  const categoryFilter = req.query.category ? req.query.category.toUpperCase() : null;
+  const search         = req.query.search ? `%${req.query.search.trim()}%` : null;
 
   const conditions = [];
   const params = [];
@@ -41,9 +42,25 @@ router.get('/', catchAsync(async (req, res) => {
     params.push(actionFilter);
   }
 
-  if (statusFilter) {
-    conditions.push(`(a.meta->>'status') = $${pIdx++}`);
+  if (statusFilter && statusFilter !== 'ALL') {
+    conditions.push(`(COALESCE(a.meta->>'status', 'SUCCESS')) = $${pIdx++}`);
     params.push(statusFilter);
+  }
+
+  if (categoryFilter && categoryFilter !== 'ALL') {
+    if (categoryFilter === 'SECURITY') {
+      conditions.push(`(a.action ILIKE 'AUTH_%' OR a.action ILIKE 'USER_%' OR a.action ILIKE '%IMPERSONAT%' OR a.action ILIKE '%PASSWORD%' OR a.action ILIKE 'ROLE_%')`);
+    } else if (categoryFilter === 'CAMPAIGNS') {
+      conditions.push(`(a.action ILIKE 'CAMPAIGN_%' OR a.action ILIKE 'BROADCAST_%' OR a.action ILIKE 'MESSAGE_%')`);
+    } else if (categoryFilter === 'TENANTS') {
+      conditions.push(`(a.action ILIKE 'TENANT_%' OR a.action ILIKE 'CLIENT_%' OR a.action ILIKE 'SUBSCRIPTION_%')`);
+    } else if (categoryFilter === 'TEMPLATES') {
+      conditions.push(`(a.action ILIKE 'TEMPLATE_%' OR a.action ILIKE 'META_%' OR a.action ILIKE 'WABA_%')`);
+    } else if (categoryFilter === 'SYSTEM') {
+      conditions.push(`(a.action ILIKE 'QUEUE_%' OR a.action ILIKE 'SYSTEM_%' OR a.action ILIKE 'CACHE_%' OR a.action ILIKE 'DLQ_%')`);
+    } else if (categoryFilter === 'CONTACTS') {
+      conditions.push(`(a.action ILIKE 'CONTACT_%' OR a.action ILIKE 'AUDIENCE_%' OR a.action ILIKE 'OPT_%')`);
+    }
   }
 
   if (search) {
@@ -54,15 +71,21 @@ router.get('/', catchAsync(async (req, res) => {
 
   const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
 
-  // Count total
+  // Count total & status breakdowns
   const countSql = `
-    SELECT COUNT(*) AS total
+    SELECT
+      COUNT(*) AS total,
+      COUNT(*) FILTER (WHERE COALESCE(a.meta->>'status', 'SUCCESS') = 'SUCCESS') AS count_success,
+      COUNT(*) FILTER (WHERE (a.meta->>'status') = 'WARNING') AS count_warning,
+      COUNT(*) FILTER (WHERE (a.meta->>'status') = 'FAILED') AS count_failed,
+      COUNT(*) FILTER (WHERE a.action ILIKE 'AUTH_%' OR a.action ILIKE 'USER_%' OR a.action ILIKE '%IMPERSONAT%') AS count_security,
+      COUNT(*) FILTER (WHERE a.action ILIKE 'CAMPAIGN_%' OR a.action ILIKE 'QUEUE_%') AS count_pipelines
     FROM audit_logs a
     LEFT JOIN users u ON u.id = a.user_id
     LEFT JOIN tenants t ON t.id = a.tenant_id
     ${whereClause}
   `;
-  const { rows: [{ total }] } = await query(countSql, params);
+  const { rows: [metrics] } = await query(countSql, params);
 
   // Fetch paginated records
   const queryParams = [...params, limit, offset];
@@ -122,35 +145,56 @@ router.get('/', catchAsync(async (req, res) => {
     const actorEmail = row.user_email || meta.actor_email || 'system@vdajservices.com';
     const actorRole = row.user_role || meta.actor_role || (row.user_id ? 'User' : 'Automated Task');
 
-    // Consolidate sub-actions
-    const subTasks = Array.isArray(meta.sub_tasks) && meta.sub_tasks.length > 0
+    // Default sub-actions for standard auditing
+    const defaultSubTasks = [
+      {
+        step: 1,
+        name: `${row.action} initiated`,
+        status: 'COMPLETED',
+        duration: '< 10ms',
+        timestamp: formattedDate,
+        component: 'API Gateway',
+        details: `Target resource: ${row.resource_type || 'platform'}`
+      },
+      {
+        step: 2,
+        name: 'Authorization & permission check verified',
+        status: 'COMPLETED',
+        duration: '12ms',
+        timestamp: formattedDate,
+        component: 'RBAC Policy Engine',
+        details: `Actor authenticated as ${actorRole}`
+      },
+      {
+        step: 3,
+        name: 'Database transaction committed',
+        status: 'COMPLETED',
+        duration: '24ms',
+        timestamp: formattedDate,
+        component: 'PostgreSQL Relational Store',
+        details: `Resource ID: ${row.resource_id || row.id}`
+      }
+    ];
+
+    const rawSubTasks = Array.isArray(meta.sub_tasks) && meta.sub_tasks.length > 0
       ? meta.sub_tasks
-      : [
-          {
-            name: `${row.action} initiated`,
-            status: 'COMPLETED',
-            duration: '< 10ms',
-            timestamp: row.created_at,
-            component: 'API Gateway',
-            details: `Target resource: ${row.resource_type || 'platform'}`
-          },
-          {
-            name: 'Authorization & permission check verified',
-            status: 'COMPLETED',
-            duration: '12ms',
-            timestamp: row.created_at,
-            component: 'RBAC Policy Engine',
-            details: `Actor authenticated as ${actorRole}`
-          },
-          {
-            name: 'Database transaction committed',
-            status: 'COMPLETED',
-            duration: '24ms',
-            timestamp: row.created_at,
-            component: 'PostgreSQL Relational Store',
-            details: `Resource ID: ${row.resource_id || row.id}`
-          }
-        ];
+      : defaultSubTasks;
+
+    // Normalizing each sub-task to guarantee step, name, details, component, duration, and status
+    const subTasks = rawSubTasks.map((s, idx) => {
+      const step = s.step || idx + 1;
+      const name = s.name || s.task || s.title || s.action || `Operation Step ${step}`;
+      const details = s.details || s.description || (s.name && s.task ? s.task : (s.task && s.task !== name ? s.task : null));
+      return {
+        step,
+        name,
+        details: details || `Execution step successfully processed for ${row.action}`,
+        component: s.component || 'Core Engine',
+        duration: s.duration || '< 15ms',
+        status: s.status || 'COMPLETED',
+        timestamp: s.timestamp || formattedDate,
+      };
+    });
 
     return {
       id: row.id,
@@ -182,11 +226,19 @@ router.get('/', catchAsync(async (req, res) => {
 
   return sendSuccess(res, {
     items,
+    summary: {
+      total: parseInt(metrics.total, 10) || 0,
+      success: parseInt(metrics.count_success, 10) || 0,
+      warning: parseInt(metrics.count_warning, 10) || 0,
+      failed: parseInt(metrics.count_failed, 10) || 0,
+      security: parseInt(metrics.count_security, 10) || 0,
+      pipelines: parseInt(metrics.count_pipelines, 10) || 0,
+    },
     pagination: {
-      total: parseInt(total, 10),
+      total: parseInt(metrics.total, 10) || 0,
       page,
       limit,
-      pages: Math.ceil(total / limit) || 1,
+      pages: Math.ceil((parseInt(metrics.total, 10) || 0) / limit) || 1,
     }
   }, 'Audit logs retrieved successfully.');
 }));

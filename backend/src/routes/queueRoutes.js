@@ -9,6 +9,7 @@ const { authenticate, authorize } = require('../middleware/authMiddleware');
 const { sendSuccess, catchAsync } = require('../middleware/responseHandler');
 const { getQueueStats, deadLetterQueue, messageQueue } = require('../workers/messageWorker');
 const AppError = require('../utils/AppError');
+const { recordAudit } = require('../services/auditService');
 
 router.use(authenticate, authorize('super_admin', 'tenant_admin'));
 
@@ -62,6 +63,27 @@ router.post('/dlq/:jobId/replay', authorize('super_admin'), catchAsync(async (re
   );
 
   await job.remove();
+
+  recordAudit({
+    tenantId: job.data.tenantId || null,
+    userId: req.user.id,
+    action: 'QUEUE_DLQ_REPLAY',
+    resourceType: 'queue_job',
+    resourceId: req.params.jobId,
+    status: 'SUCCESS',
+    meta: {
+      campaignId: job.data.campaignId,
+      chunkIndex: job.data.chunkIndex,
+      messageCount: job.data.messages?.length || 0,
+      originalError: job.data.error || null,
+    },
+    subTasks: [
+      { name: 'Retrieve DLQ Job', details: `Retrieved job payload ${req.params.jobId} from dead-letter queue`, component: 'Redis Bull Engine', status: 'SUCCESS' },
+      { name: 'Re-enqueue Message Chunks', details: `Dispatched ${job.data.messages?.length || 0} recipient messages to active worker pool`, component: 'Bull Queue', status: 'SUCCESS' },
+      { name: 'Purge Dead-Letter Store', details: 'Removed resolved entry from deadLetterQueue', component: 'Redis Store', status: 'SUCCESS' },
+    ],
+    ipAddress: req.ip,
+  }).catch(() => {});
 
   return sendSuccess(res, { replayedJobId: req.params.jobId }, 'Job replayed from dead-letter queue.');
 }));

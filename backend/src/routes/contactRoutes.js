@@ -313,10 +313,10 @@ router.post('/bulk', catchAsync(async (req, res) => {
       opt_in_source,
     },
     subTasks: [
-      { task: 'Verify E.164 phone numbering', status: 'SUCCESS' },
-      { task: `Upsert ${valid.length} contacts into database`, status: 'SUCCESS' },
-      { task: `Record Meta BSP opt-in consent proof (${opt_in_source})`, status: 'SUCCESS' },
-      ...(targetListId ? [{ task: `Assign contacts to contact list ${targetListId}`, status: 'SUCCESS' }] : []),
+      { name: 'Phone Format Validation', details: 'Verify E.164 phone numbering standards', component: 'Validator Engine', status: 'SUCCESS' },
+      { name: 'Contact Record Upsert', details: `Upsert ${valid.length} contacts into PostgreSQL store`, component: 'PostgreSQL Store', status: 'SUCCESS' },
+      { name: 'Consent Proof Logging', details: `Record Meta BSP opt-in consent proof (${opt_in_source})`, component: 'Compliance Engine', status: 'SUCCESS' },
+      ...(targetListId ? [{ name: 'List Association', details: `Assign contacts to contact list ${targetListId}`, component: 'Audience Engine', status: 'SUCCESS' }] : []),
     ],
     ipAddress: req.ip,
   }).catch(() => {});

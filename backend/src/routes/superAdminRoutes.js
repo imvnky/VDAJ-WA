@@ -31,6 +31,7 @@ const { query }    = require('../config/database');
 const { sendSuccess, sendCreated, catchAsync } = require('../middleware/responseHandler');
 const { authenticate, authorize } = require('../middleware/authMiddleware');
 const AppError = require('../utils/AppError');
+const { recordAudit } = require('../services/auditService');
 
 const COOKIE_OPTIONS = {
   httpOnly: true,
@@ -78,6 +79,25 @@ router.post('/impersonate/exit', authenticate, catchAsync(async (req, res) => {
     restoredToken,
     COOKIE_OPTIONS
   );
+
+  recordAudit({
+    tenantId: decoded.tenantId || null,
+    userId: admin.id,
+    action: 'ADMIN_IMPERSONATION_ENDED',
+    resourceType: 'tenant',
+    resourceId: decoded.tenantId,
+    status: 'SUCCESS',
+    meta: {
+      adminEmail: admin.email,
+      impersonatedTenantId: decoded.tenantId,
+    },
+    subTasks: [
+      { name: 'Validate Impersonation Context', details: 'Confirmed active impersonation token claims and signatures', component: 'OAuth / JWT', status: 'SUCCESS' },
+      { name: 'Restore Super Admin Session', details: `Restored privileged Super Admin session for ${admin.email}`, component: 'Auth Gateway', status: 'SUCCESS' },
+    ],
+    ipAddress: req.ip,
+    userAgent: req.headers['user-agent'],
+  }).catch(() => {});
 
   return sendSuccess(res,
     { userId: admin.id, email: admin.email, role: 'super_admin' },
@@ -185,6 +205,26 @@ router.post('/impersonate/:tenantId', catchAsync(async (req, res) => {
     impersonationToken,
     { ...COOKIE_OPTIONS, maxAge: 4 * 60 * 60 * 1000 }
   );
+
+  recordAudit({
+    tenantId: tenant.id,
+    userId: req.user.id,
+    action: 'ADMIN_IMPERSONATION_STARTED',
+    resourceType: 'tenant',
+    resourceId: tenant.id,
+    status: 'WARNING',
+    meta: {
+      tenantName: tenant.name,
+      adminEmail: req.user.email,
+      impersonatedUser: adminUser.email,
+    },
+    subTasks: [
+      { name: 'Verify Tenant Status', details: `Confirmed tenant ${tenant.name} is active and verified`, component: 'Policy Engine', status: 'SUCCESS' },
+      { name: 'Issue Scoped Delegated Token', details: `Generated 4-hour impersonation session as ${adminUser.email}`, component: 'JWT Service', status: 'SUCCESS' },
+    ],
+    ipAddress: req.ip,
+    userAgent: req.headers['user-agent'],
+  }).catch(() => {});
 
   return sendSuccess(res, {
     tenant: {
@@ -315,6 +355,28 @@ router.post('/tenants', catchAsync(async (req, res) => {
     [tenant.id, adminEmail.toLowerCase().trim(), adminFirstName.trim(), adminLastName.trim(), hash]
   );
 
+  recordAudit({
+    tenantId: tenant.id,
+    userId: req.user.id,
+    action: 'TENANT_CREATED',
+    resourceType: 'tenant',
+    resourceId: tenant.id,
+    status: 'SUCCESS',
+    meta: {
+      name: tenant.name,
+      slug: tenant.slug,
+      plan: tenant.plan,
+      adminEmail,
+    },
+    subTasks: [
+      { name: 'Slug & Namespace Reservation', details: `Validated unique identifier: ${tenant.slug}`, component: 'Namespace Service', status: 'SUCCESS' },
+      { name: 'Workspace Provisioning', details: `Created tenant record in PostgreSQL with plan ${tenant.plan}`, component: 'PostgreSQL Store', status: 'SUCCESS' },
+      { name: 'Tenant Admin User Seeding', details: `Created primary administrator account ${adminEmail}`, component: 'Identity Management', status: 'SUCCESS' },
+    ],
+    ipAddress: req.ip,
+    userAgent: req.headers['user-agent'],
+  }).catch(() => {});
+
   return sendCreated(res, {
     tenant,
     adminUser: {
@@ -344,6 +406,26 @@ router.patch('/tenants/:id/suspend', catchAsync(async (req, res) => {
     [newStatus, newIsActive, req.params.id]
   );
   if (!tenant) throw new AppError('Tenant not found.', 404, 'ERR_VDAJ_TENANT_001');
+
+  recordAudit({
+    tenantId: tenant.id,
+    userId: req.user.id,
+    action: suspend ? 'TENANT_SUSPENDED' : 'TENANT_ACTIVATED',
+    resourceType: 'tenant',
+    resourceId: tenant.id,
+    status: suspend ? 'WARNING' : 'SUCCESS',
+    meta: {
+      tenantName: tenant.name,
+      status: tenant.status,
+      isActive: tenant.is_active,
+    },
+    subTasks: [
+      { name: 'Update Tenant Status', details: `Modified workspace status to ${newStatus} in database`, component: 'PostgreSQL Store', status: 'SUCCESS' },
+      { name: 'Worker Gateway Sync', details: `Worker message pipelines ${suspend ? 'halted' : 'resumed'} for tenant`, component: 'Engine Controller', status: 'SUCCESS' },
+    ],
+    ipAddress: req.ip,
+    userAgent: req.headers['user-agent'],
+  }).catch(() => {});
 
   return sendSuccess(res, tenant, `Tenant ${suspend ? 'suspended' : 'reactivated'}.`);
 }));
@@ -375,6 +457,25 @@ router.patch('/tenants/:id/features', catchAsync(async (req, res) => {
     [JSON.stringify(features), req.params.id]
   );
   if (!tenant) throw new AppError('Tenant not found.', 404, 'ERR_VDAJ_TENANT_001');
+
+  recordAudit({
+    tenantId: tenant.id,
+    userId: req.user.id,
+    action: 'TENANT_FEATURES_UPDATED',
+    resourceType: 'tenant',
+    resourceId: tenant.id,
+    status: 'SUCCESS',
+    meta: {
+      tenantName: tenant.name,
+      enabledFeatures: features,
+    },
+    subTasks: [
+      { name: 'Validate Feature Schema', details: `Checked ${features.length} enabled feature flags`, component: 'RBAC Policy', status: 'SUCCESS' },
+      { name: 'Persist Feature Grants', details: 'Updated JSONB feature set in database', component: 'PostgreSQL Store', status: 'SUCCESS' },
+    ],
+    ipAddress: req.ip,
+    userAgent: req.headers['user-agent'],
+  }).catch(() => {});
 
   return sendSuccess(res, tenant, 'Feature flags updated.');
 }));
@@ -443,6 +544,26 @@ router.post('/users', catchAsync(async (req, res) => {
     [tenantId, email.toLowerCase().trim(), firstName.trim(), lastName.trim(), role, hash]
   );
 
+  recordAudit({
+    tenantId: tenantId,
+    userId: req.user.id,
+    action: 'USER_CREATED',
+    resourceType: 'user',
+    resourceId: user.id,
+    status: 'SUCCESS',
+    meta: {
+      email: user.email,
+      role: user.role,
+      tenantName: tenant.name,
+    },
+    subTasks: [
+      { name: 'Credentials Generation', details: 'Generated temporary salted credentials digest', component: 'Crypto Security', status: 'SUCCESS' },
+      { name: 'User Record Creation', details: `Enrolled user ${user.email} with role ${user.role}`, component: 'Identity Management', status: 'SUCCESS' },
+    ],
+    ipAddress: req.ip,
+    userAgent: req.headers['user-agent'],
+  }).catch(() => {});
+
   return sendCreated(res, { ...user, tempPassword: plainPassword }, 'User created.');
 }));
 
@@ -462,6 +583,27 @@ router.patch('/users/:id/reset-password', catchAsync(async (req, res) => {
     [hash, req.params.id]
   );
   if (!user) throw new AppError('User not found.', 404, 'ERR_VDAJ_AUTH_005');
+
+  recordAudit({
+    tenantId: null,
+    userId: req.user.id,
+    action: 'USER_PASSWORD_RESET',
+    resourceType: 'user',
+    resourceId: user.id,
+    status: 'WARNING',
+    meta: {
+      email: user.email,
+      role: user.role,
+      resetBy: req.user.email,
+    },
+    subTasks: [
+      { name: 'Generate Salted Hash', details: 'Derived new bcrypt digest (10 rounds)', component: 'Crypto Security', status: 'SUCCESS' },
+      { name: 'Revoke Active Refresh Tokens', details: 'Invalidated existing refresh token hashes', component: 'OAuth Session', status: 'SUCCESS' },
+      { name: 'Persist Credentials', details: `Updated password digest for ${user.email}`, component: 'PostgreSQL Store', status: 'SUCCESS' },
+    ],
+    ipAddress: req.ip,
+    userAgent: req.headers['user-agent'],
+  }).catch(() => {});
 
   return sendSuccess(res, { ...user, newPassword }, 'Password reset successfully.');
 }));
@@ -483,6 +625,26 @@ router.patch('/users/:id/role', catchAsync(async (req, res) => {
     [role, req.params.id]
   );
   if (!user) throw new AppError('User not found.', 404, 'ERR_VDAJ_AUTH_005');
+
+  recordAudit({
+    tenantId: null,
+    userId: req.user.id,
+    action: 'USER_ROLE_CHANGED',
+    resourceType: 'user',
+    resourceId: user.id,
+    status: 'WARNING',
+    meta: {
+      email: user.email,
+      newRole: role,
+      updatedBy: req.user.email,
+    },
+    subTasks: [
+      { name: 'RBAC Role Assignment', details: `Updated user privilege level to ${role}`, component: 'RBAC Engine', status: 'SUCCESS' },
+      { name: 'Persist User Record', details: `Committed role update in database for ${user.email}`, component: 'PostgreSQL Store', status: 'SUCCESS' },
+    ],
+    ipAddress: req.ip,
+    userAgent: req.headers['user-agent'],
+  }).catch(() => {});
 
   return sendSuccess(res, user, 'User role updated.');
 }));

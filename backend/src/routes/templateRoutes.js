@@ -19,6 +19,7 @@ const { authenticate } = require('../middleware/authMiddleware');
 const { requireTenant } = require('../middleware/tenantMiddleware');
 const AppError = require('../utils/AppError');
 const { createMetaTemplate, syncMetaTemplateStatus } = require('../services/metaApiService');
+const { recordAudit } = require('../services/auditService');
 
 router.use(authenticate, requireTenant);
 
@@ -120,6 +121,28 @@ router.post('/', catchAsync(async (req, res) => {
     }
   }
 
+  recordAudit({
+    tenantId: req.user.tenantId,
+    userId: req.user.id,
+    action: template.meta_template_id ? 'TEMPLATE_SUBMITTED' : 'TEMPLATE_CREATED',
+    resourceType: 'template',
+    resourceId: template.id,
+    status: template.meta_template_id ? 'SUCCESS' : (req.metaError ? 'WARNING' : 'SUCCESS'),
+    meta: {
+      templateName: template.name,
+      category: template.category,
+      language: template.language,
+      metaTemplateId: template.meta_template_id || null,
+      metaError: req.metaError || null,
+    },
+    subTasks: [
+      { name: 'Schema & Opt-out Policy Validation', details: `Validated ${template.category} opt-out guidelines and variables`, component: 'Compliance Engine', status: 'SUCCESS' },
+      { name: 'Template Record Persistence', details: `Saved template definition in PostgreSQL store`, component: 'PostgreSQL Store', status: 'SUCCESS' },
+      ...(template.meta_template_id ? [{ name: 'Meta Review Submission', details: `Submitted to Meta Graph API (ID: ${template.meta_template_id})`, component: 'Meta Graph API', status: 'SUCCESS' }] : []),
+    ],
+    ipAddress: req.ip,
+  }).catch(() => {});
+
   return sendCreated(
     res,
     template,
@@ -212,6 +235,25 @@ router.post('/:id/sync', catchAsync(async (req, res) => {
      RETURNING *`,
     [metaStatus, rejectionReason, template.id]
   );
+
+  recordAudit({
+    tenantId: template.tenant_id || req.user.tenantId,
+    userId: req.user.id,
+    action: 'TEMPLATE_SYNCED',
+    resourceType: 'template',
+    resourceId: template.id,
+    status: metaStatus === 'APPROVED' ? 'SUCCESS' : (metaStatus === 'REJECTED' ? 'FAILED' : 'WARNING'),
+    meta: {
+      templateName: template.name,
+      metaStatus,
+      rejectionReason: rejectionReason || null,
+    },
+    subTasks: [
+      { name: 'Meta Graph API Status Query', details: `Polled Meta for template ${template.meta_template_id}`, component: 'Meta Graph API', status: 'SUCCESS' },
+      { name: 'Approval State Synchronized', details: `Updated approval status to ${metaStatus}${rejectionReason ? ` (Reason: ${rejectionReason})` : ''}`, component: 'PostgreSQL Store', status: 'SUCCESS' },
+    ],
+    ipAddress: req.ip,
+  }).catch(() => {});
 
   return sendSuccess(res, updated, `Template status synced: ${metaStatus}.`);
 }));
