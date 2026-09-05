@@ -146,7 +146,7 @@ export default function AnalyticsPage() {
   }));
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6" style={{ animation: 'fadeIn 0.3s ease-out' }}>
+    <div className="w-full space-y-6" style={{ animation: 'fadeIn 0.3s ease-out' }}>
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

@@ -233,7 +233,7 @@ export default function DashboardLayout() {
         {/* Page content */}
         <main className={clsx(
           "flex-1 min-h-0 flex flex-col",
-          isInbox ? "overflow-hidden p-2.5 sm:p-4" : "overflow-y-auto p-4 sm:p-6"
+          isInbox ? "overflow-hidden p-2.5 sm:p-4 w-full" : "overflow-y-auto p-4 sm:p-6 lg:px-8 lg:py-7 w-full min-w-0"
         )}>
           <Outlet />
         </main>

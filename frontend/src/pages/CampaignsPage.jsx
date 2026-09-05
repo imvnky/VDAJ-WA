@@ -555,7 +555,7 @@ export default function CampaignsPage() {
   // If a campaign is selected, render the MNC CampaignDetailView
   if (selectedCampaignId) {
     return (
-      <div className="max-w-7xl mx-auto animate-fade-in">
+      <div className="w-full animate-fade-in">
         <CampaignDetailView
           campaignId={selectedCampaignId}
           onBack={() => {
@@ -586,7 +586,7 @@ export default function CampaignsPage() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6 animate-fade-in">
+    <div className="w-full space-y-6 animate-fade-in">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

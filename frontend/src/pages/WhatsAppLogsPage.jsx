@@ -170,7 +170,7 @@ export default function WhatsAppLogsPage() {
   const hasFilters = statusFilter || campaignFilter || dateFrom || dateTo;
 
   return (
-    <div className="max-w-[1400px] mx-auto space-y-5" style={{ animation: 'fadeIn 0.3s ease-out' }}>
+    <div className="w-full space-y-6" style={{ animation: 'fadeIn 0.3s ease-out' }}>
 
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">

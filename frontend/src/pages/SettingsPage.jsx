@@ -382,7 +382,7 @@ export default function SettingsPage() {
   const SOURCE_COLORS = ['#534AB7', '#1D9E75', '#60a5fa', '#f59e0b', '#f87171', '#34d399'];
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6" style={{ animation: 'fadeIn 0.3s ease-out' }}>
+    <div className="w-full space-y-6" style={{ animation: 'fadeIn 0.3s ease-out' }}>
 
       {/* Page header */}
       <div>

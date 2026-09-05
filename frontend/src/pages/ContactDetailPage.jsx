@@ -223,7 +223,7 @@ export default function ContactDetailPage() {
 
   if (loading) {
     return (
-      <div className="max-w-4xl mx-auto space-y-5">
+      <div className="w-full space-y-5">
         <Skeleton className="h-8 w-48" />
         <Skeleton className="h-40" />
         <Skeleton className="h-52" />
@@ -246,7 +246,7 @@ export default function ContactDetailPage() {
   })();
 
   return (
-    <div className="max-w-4xl mx-auto space-y-5" style={{ animation: 'fadeIn 0.3s ease-out' }}>
+    <div className="w-full space-y-6" style={{ animation: 'fadeIn 0.3s ease-out' }}>
 
       {/* ── Breadcrumb ──────────────────────────────────────── */}
       <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--text-muted)' }}>

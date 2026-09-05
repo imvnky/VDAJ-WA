@@ -855,7 +855,7 @@ export default function TemplatesPage() {
   }, [templates, searchQuery, categoryFilter, statusFilter]);
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6 pb-12 animate-fade-in">
+    <div className="w-full space-y-6 pb-12 animate-fade-in">
       {/* ── TOP HEADER ── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>

@@ -206,7 +206,7 @@ export default function CommercePage() {
   const previewProducts = selected.length > 0 ? selected : products.slice(0, 3);
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6" style={{ animation: 'fadeIn 0.3s ease-out' }}>
+    <div className="w-full space-y-6" style={{ animation: 'fadeIn 0.3s ease-out' }}>
       {/* Header */}
       <div>
         <h1 className="text-2xl font-black" style={{ color: 'var(--text-primary)' }}>Commerce</h1>

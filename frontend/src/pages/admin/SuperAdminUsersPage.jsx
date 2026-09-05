@@ -265,7 +265,7 @@ export default function SuperAdminUsersPage() {
   const inputStyle = { background: 'var(--bg-elevated)', border: '1px solid var(--bg-border)', color: 'var(--text-primary)' };
 
   return (
-    <div className="max-w-[1400px] mx-auto space-y-6" style={{ animation: 'fadeIn 0.3s ease-out' }}>
+    <div className="w-full space-y-6" style={{ animation: 'fadeIn 0.3s ease-out' }}>
 
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">

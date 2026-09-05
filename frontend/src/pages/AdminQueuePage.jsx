@@ -159,7 +159,7 @@ export default function AdminQueuePage() {
   const dlq = stats?.deadLetterQueue;
 
   return (
-    <div className="max-w-6xl mx-auto space-y-8" style={{ animation: 'fadeIn 0.3s ease-out' }}>
+    <div className="w-full space-y-8" style={{ animation: 'fadeIn 0.3s ease-out' }}>
 
       {/* ── Header ───────────────────────────────────────────── */}
       <div className="flex items-center justify-between">
