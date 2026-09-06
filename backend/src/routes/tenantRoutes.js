@@ -139,6 +139,8 @@ router.get('/me/waba-health', catchAsync(async (req, res) => {
 
   const { rows: [health] } = await query(
     `SELECT
+       waba_id,
+       phone_number_id,
        quality_rating,
        messaging_tier,
        msgs_sent_today,
@@ -164,15 +166,20 @@ router.get('/me/waba-health', catchAsync(async (req, res) => {
   const tier          = health.messaging_tier || 1;
   const dailyLimit    = TIER_LIMITS[tier] || 1000;
 
+  const effectiveWabaId = health.waba_id || process.env.META_WABA_ID || null;
+  const effectivePhoneNumberId = health.phone_number_id || process.env.META_PHONE_NUMBER_ID || null;
+
   return sendSuccess(res, {
+    waba_id:               effectiveWabaId,
+    phone_number_id:       effectivePhoneNumberId,
     quality_rating:        health.quality_rating  || 'GREEN',
     messaging_tier:        tier,
     daily_limit:           dailyLimit,
     msgs_sent_today:       msgsSentToday,
     usage_pct:             Math.round((msgsSentToday / dailyLimit) * 100),
-    display_phone_number:  health.display_phone_number  || null,
-    verified_name:         health.verified_name          || null,
-    waba_connected:        health.waba_connected,
+    display_phone_number:  health.display_phone_number  || process.env.META_DISPLAY_PHONE_NUMBER || null,
+    verified_name:         health.verified_name          || process.env.META_VERIFIED_NAME || null,
+    waba_connected:        health.waba_connected || Boolean(effectivePhoneNumberId),
     waba_health_synced_at: health.waba_health_synced_at || null,
   }, 'WABA health retrieved.');
 }));
@@ -320,17 +327,32 @@ router.patch('/me', catchAsync(async (req, res) => {
   const tenantId = req.user.tenantId || req.body.tenantId;
   if (!tenantId) throw new AppError('Not associated with a tenant.', 400, 'ERR_VDAJ_TENANT_003');
 
-  const { name, timezone, country_code } = req.body;
+  const { name, timezone, country_code, waba_id, phone_number_id, display_phone_number, verified_name } = req.body;
+
+  const updates = [];
+  const params = [tenantId];
+  let pidx = 2;
+
+  if (name !== undefined) { updates.push(`name = $${pidx++}`); params.push(name.trim()); }
+  if (timezone !== undefined) { updates.push(`timezone = $${pidx++}`); params.push(timezone); }
+  if (country_code !== undefined) { updates.push(`country_code = $${pidx++}`); params.push(country_code); }
+  if (waba_id !== undefined) { updates.push(`waba_id = $${pidx++}`); params.push(waba_id ? waba_id.trim() : null); }
+  if (phone_number_id !== undefined) { updates.push(`phone_number_id = $${pidx++}`); params.push(phone_number_id ? phone_number_id.trim() : null); }
+  if (display_phone_number !== undefined) { updates.push(`display_phone_number = $${pidx++}`); params.push(display_phone_number ? display_phone_number.trim() : null); }
+  if (verified_name !== undefined) { updates.push(`verified_name = $${pidx++}`); params.push(verified_name ? verified_name.trim() : null); }
+
+  if (updates.length === 0) {
+    return sendSuccess(res, null, 'No changes provided.');
+  }
+
+  updates.push(`updated_at = NOW()`);
 
   const { rows: [tenant] } = await query(
     `UPDATE tenants
-        SET name         = COALESCE($2, name),
-            timezone     = COALESCE($3, timezone),
-            country_code = COALESCE($4, country_code),
-            updated_at   = NOW()
+        SET ${updates.join(', ')}
       WHERE id = $1 AND deleted_at IS NULL
-      RETURNING id, name, timezone, country_code, updated_at`,
-    [tenantId, name?.trim() || null, timezone || null, country_code || null]
+      RETURNING id, name, timezone, country_code, waba_id, phone_number_id, display_phone_number, verified_name, updated_at`,
+    params
   );
   if (!tenant) throw new AppError('Tenant not found.', 404, 'ERR_VDAJ_TENANT_001');
   return sendSuccess(res, tenant, 'Settings updated.');

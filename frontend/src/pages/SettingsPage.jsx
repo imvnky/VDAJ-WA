@@ -260,6 +260,127 @@ function Tab({ label, icon, active, onClick }) {
   );
 }
 
+// ── Edit WABA Details Modal ───────────────────────────────────
+function EditWabaModal({ initialData, onClose, onUpdated }) {
+  const [form, setForm] = useState({
+    waba_id: initialData?.waba_id || '',
+    phone_number_id: initialData?.phone_number_id || '',
+    display_phone_number: initialData?.display_phone_number || '',
+    verified_name: initialData?.verified_name || '',
+  });
+  const [saving, setSaving] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      await tenantApi.updateAccount(form);
+      showSuccess('WhatsApp account details updated.');
+      onUpdated();
+      onClose();
+    } catch (err) {
+      showError(err?.response?.data?.message || err?.message || 'Failed to update details.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const inputClass = "w-full h-10 rounded-xl px-3 text-sm outline-none transition-all font-mono";
+  const inputStyle = { background: 'var(--bg-elevated)', border: '1px solid var(--bg-border)', color: 'var(--text-primary)' };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}>
+      <form onSubmit={handleSubmit} className="w-full max-w-md rounded-2xl overflow-hidden shadow-2xl"
+        style={{ background: 'var(--bg-card)', border: '1px solid var(--bg-border)' }}>
+        <div className="flex items-center justify-between px-6 py-4 border-b"
+          style={{ borderColor: 'var(--bg-border)', background: 'var(--bg-elevated)' }}>
+          <div className="flex items-center gap-2.5">
+            <span className="text-lg">💬</span>
+            <div>
+              <p className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Edit WhatsApp Credentials</p>
+              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Configure Meta WABA ID & Phone Number ID</p>
+            </div>
+          </div>
+          <button type="button" onClick={onClose} className="text-lg leading-none hover:opacity-60" style={{ color: 'var(--text-muted)' }}>×</button>
+        </div>
+
+        <div className="p-6 space-y-4 text-xs">
+          <div>
+            <label className="block font-semibold mb-1" style={{ color: 'var(--text-secondary)' }}>
+              WABA ID (WhatsApp Business Account ID)
+            </label>
+            <input
+              type="text"
+              value={form.waba_id}
+              onChange={(e) => setForm((p) => ({ ...p, waba_id: e.target.value }))}
+              placeholder="e.g. 1531227085425531"
+              className={inputClass}
+              style={inputStyle}
+            />
+          </div>
+
+          <div>
+            <label className="block font-semibold mb-1" style={{ color: 'var(--text-secondary)' }}>
+              Phone Number ID
+            </label>
+            <input
+              type="text"
+              value={form.phone_number_id}
+              onChange={(e) => setForm((p) => ({ ...p, phone_number_id: e.target.value }))}
+              placeholder="e.g. 104593829103948"
+              className={inputClass}
+              style={inputStyle}
+            />
+          </div>
+
+          <div>
+            <label className="block font-semibold mb-1" style={{ color: 'var(--text-secondary)' }}>
+              Display Phone Number
+            </label>
+            <input
+              type="text"
+              value={form.display_phone_number}
+              onChange={(e) => setForm((p) => ({ ...p, display_phone_number: e.target.value }))}
+              placeholder="e.g. +91 80077 73138"
+              className={inputClass}
+              style={inputStyle}
+            />
+          </div>
+
+          <div>
+            <label className="block font-semibold mb-1" style={{ color: 'var(--text-secondary)' }}>
+              Verified Business Name
+            </label>
+            <input
+              type="text"
+              value={form.verified_name}
+              onChange={(e) => setForm((p) => ({ ...p, verified_name: e.target.value }))}
+              placeholder="e.g. VDAJ Services LLP"
+              className={clsx(inputClass, 'font-sans')}
+              style={inputStyle}
+            />
+          </div>
+        </div>
+
+        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t"
+          style={{ borderColor: 'var(--bg-border)', background: 'var(--bg-elevated)' }}>
+          <button type="button" onClick={onClose}
+            className="h-9 px-4 rounded-xl text-xs font-semibold hover:opacity-70 transition-opacity"
+            style={{ background: 'var(--bg-card)', border: '1px solid var(--bg-border)', color: 'var(--text-secondary)' }}>
+            Cancel
+          </button>
+          <button type="submit" disabled={saving}
+            className="h-9 px-5 rounded-xl text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50 transition-opacity"
+            style={{ background: '#534AB7' }}>
+            {saving ? 'Saving…' : 'Save Details'}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
 // ══════════════════════════════════════════════════════════════
 // Main SettingsPage
 // ══════════════════════════════════════════════════════════════
@@ -269,12 +390,14 @@ export default function SettingsPage() {
 
   // ── Account tab state ──────────────────────────────────────
   const [accountForm, setAccountForm] = useState({ name: '', timezone: 'Asia/Kolkata', country_code: 'IN' });
+  const [tenantProfile, setTenantProfile] = useState(null);
   const [accountLoading, setAccountLoading] = useState(true);
   const [accountSaving,  setAccountSaving]  = useState(false);
 
   // ── WhatsApp tab state ─────────────────────────────────────
   const [waba, setWaba] = useState(null);
   const [wabaLoading, setWabaLoading] = useState(true);
+  const [editWabaOpen, setEditWabaOpen] = useState(false);
 
   // ── Team tab state ─────────────────────────────────────────
   const [team, setTeam]           = useState([]);
@@ -285,28 +408,37 @@ export default function SettingsPage() {
   const [compliance, setCompliance]       = useState(null);
   const [complianceLoading, setComplianceLoading] = useState(false);
 
-  // ── Load account on mount ──────────────────────────────────
-  useEffect(() => {
+  // ── Load account & WABA ────────────────────────────────────
+  const loadAccount = useCallback(() => {
+    setAccountLoading(true);
     tenantApi.me({ silent: true })
       .then((res) => {
         const t = res?.data;
-        if (t) setAccountForm({
-          name: t.name || '',
-          timezone: t.timezone || 'Asia/Kolkata',
-          country_code: t.country_code || 'IN',
-        });
+        if (t) {
+          setTenantProfile(t);
+          setAccountForm({
+            name: t.name || '',
+            timezone: t.timezone || 'Asia/Kolkata',
+            country_code: t.country_code || 'IN',
+          });
+        }
       })
       .catch(() => {})
       .finally(() => setAccountLoading(false));
   }, []);
 
-  // ── Load WABA ──────────────────────────────────────────────
-  useEffect(() => {
+  const loadWaba = useCallback(() => {
+    setWabaLoading(true);
     tenantApi.wabaHealth({ silent: true })
       .then((res) => setWaba(res?.data || null))
       .catch(() => {})
       .finally(() => setWabaLoading(false));
   }, []);
+
+  useEffect(() => {
+    loadAccount();
+    loadWaba();
+  }, [loadAccount, loadWaba]);
 
   // ── Lazy load on tab switch ────────────────────────────────
   useEffect(() => {
@@ -491,13 +623,24 @@ export default function SettingsPage() {
             </Section>
           ) : (
             <>
-              <Section title="Account Details">
+              <Section
+                title="Account Details"
+                action={
+                  <button
+                    type="button"
+                    onClick={() => setEditWabaOpen(true)}
+                    className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl transition-all hover:opacity-80"
+                    style={{ background: 'rgba(83,74,183,0.12)', color: '#AFA9EC', border: '1px solid rgba(83,74,183,0.25)' }}>
+                    <span>✏️</span> Edit Credentials
+                  </button>
+                }
+              >
                 <div className="grid grid-cols-2 gap-4">
                   {[
-                    { label: 'WABA ID',         value: waba.waba_id || '—' },
-                    { label: 'Phone Number ID',  value: waba.phone_number_id || '—' },
-                    { label: 'Display Phone',    value: waba.display_phone_number || '—' },
-                    { label: 'Verified Name',    value: waba.verified_name || '—' },
+                    { label: 'WABA ID',         value: waba.waba_id || tenantProfile?.waba_id || '—' },
+                    { label: 'Phone Number ID',  value: waba.phone_number_id || tenantProfile?.phone_number_id || '—' },
+                    { label: 'Display Phone',    value: waba.display_phone_number || tenantProfile?.display_phone_number || '—' },
+                    { label: 'Verified Name',    value: waba.verified_name || tenantProfile?.verified_name || '—' },
                   ].map(({ label, value }) => (
                     <div key={label}>
                       <p className="text-2xs font-semibold uppercase tracking-wider mb-1"
@@ -760,6 +903,23 @@ export default function SettingsPage() {
         <InviteModal
           onClose={() => setInviteOpen(false)}
           onInvited={(member) => setTeam((t) => [...t, member])}
+        />
+      )}
+
+      {/* Edit WABA Modal */}
+      {editWabaOpen && (
+        <EditWabaModal
+          initialData={{
+            waba_id: waba?.waba_id || tenantProfile?.waba_id || '',
+            phone_number_id: waba?.phone_number_id || tenantProfile?.phone_number_id || '',
+            display_phone_number: waba?.display_phone_number || tenantProfile?.display_phone_number || '',
+            verified_name: waba?.verified_name || tenantProfile?.verified_name || '',
+          }}
+          onClose={() => setEditWabaOpen(false)}
+          onUpdated={() => {
+            loadWaba();
+            loadAccount();
+          }}
         />
       )}
     </div>
