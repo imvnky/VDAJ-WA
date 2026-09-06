@@ -17,17 +17,17 @@ import { create } from 'zustand';
 let _idCounter = Date.now();
 
 const NOTIF_TYPES = {
-  message:    { icon: '💬', label: 'Messages',  color: '#534AB7', bg: '#EEF0FF' },
-  campaign:   { icon: '📢', label: 'Campaigns', color: '#1D9E75', bg: '#E8F9F4' },
-  warning:    { icon: '⚠️', label: 'Warning',   color: '#F59E0B', bg: '#FEF3C7' },
-  error:      { icon: '❌', label: 'Errors',    color: '#EF4444', bg: '#FEE2E2' },
-  system:     { icon: '⚡', label: 'System',    color: '#4F46E5', bg: '#EEF2FF' },
-  compliance: { icon: '🛡️', label: 'Policy',    color: '#0284C7', bg: '#E0F2FE' },
+  message:    { label: 'Messages',  color: '#534AB7', bg: '#EEECFC' },
+  campaign:   { label: 'Campaigns', color: '#1D9E75', bg: '#E8F9F4' },
+  warning:    { label: 'Warning',   color: '#D97706', bg: '#FEF3C7' },
+  error:      { label: 'Errors',    color: '#DC2626', bg: '#FEE2E2' },
+  system:     { label: 'System',    color: '#4F46E5', bg: '#EEF2FF' },
+  compliance: { label: 'Policy',    color: '#0284C7', bg: '#E0F2FE' },
 };
 
 export { NOTIF_TYPES };
 
-const STORAGE_KEY = 'vdaj_notifications_store_v1';
+const STORAGE_KEY = 'vdaj_notifications_store_v2';
 
 function getInitialNotifications() {
   try {
@@ -38,13 +38,13 @@ function getInitialNotifications() {
     }
   } catch {}
 
-  // Initial system status alert if brand new workspace
+  // Enterprise platform initial gateway notification
   return [
     {
-      id: 'notif-system-ready',
+      id: 'notif-gateway-connected',
       type: 'system',
-      title: 'WhatsApp Cloud API Operational',
-      body: 'Meta Business Platform webhooks and queue workers are synchronized in real-time.',
+      title: 'Meta Cloud API Gateway Connected',
+      body: 'Verified webhook listeners and message dispatch queues are active and operating in Tier 1 status.',
       url: '/settings',
       read: false,
       createdAt: new Date().toISOString(),

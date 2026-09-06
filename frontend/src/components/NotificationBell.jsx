@@ -146,6 +146,49 @@ export function useNotificationWS() {
   }, [user?.tenantId]); // eslint-disable-line
 }
 
+// ── Clean SVG Icons for Notification Types ───────────────────
+function NotifIcon({ type }) {
+  switch (type) {
+    case 'message':
+      return (
+        <svg className="w-4 h-4 text-[#534AB7]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+        </svg>
+      );
+    case 'campaign':
+      return (
+        <svg className="w-4 h-4 text-[#1D9E75]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
+        </svg>
+      );
+    case 'warning':
+      return (
+        <svg className="w-4 h-4 text-[#D97706]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+        </svg>
+      );
+    case 'error':
+      return (
+        <svg className="w-4 h-4 text-[#DC2626]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      );
+    case 'compliance':
+      return (
+        <svg className="w-4 h-4 text-[#0284C7]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+        </svg>
+      );
+    case 'system':
+    default:
+      return (
+        <svg className="w-4 h-4 text-[#4F46E5]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+        </svg>
+      );
+  }
+}
+
 // ── Main UI Component ─────────────────────────────────────────
 export default function NotificationBell() {
   const [open, setOpen]         = useState(false);
@@ -195,36 +238,36 @@ export default function NotificationBell() {
 
   return (
     <div className="relative" ref={panelRef}>
-      {/* Bell Trigger Button */}
+      {/* Bell Trigger Button — MNC Grade Minimal & Consistent */}
       <button
         id="notification-bell-btn"
+        type="button"
         onClick={() => setOpen((o) => !o)}
         className={clsx(
-          "relative flex items-center justify-center w-10 h-10 rounded-xl transition-all duration-150 cursor-pointer",
+          "relative flex items-center justify-center w-8 h-8 rounded-lg transition-all duration-150 cursor-pointer select-none focus:outline-none focus:ring-2 focus:ring-[#534AB7]/20",
           open
-            ? "bg-indigo-50 border-indigo-200 text-indigo-700 shadow-xs"
-            : "bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 hover:text-slate-900 shadow-2xs"
+            ? "bg-[#EEECFC] border border-[#534AB7]/40 text-[#534AB7]"
+            : "bg-white hover:bg-[#F8FAFC] border border-[#E2E8F0] hover:border-[#CBD5E1] text-[#475569] hover:text-[#0F172A]"
         )}
         aria-label={`Notifications${hasUnread ? ` (${unreadCount} unread)` : ''}`}
         title="Notifications"
       >
         <svg
-          className="w-4.5 h-4.5 transition-transform duration-150 group-hover:scale-105"
-          fill="none"
+          className="w-[17px] h-[17px] transition-colors"
           viewBox="0 0 24 24"
+          fill="none"
           stroke="currentColor"
           strokeWidth={1.8}
+          strokeLinecap="round"
+          strokeLinejoin="round"
         >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
-          />
+          <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+          <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
         </svg>
 
-        {/* Unread Badge */}
+        {/* Minimal MNC Badge */}
         {hasUnread && (
-          <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-indigo-600 text-white font-extrabold text-[10px] flex items-center justify-center ring-2 ring-white animate-scale-in">
+          <span className="absolute -top-1 -right-1 min-w-[15px] h-[15px] px-1 rounded-full bg-[#534AB7] text-white font-bold text-[9px] leading-none flex items-center justify-center ring-2 ring-white">
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         )}
@@ -233,74 +276,74 @@ export default function NotificationBell() {
       {/* Dropdown Panel */}
       {open && (
         <div
-          className="absolute right-0 top-12 w-[390px] sm:w-[430px] rounded-2xl bg-white border border-slate-200/90 shadow-2xl overflow-hidden z-50 animate-scale-in"
+          className="absolute right-0 top-11 w-[380px] sm:w-[410px] rounded-xl bg-white border border-[#E2E8F0] shadow-[0_12px_32px_-4px_rgba(15,23,42,0.12),0_4px_12px_-2px_rgba(15,23,42,0.04)] overflow-hidden z-50 animate-scale-in"
           style={{ transformOrigin: 'top right' }}
         >
           {/* Header Bar */}
-          <div className="flex items-center justify-between px-4 py-3.5 bg-slate-50/90 border-b border-slate-100">
-            <div className="flex items-center gap-2.5">
-              <span className="text-sm font-extrabold text-slate-900 tracking-tight">
+          <div className="flex items-center justify-between px-4 py-3 bg-white border-b border-[#F1F5F9]">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-[#0F172A] tracking-tight">
                 Notifications
               </span>
-              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/60">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                Live Sync
-              </span>
+              {hasUnread && (
+                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#EEECFC] text-[#534AB7]">
+                  {unreadCount} new
+                </span>
+              )}
             </div>
 
-            <div className="flex items-center gap-2 text-xs">
+            <div className="flex items-center gap-3 text-xs">
               {hasUnread && (
                 <button
+                  type="button"
                   onClick={markAllRead}
-                  className="font-semibold text-indigo-600 hover:text-indigo-800 transition-colors cursor-pointer flex items-center gap-1 hover:underline"
+                  className="font-medium text-[#534AB7] hover:text-[#3B3499] transition-colors cursor-pointer hover:underline"
                 >
-                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                  </svg>
                   Mark all read
                 </button>
               )}
               {notifications.length > 0 && (
                 <button
+                  type="button"
                   onClick={clearAll}
-                  className="font-medium text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
+                  className="font-medium text-[#94A3B8] hover:text-[#DC2626] transition-colors cursor-pointer"
                   title="Clear all notifications"
                 >
-                  Clear
+                  Clear all
                 </button>
               )}
             </div>
           </div>
 
-          {/* Interactive Category Filter Tabs */}
-          <div className="flex items-center gap-1.5 px-3 py-2 bg-white border-b border-slate-100 overflow-x-auto text-xs no-scrollbar">
+          {/* Clean Segmented Category Tabs — MNC Standard */}
+          <div className="flex items-center gap-0.5 p-1 mx-3 my-2 bg-[#F1F5F9] rounded-lg text-xs">
             {[
               { id: 'all',      label: 'All',       count: notifications.length },
               { id: 'unread',   label: 'Unread',    count: unreadCount, badge: true },
-              { id: 'message',  label: 'Messages',  icon: '💬' },
-              { id: 'campaign', label: 'Campaigns', icon: '📢' },
-              { id: 'system',   label: 'System',    icon: '⚡' },
+              { id: 'message',  label: 'Messages' },
+              { id: 'campaign', label: 'Campaigns' },
+              { id: 'system',   label: 'System' },
             ].map((tab) => {
               const active = activeTab === tab.id;
               return (
                 <button
                   key={tab.id}
+                  type="button"
                   onClick={() => setActiveTab(tab.id)}
                   className={clsx(
-                    "flex items-center gap-1 px-2.5 py-1 rounded-lg font-semibold transition-all shrink-0 cursor-pointer",
+                    "flex-1 flex items-center justify-center gap-1.5 py-1 px-1 rounded-md text-xs transition-all cursor-pointer select-none",
                     active
-                      ? "bg-slate-900 text-white shadow-2xs"
-                      : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                      ? "bg-white text-[#0F172A] font-semibold shadow-xs"
+                      : "text-[#64748B] hover:text-[#0F172A] font-medium"
                   )}
                 >
-                  {tab.icon && <span className="text-[11px]">{tab.icon}</span>}
                   <span>{tab.label}</span>
                   {tab.count !== undefined && tab.count > 0 && (
                     <span className={clsx(
-                      "text-[9.5px] px-1.5 py-0.2 rounded-full font-bold leading-tight",
+                      "text-[10px] px-1.5 py-0.2 rounded-full font-bold leading-tight",
                       active
-                        ? "bg-white/20 text-white"
-                        : (tab.badge ? "bg-indigo-100 text-indigo-700 font-extrabold" : "bg-slate-100 text-slate-500")
+                        ? "bg-[#EEECFC] text-[#534AB7]"
+                        : "bg-[#E2E8F0] text-[#64748B]"
                     )}>
                       {tab.count}
                     </span>
@@ -311,24 +354,18 @@ export default function NotificationBell() {
           </div>
 
           {/* Notifications List */}
-          <div className="overflow-y-auto max-h-[380px] divide-y divide-slate-100 bg-white">
+          <div className="overflow-y-auto max-h-[360px] divide-y divide-[#F1F5F9] bg-white">
             {filteredNotifications.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 px-6 text-center">
-                <div className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 mb-3 shadow-2xs">
-                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                <div className="w-10 h-10 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] flex items-center justify-center text-[#94A3B8] mb-2.5">
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
                   </svg>
                 </div>
-                <p className="text-sm font-bold text-slate-900">All caught up!</p>
-                <p className="text-xs text-slate-500 mt-1 max-w-[260px] leading-relaxed">
-                  {activeTab === 'unread'
-                    ? 'No unread notifications to review right now.'
-                    : 'Real-time updates for WhatsApp messages, broadcasts, and Meta API events will appear here.'}
+                <p className="text-xs font-semibold text-[#0F172A]">No notifications</p>
+                <p className="text-[11px] text-[#64748B] mt-0.5 max-w-[220px]">
+                  {activeTab === 'unread' ? 'All notifications have been read.' : 'You are all caught up.'}
                 </p>
-                <div className="mt-4 flex items-center gap-1 text-[11px] text-emerald-600 font-medium">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                  <span>Meta Cloud API Connected</span>
-                </div>
               </div>
             ) : (
               filteredNotifications.map((n) => {
@@ -338,62 +375,64 @@ export default function NotificationBell() {
                     key={n.id}
                     onClick={() => handleClick(n)}
                     className={clsx(
-                      "group flex items-start gap-3 px-4 py-3.5 transition-colors duration-150 cursor-pointer",
-                      !n.read ? "bg-indigo-50/35 hover:bg-indigo-50/60" : "hover:bg-slate-50/80"
+                      "group relative flex items-start gap-3 px-4 py-3 transition-colors duration-150 cursor-pointer",
+                      !n.read ? "bg-[#FBFBFF] hover:bg-[#F3F2FD]/50" : "bg-white hover:bg-[#F8FAFC]"
                     )}
                   >
-                    {/* Left Type Icon Box */}
+                    {/* Unread Accent Bar */}
+                    {!n.read && (
+                      <span className="absolute left-0 top-0 bottom-0 w-0.5 bg-[#534AB7]" />
+                    )}
+
+                    {/* Clean SVG Icon Box */}
                     <div
-                      className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5 text-sm shadow-2xs select-none"
-                      style={{ background: cfg.bg, color: cfg.color }}
+                      className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
+                      style={{ background: cfg.bg }}
                     >
-                      {cfg.icon}
+                      <NotifIcon type={n.type} />
                     </div>
 
-                    {/* Notification Body */}
+                    {/* Content */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2">
                         <p className={clsx(
-                          "text-xs truncate font-bold",
-                          n.read ? "text-slate-700" : "text-slate-900"
+                          "text-xs truncate",
+                          !n.read ? "font-semibold text-[#0F172A]" : "font-medium text-[#334155]"
                         )}>
                           {n.title}
                         </p>
-                        <span className="text-[11px] text-slate-400 font-medium shrink-0">
+                        <span className="text-[10px] text-[#94A3B8] shrink-0">
                           {timeAgo(n.createdAt)}
                         </span>
                       </div>
 
-                      <p className="text-xs text-slate-600 mt-0.5 line-clamp-2 leading-relaxed">
+                      <p className="text-xs text-[#64748B] mt-0.5 line-clamp-2 leading-relaxed">
                         {n.body}
                       </p>
 
-                      {/* Action Pill / Read status */}
-                      <div className="flex items-center justify-between mt-2">
-                        {n.url ? (
-                          <span className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-0.5">
-                            <span>Open details</span>
-                            <span>→</span>
+                      {n.url && (
+                        <div className="mt-1.5">
+                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#534AB7] hover:underline">
+                            View details
+                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                            </svg>
                           </span>
-                        ) : <span />}
-
-                        {!n.read && (
-                          <span className="w-2 h-2 rounded-full bg-indigo-600 ring-2 ring-indigo-200" title="Unread" />
-                        )}
-                      </div>
+                        </div>
+                      )}
                     </div>
 
                     {/* Dismiss Button */}
                     <button
+                      type="button"
                       onClick={(e) => {
                         e.stopPropagation();
                         remove(n.id);
                       }}
-                      className="opacity-0 group-hover:opacity-60 hover:!opacity-100 shrink-0 p-1 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-slate-200/50 transition-all"
+                      className="opacity-0 group-hover:opacity-100 p-1 text-[#94A3B8] hover:text-[#DC2626] rounded-md transition-all shrink-0"
                       title="Dismiss"
-                      aria-label="Dismiss notification"
                     >
-                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                       </svg>
                     </button>
@@ -404,18 +443,21 @@ export default function NotificationBell() {
           </div>
 
           {/* Footer Bar */}
-          <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-xs">
+          <div className="px-4 py-2.5 bg-[#FAFAFC] border-t border-[#F1F5F9] flex items-center justify-between text-xs">
             <button
+              type="button"
               onClick={() => {
                 navigate('/logs');
                 setOpen(false);
               }}
-              className="font-semibold text-slate-700 hover:text-indigo-600 transition-colors flex items-center gap-1"
+              className="font-semibold text-[#534AB7] hover:text-[#3B3499] transition-colors inline-flex items-center gap-1"
             >
-              <span>View Full Message Logs</span>
-              <span>→</span>
+              <span>Message Logs</span>
+              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+              </svg>
             </button>
-            <span className="text-[11px] text-slate-400">
+            <span className="text-[11px] text-[#94A3B8]">
               {notifications.length} item{notifications.length !== 1 ? 's' : ''}
             </span>
           </div>
