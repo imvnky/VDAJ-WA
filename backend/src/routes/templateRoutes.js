@@ -42,19 +42,15 @@ router.get('/', catchAsync(async (req, res) => {
 
 // ── POST /templates — Create locally + submit to Meta ──────────
 router.post('/', catchAsync(async (req, res) => {
-  const { name, category, language, bodyText, headerText, footerText, buttons, variablesSchema } = req.body;
+  const { name, category, language, bodyText, headerText, headerType, headerSampleUrl, footerText, buttons, variablesSchema } = req.body;
 
   if (!name?.trim() || !bodyText?.trim()) {
     throw new AppError('name and bodyText are required.', 400, 'ERR_VDAJ_VAL_001');
   }
 
+  const resolvedHeaderType = (headerType || (headerText ? 'TEXT' : 'NONE')).toUpperCase();
+
   // ── BSP Compliance: marketing templates MUST contain opt-out text ──
-  // Meta's template policy requires that marketing (promotional) templates
-  // inform recipients how to stop receiving messages. Templates submitted
-  // without this are routinely rejected by Meta's review team.
-  //
-  // Accepted phrases (case-insensitive): STOP, unsubscribe, opt out,
-  // opt-out, optout, no more — any of these satisfy the requirement.
   const resolvedCategory = (category || 'marketing').toLowerCase();
   if (resolvedCategory === 'marketing') {
     const OPT_OUT_REGEX = /\b(stop|unsubscribe|opt.?out|no more)\b/i;
@@ -71,9 +67,9 @@ router.post('/', catchAsync(async (req, res) => {
   // Insert local record first (status = 'pending')
   const { rows: [template] } = await query(
     `INSERT INTO message_templates
-       (tenant_id, name, category, language, body_text, header_text, footer_text,
+       (tenant_id, name, category, language, body_text, header_text, header_type, header_sample_url, footer_text,
         buttons, variables_schema, status, created_by)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'pending', $10)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'pending', $12)
      RETURNING *`,
     [
       req.user.tenantId,
@@ -82,6 +78,8 @@ router.post('/', catchAsync(async (req, res) => {
       language || 'en',
       bodyText,
       headerText || null,
+      resolvedHeaderType,
+      headerSampleUrl || null,
       footerText || null,
       JSON.stringify(buttons || []),
       JSON.stringify(variablesSchema || []),

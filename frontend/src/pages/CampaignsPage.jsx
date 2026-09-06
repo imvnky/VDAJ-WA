@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { clsx } from 'clsx';
-import { campaignApi, contactApi, templateApi } from '../lib/api';
+import { campaignApi, contactApi, templateApi, mediaApi } from '../lib/api';
 import { showSuccess, showError } from '../components/atoms/Toast/Toast.jsx';
 import Button, { PrimaryButton, DangerButton, GhostButton, SecondaryButton } from '../components/atoms/Button/Button.jsx';
 import Input, { Select, Textarea } from '../components/atoms/Input/Input.jsx';
@@ -32,7 +32,7 @@ function StatusBadge({ status }) {
 }
 
 // ---- WhatsApp Message Preview ----
-function WhatsAppPreview({ template, variables = {} }) {
+function WhatsAppPreview({ template, variables = {}, headerMediaUrl = '' }) {
   const now = new Date();
   const time = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
@@ -61,6 +61,8 @@ function WhatsAppPreview({ template, variables = {} }) {
     });
   };
 
+  const activeMediaUrl = headerMediaUrl || (template?.header_type === 'IMAGE' && template?.header_sample_url ? template.header_sample_url : '');
+
   return (
     <div className="flex flex-col h-full bg-[#0B141A] rounded-2xl overflow-hidden border border-white/10 shadow-lg">
       {/* WA Header */}
@@ -81,6 +83,29 @@ function WhatsAppPreview({ template, variables = {} }) {
       >
         <div className="flex justify-end">
           <div className="max-w-[92%] bg-[#005C4B] rounded-2xl rounded-tr-sm p-3 shadow-md">
+            {/* Header Media (Image / Banner / Video / Document) */}
+            {activeMediaUrl && (
+              <div className="mb-2 rounded-xl overflow-hidden bg-black/30 border border-white/10 max-h-48 flex items-center justify-center">
+                <img
+                  src={activeMediaUrl}
+                  alt="Campaign Header Media"
+                  className="w-full h-auto object-cover max-h-48"
+                  onError={(e) => { e.target.style.display = 'none'; }}
+                />
+              </div>
+            )}
+            {!activeMediaUrl && template?.header_type && template?.header_type !== 'NONE' && template?.header_type !== 'TEXT' && (
+              <div className="mb-2 p-2.5 bg-[#1F2C34] rounded-xl border border-white/10 flex items-center gap-2 text-white/90">
+                <span className="text-xl">
+                  {template.header_type === 'IMAGE' ? '🖼️' : template.header_type === 'VIDEO' ? '🎥' : '📄'}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] font-bold uppercase">{template.header_type} Header</p>
+                  <p className="text-[9px] text-white/50">Upload your image flyer in the composer</p>
+                </div>
+              </div>
+            )}
+
             {/* Header Text if any */}
             {template?.header_text && (
               <p className="text-xs font-bold text-white mb-1.5 border-b border-white/10 pb-1">
@@ -124,6 +149,8 @@ function ComposerModal({ onClose, onCreated, contactLists, templates }) {
     scheduledAt: '',
     interactive: false,
   });
+  const [headerMediaUrl, setHeaderMediaUrl] = useState('');
+  const [uploadingMedia, setUploadingMedia] = useState(false);
   const [activeTab, setActiveTab] = useState('preview'); // 'preview' | 'excel_guide'
   const [loading, setLoading] = useState(false);
 
@@ -131,6 +158,13 @@ function ComposerModal({ onClose, onCreated, contactLists, templates }) {
 
   // Find currently selected template
   const selectedTemplate = templates.find((t) => t.id === form.templateId);
+
+  // Auto-fill header sample URL if available on template selection
+  useEffect(() => {
+    if (selectedTemplate?.header_sample_url && !headerMediaUrl) {
+      setHeaderMediaUrl(selectedTemplate.header_sample_url);
+    }
+  }, [selectedTemplate]);
 
   // Extract variables like {{1}}, {{2}} from template body
   const detectedVariables = React.useMemo(() => {
@@ -163,11 +197,20 @@ function ComposerModal({ onClose, onCreated, contactLists, templates }) {
 
     setLoading(true);
     try {
+      const campaignVariables = { ...form.variables };
+      if (headerMediaUrl) {
+        campaignVariables.headerUrl = headerMediaUrl;
+        campaignVariables.imageUrl = headerMediaUrl;
+        campaignVariables.headerType = selectedTemplate?.header_type || 'IMAGE';
+      }
+
       const res = await campaignApi.create({
         name: form.name,
         templateId: form.templateId,
         contactListId: form.contactListId,
-        templateVariables: form.variables,
+        templateVariables: campaignVariables,
+        headerUrl: headerMediaUrl || undefined,
+        headerType: selectedTemplate?.header_type || (headerMediaUrl ? 'IMAGE' : undefined),
         scheduledAt: form.sendTiming === 'schedule' && form.scheduledAt ? new Date(form.scheduledAt).toISOString() : undefined,
       });
       showSuccess('Campaign created successfully!');
@@ -255,6 +298,99 @@ function ComposerModal({ onClose, onCreated, contactLists, templates }) {
                 <p className="text-xs text-[#64748B]">
                   Per WhatsApp Business policies, outbound campaigns must use an approved Meta template.
                 </p>
+              )}
+
+              {/* Media Header / Banner / Flyer Upload Section */}
+              {selectedTemplate && (selectedTemplate.header_type === 'IMAGE' || selectedTemplate.header_type === 'VIDEO' || selectedTemplate.header_type === 'DOCUMENT' || headerMediaUrl) && (
+                <div className="mt-3 p-4 bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-base">
+                        {selectedTemplate.header_type === 'VIDEO' ? '🎥' : selectedTemplate.header_type === 'DOCUMENT' ? '📄' : '🖼️'}
+                      </span>
+                      <div>
+                        <h4 className="text-xs font-bold text-[#0F172A]">
+                          Campaign Header Media ({selectedTemplate.header_type || 'IMAGE'})
+                        </h4>
+                        <p className="text-[11px] text-[#64748B]">
+                          Attach the promotional banner, flyer, or document to be delivered with this broadcast.
+                        </p>
+                      </div>
+                    </div>
+                    {headerMediaUrl && (
+                      <button
+                        type="button"
+                        onClick={() => setHeaderMediaUrl('')}
+                        className="text-[11px] text-red-600 hover:underline font-semibold"
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Upload Controls */}
+                  <div className="flex flex-col sm:flex-row items-center gap-2">
+                    <label className="w-full sm:w-auto px-4 py-2 rounded-xl bg-[#534AB7] hover:bg-[#433A9D] text-white text-xs font-bold cursor-pointer transition-colors text-center inline-flex items-center justify-center gap-2 shadow-sm shrink-0">
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                      </svg>
+                      <span>{uploadingMedia ? 'Uploading Image...' : 'Choose Flyer / Image'}</span>
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp,video/mp4,application/pdf"
+                        className="sr-only"
+                        disabled={uploadingMedia}
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          setUploadingMedia(true);
+                          try {
+                            const fd = new FormData();
+                            fd.append('file', file);
+                            const res = await mediaApi.upload(fd);
+                            const url = res.data?.url || res.data?.directUrl;
+                            setHeaderMediaUrl(url);
+                            showSuccess('Campaign media uploaded successfully!');
+                          } catch {
+                            // Handled by toast interceptor
+                          } finally {
+                            setUploadingMedia(false);
+                          }
+                        }}
+                      />
+                    </label>
+
+                    <div className="w-full sm:flex-1">
+                      <input
+                        type="url"
+                        placeholder="Or enter public media URL (https://...)"
+                        value={headerMediaUrl}
+                        onChange={(e) => setHeaderMediaUrl(e.target.value)}
+                        className="w-full px-3 py-2 text-xs bg-[#FFFFFF] border border-[#CBD5E1] rounded-lg text-[#0F172A] placeholder-[#94A3B8] focus:border-[#534AB7] focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Thumbnail & Confirmation */}
+                  {headerMediaUrl && (
+                    <div className="flex items-center gap-3 p-2.5 bg-white border border-[#E2E8F0] rounded-xl text-xs">
+                      <img
+                        src={headerMediaUrl}
+                        alt="Banner Preview"
+                        className="w-12 h-12 object-cover rounded-lg border border-[#E2E8F0] shrink-0"
+                        onError={(e) => { e.target.style.display = 'none'; }}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="font-mono text-[11px] text-[#0F172A] truncate">
+                          {headerMediaUrl}
+                        </p>
+                        <p className="text-[10px] text-[#148059] font-semibold mt-0.5">
+                          ✓ Media attached — visible in Live WhatsApp Preview
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
               )}
 
               {/* Dynamic Variable Inputs */}
@@ -401,7 +537,11 @@ function ComposerModal({ onClose, onCreated, contactLists, templates }) {
             {/* Tab Content */}
             {activeTab === 'preview' ? (
               <div className="flex-1 flex flex-col">
-                <WhatsAppPreview template={selectedTemplate} variables={form.variables} />
+                <WhatsAppPreview
+                  template={selectedTemplate}
+                  variables={form.variables}
+                  headerMediaUrl={headerMediaUrl}
+                />
               </div>
             ) : (
               <div className="bg-[#FFFFFF] border border-[#E2E8F0] rounded-xl p-4 text-xs space-y-3 shadow-sm">

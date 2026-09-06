@@ -7,7 +7,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { clsx } from 'clsx';
-import { templateApi } from '../lib/api';
+import { templateApi, mediaApi } from '../lib/api';
 import { showSuccess, showError, showInfo } from '../components/atoms/Toast/Toast.jsx';
 import Button, { PrimaryButton, GhostButton } from '../components/atoms/Button/Button.jsx';
 import { ErrorState, parseApiError } from '../components/atoms/ErrorState/ErrorState.jsx';
@@ -118,11 +118,25 @@ function WhatsAppLivePreview({ form }) {
               </p>
             )}
             {form.headerType !== 'NONE' && form.headerType !== 'TEXT' && (
-              <div className="h-28 bg-[#1F2C34] rounded-lg border border-white/10 flex flex-col items-center justify-center text-[#8696A0] gap-1">
-                <span className="text-lg">
-                  {form.headerType === 'IMAGE' ? '🖼️' : form.headerType === 'VIDEO' ? '🎥' : '📄'}
-                </span>
-                <span className="text-[10px] uppercase font-bold tracking-wider">{form.headerType} Header</span>
+              <div className="rounded-lg overflow-hidden border border-white/10 bg-[#1F2C34] flex flex-col items-center justify-center text-[#8696A0]">
+                {form.headerType === 'IMAGE' && form.headerSampleUrl ? (
+                  <img
+                    src={form.headerSampleUrl}
+                    alt="Template Header Sample"
+                    className="w-full h-32 object-cover"
+                    onError={(e) => { e.target.style.display = 'none'; }}
+                  />
+                ) : (
+                  <div className="h-28 flex flex-col items-center justify-center gap-1 p-2">
+                    <span className="text-xl">
+                      {form.headerType === 'IMAGE' ? '🖼️' : form.headerType === 'VIDEO' ? '🎥' : '📄'}
+                    </span>
+                    <span className="text-[10px] uppercase font-bold tracking-wider text-white/90">{form.headerType} Header</span>
+                    <span className="text-[9px] text-[#8696A0]">
+                      {form.headerSampleUrl ? 'Sample media attached' : 'Sample media will appear here'}
+                    </span>
+                  </div>
+                )}
               </div>
             )}
 
@@ -183,12 +197,14 @@ function CreateTemplateModal({ onClose, onCreated, prefill = null }) {
     language: prefill?.language || 'en',
     allowReclassify: true,
     description: '',
-    headerType: prefill?.header_text ? 'TEXT' : 'NONE',
+    headerType: prefill?.header_type || (prefill?.header_text ? 'TEXT' : 'NONE'),
     headerText: prefill?.header_text || '',
+    headerSampleUrl: prefill?.header_sample_url || '',
     bodyText: prefill?.body_text || '',
     footerText: prefill?.footer_text || '',
     buttons: prefill?.buttons || [],
   });
+  const [uploadingMedia, setUploadingMedia] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
@@ -264,6 +280,8 @@ function CreateTemplateModal({ onClose, onCreated, prefill = null }) {
         language: form.language,
         bodyText: form.bodyText,
         headerText: form.headerType === 'TEXT' ? form.headerText : null,
+        headerType: form.headerType,
+        headerSampleUrl: form.headerSampleUrl || null,
         footerText: form.footerText || null,
         buttons: form.buttons.filter((b) => b.text.trim() !== ''),
       };
@@ -471,6 +489,90 @@ function CreateTemplateModal({ onClose, onCreated, prefill = null }) {
                     className="w-full px-3.5 py-2 text-xs bg-[#FFFFFF] border border-[#CBD5E1] rounded-xl text-[#0F172A] placeholder-[#94A3B8] focus:border-[#534AB7] focus:outline-none"
                   />
                   <p className="text-[11px] text-[#64748B] mt-1">Max 60 characters.</p>
+                </div>
+              )}
+
+              {form.headerType !== 'NONE' && form.headerType !== 'TEXT' && (
+                <div className="p-3 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[11px] font-bold text-[#0F172A] uppercase tracking-wider">
+                      Sample {form.headerType} (Required for Meta App Review)
+                    </label>
+                    {form.headerSampleUrl && (
+                      <button
+                        type="button"
+                        onClick={() => set('headerSampleUrl', '')}
+                        className="text-[10px] text-red-600 hover:underline font-semibold"
+                      >
+                        Remove Media
+                      </button>
+                    )}
+                  </div>
+
+                  <p className="text-[11px] text-[#64748B]">
+                    Meta reviewers need a sample asset to evaluate this template. You will provide the actual image/media file when sending campaigns.
+                  </p>
+
+                  <div className="flex flex-col sm:flex-row items-center gap-2">
+                    <label className="w-full sm:w-auto px-3.5 py-2 rounded-lg bg-[#534AB7] hover:bg-[#433A9D] text-white text-xs font-semibold cursor-pointer transition-colors text-center inline-flex items-center justify-center gap-1.5 shadow-sm">
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                      </svg>
+                      <span>{uploadingMedia ? 'Uploading...' : `Upload Sample ${form.headerType}`}</span>
+                      <input
+                        type="file"
+                        accept={form.headerType === 'IMAGE' ? 'image/jpeg,image/png,image/webp' : form.headerType === 'VIDEO' ? 'video/mp4' : '.pdf,.doc,.docx'}
+                        className="sr-only"
+                        disabled={uploadingMedia}
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          setUploadingMedia(true);
+                          try {
+                            const fd = new FormData();
+                            fd.append('file', file);
+                            const res = await mediaApi.upload(fd);
+                            const url = res.data?.url || res.data?.directUrl;
+                            set('headerSampleUrl', url);
+                            showSuccess('Sample media uploaded successfully!');
+                          } catch {
+                            // Handled by toast interceptor
+                          } finally {
+                            setUploadingMedia(false);
+                          }
+                        }}
+                      />
+                    </label>
+
+                    <div className="w-full sm:flex-1">
+                      <input
+                        type="url"
+                        placeholder={`Or paste public ${form.headerType.toLowerCase()} URL (https://...)`}
+                        value={form.headerSampleUrl}
+                        onChange={(e) => set('headerSampleUrl', e.target.value)}
+                        className="w-full px-3 py-2 text-xs bg-[#FFFFFF] border border-[#CBD5E1] rounded-lg text-[#0F172A] placeholder-[#94A3B8] focus:border-[#534AB7] focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  {form.headerSampleUrl && (
+                    <div className="flex items-center gap-2 p-2 bg-white border border-[#E2E8F0] rounded-lg text-xs">
+                      {form.headerType === 'IMAGE' && (
+                        <img
+                          src={form.headerSampleUrl}
+                          alt="Thumbnail"
+                          className="w-10 h-10 object-cover rounded border"
+                          onError={(e) => { e.target.style.display = 'none'; }}
+                        />
+                      )}
+                      <span className="text-[11px] text-[#475569] font-mono truncate flex-1">
+                        {form.headerSampleUrl}
+                      </span>
+                      <span className="text-[10px] font-bold text-[#148059] px-2 py-0.5 bg-[#E8F9F4] rounded shrink-0">
+                        ✓ Attached
+                      </span>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -681,6 +783,11 @@ function EnterpriseTemplateCard({ template, onSync, onResubmit }) {
               <span className="px-2 py-0.5 text-[10px] font-bold uppercase rounded-md bg-[#F3F2FD] text-[#534AB7] border border-[#E6E4F5]">
                 {template.category || 'MARKETING'}
               </span>
+              {template.header_type && template.header_type !== 'NONE' && template.header_type !== 'TEXT' && (
+                <span className="px-2 py-0.5 text-[10px] font-bold uppercase rounded-md bg-purple-50 text-purple-700 border border-purple-200">
+                  {template.header_type === 'IMAGE' ? '🖼️ Image Header' : template.header_type === 'VIDEO' ? '🎥 Video Header' : '📄 Doc Header'}
+                </span>
+              )}
             </div>
 
             <div className="flex items-center gap-2 mt-1 text-xs text-[#64748B]">
@@ -726,6 +833,16 @@ function EnterpriseTemplateCard({ template, onSync, onResubmit }) {
 
         {/* Message Preview Box */}
         <div className="mt-3 p-3.5 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl text-xs text-[#334155] leading-relaxed space-y-1.5">
+          {template.header_sample_url && template.header_type === 'IMAGE' && (
+            <div className="rounded-lg overflow-hidden border border-[#E2E8F0] mb-2 max-h-36 bg-black/5">
+              <img
+                src={template.header_sample_url}
+                alt="Template header sample"
+                className="w-full h-28 object-cover"
+                onError={(e) => { e.target.style.display = 'none'; }}
+              />
+            </div>
+          )}
           {template.header_text && (
             <p className="font-bold text-[#0F172A] border-b border-[#E2E8F0] pb-1">
               {template.header_text}

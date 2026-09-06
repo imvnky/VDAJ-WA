@@ -100,7 +100,40 @@ const buildTemplatePayload = (to, templateName, language, templateVars = {}) => 
     });
   }
 
-  if (templateVars.header) {
+  // Handle Header (Text OR Media: Image, Video, Document)
+  const headerType = (templateVars.headerType || '').toUpperCase();
+  const mediaUrl = templateVars.headerUrl || templateVars.imageUrl || templateVars.videoUrl || templateVars.documentUrl ||
+    (typeof templateVars.header === 'string' && /^https?:\/\//i.test(templateVars.header) ? templateVars.header : null) ||
+    (typeof templateVars.header === 'object' ? (templateVars.header.link || templateVars.header.url) : null);
+
+  if (headerType === 'IMAGE' || (mediaUrl && (headerType === 'IMAGE' || /\.(jpe?g|png|webp|gif)(\?.*)?$/i.test(mediaUrl) || templateVars.imageUrl))) {
+    components.push({
+      type: 'header',
+      parameters: [{
+        type: 'image',
+        image: { link: mediaUrl || templateVars.headerUrl || templateVars.imageUrl },
+      }],
+    });
+  } else if (headerType === 'VIDEO' || (mediaUrl && (headerType === 'VIDEO' || /\.(mp4|3gp)(\?.*)?$/i.test(mediaUrl) || templateVars.videoUrl))) {
+    components.push({
+      type: 'header',
+      parameters: [{
+        type: 'video',
+        video: { link: mediaUrl || templateVars.headerUrl || templateVars.videoUrl },
+      }],
+    });
+  } else if (headerType === 'DOCUMENT' || (mediaUrl && (headerType === 'DOCUMENT' || /\.(pdf|docx?|xlsx?)(\?.*)?$/i.test(mediaUrl) || templateVars.documentUrl))) {
+    components.push({
+      type: 'header',
+      parameters: [{
+        type: 'document',
+        document: {
+          link: mediaUrl || templateVars.headerUrl || templateVars.documentUrl,
+          filename: templateVars.filename || templateVars.headerFilename || 'document.pdf',
+        },
+      }],
+    });
+  } else if (templateVars.header && typeof templateVars.header === 'string') {
     components.push({
       type: 'header',
       parameters: [{ type: 'text', text: String(templateVars.header) }],
@@ -228,7 +261,27 @@ const createMetaTemplate = async (tenantCredentials, templateData) => {
   // Build components array for Meta's template API
   const components = [];
 
-  if (templateData.header_text) {
+  const headerType = (templateData.header_type || templateData.headerType || (templateData.header_text ? 'TEXT' : 'NONE')).toUpperCase();
+
+  if (headerType === 'IMAGE') {
+    const comp = { type: 'HEADER', format: 'IMAGE' };
+    if (templateData.header_sample_url || templateData.headerSampleUrl) {
+      comp.example = { header_handle: [templateData.header_sample_url || templateData.headerSampleUrl] };
+    }
+    components.push(comp);
+  } else if (headerType === 'VIDEO') {
+    const comp = { type: 'HEADER', format: 'VIDEO' };
+    if (templateData.header_sample_url || templateData.headerSampleUrl) {
+      comp.example = { header_handle: [templateData.header_sample_url || templateData.headerSampleUrl] };
+    }
+    components.push(comp);
+  } else if (headerType === 'DOCUMENT') {
+    const comp = { type: 'HEADER', format: 'DOCUMENT' };
+    if (templateData.header_sample_url || templateData.headerSampleUrl) {
+      comp.example = { header_handle: [templateData.header_sample_url || templateData.headerSampleUrl] };
+    }
+    components.push(comp);
+  } else if (templateData.header_text && headerType === 'TEXT') {
     components.push({
       type:   'HEADER',
       format: 'TEXT',

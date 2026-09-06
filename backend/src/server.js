@@ -31,6 +31,9 @@ const rateLimit    = require('express-rate-limit');
 const morgan       = require('morgan');
 const hpp          = require('hpp');
 
+const path = require('path');
+const fs   = require('fs');
+
 const logger = require('./utils/logger');
 const { globalErrorHandler, notFoundHandler } = require('./middleware/responseHandler');
 
@@ -50,6 +53,7 @@ const billingRoutes    = require('./routes/billingRoutes');
 const superAdminRoutes = require('./routes/superAdminRoutes');
 const teamRoutes       = require('./routes/teamRoutes');
 const auditRoutes      = require('./routes/auditRoutes');
+const mediaRoutes      = require('./routes/mediaRoutes');
 
 // ── Background workers ─────────────────────────────────────────
 const { startAnalyticsCron, startWABAHealthCron } = require('./workers/analyticsWorker');
@@ -205,6 +209,14 @@ app.use(`${API_PREFIX}/analytics`,    analyticsRoutes);
 app.use(`${API_PREFIX}/automations`,  automationRoutes);
 app.use(`${API_PREFIX}/team`,         teamRoutes);
 app.use(`${API_PREFIX}/audit`,        auditRoutes);
+app.use(`${API_PREFIX}/media`,        mediaRoutes);
+
+// ── Static uploaded assets (images, documents, flyers) ────────
+const UPLOADS_DIR = path.resolve(__dirname, '../public/uploads');
+if (!fs.existsSync(UPLOADS_DIR)) {
+  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+}
+app.use('/uploads', express.static(UPLOADS_DIR, { maxAge: '1d' }));
 
 // ── Sprint 3: Commerce & Billing ───────────────────────────────
 app.use(`${API_PREFIX}/commerce`,     commerceRoutes);
@@ -248,6 +260,10 @@ const server = app.listen(PORT, async () => {
     const { query: dbQuery } = require('./config/database');
     await dbQuery(`ALTER TABLE contacts ADD COLUMN IF NOT EXISTS tags TEXT[] DEFAULT '{}'`);
     await dbQuery(`CREATE INDEX IF NOT EXISTS idx_contacts_tags ON contacts USING GIN(tags)`);
+    await dbQuery(`ALTER TABLE message_templates ADD COLUMN IF NOT EXISTS header_type VARCHAR(50) DEFAULT 'NONE'`);
+    await dbQuery(`ALTER TABLE message_templates ADD COLUMN IF NOT EXISTS header_sample_url TEXT`);
+    await dbQuery(`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS template_vars JSONB DEFAULT '{}'`);
+    await dbQuery(`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS header_url TEXT`);
   } catch (err) {
     logger.warn('Schema auto-migration notice:', { message: err.message });
   }

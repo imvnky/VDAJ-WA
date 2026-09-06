@@ -49,13 +49,39 @@ router.get('/', catchAsync(async (req, res) => {
 
 // ── POST /campaigns ────────────────────────────────────────────
 router.post('/', campaignValidators, validate, catchAsync(async (req, res) => {
-  const { name, templateId, contactListId, scheduledAt, chunkSize, delayMs } = req.body;
+  const {
+    name,
+    templateId,
+    contactListId,
+    scheduledAt,
+    chunkSize,
+    delayMs,
+    templateVars,
+    templateVariables,
+    headerUrl,
+    headerType,
+  } = req.body;
+
+  const finalVars = templateVars || templateVariables || {};
+  if (headerUrl && !finalVars.headerUrl) finalVars.headerUrl = headerUrl;
+  if (headerType && !finalVars.headerType) finalVars.headerType = headerType;
 
   const { rows: [campaign] } = await query(
-    `INSERT INTO campaigns (tenant_id, name, template_id, contact_list_id, scheduled_at_utc, chunk_size, delay_ms, created_by)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    `INSERT INTO campaigns (tenant_id, name, template_id, contact_list_id, scheduled_at_utc, chunk_size, delay_ms, created_by, template_vars, header_url)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
      RETURNING *`,
-    [req.user.tenantId, name, templateId, contactListId, scheduledAt || null, chunkSize || null, delayMs || null, req.user.id]
+    [
+      req.user.tenantId,
+      name,
+      templateId,
+      contactListId,
+      scheduledAt || null,
+      chunkSize || null,
+      delayMs || null,
+      req.user.id,
+      JSON.stringify(finalVars),
+      headerUrl || finalVars.headerUrl || null,
+    ]
   );
 
   return sendCreated(res, campaign, 'Campaign created.');
@@ -231,15 +257,18 @@ router.post('/:id/launch', uuidParamValidator('id'), validate, catchAsync(async 
     // 2. ── CRITICAL FIX ──────────────────────────────────────────
     //    Bulk-insert one campaign_message row per active contact in the list.
     //    Uses ON CONFLICT DO NOTHING so replaying a paused campaign is idempotent.
+    //    Merges contact custom_vars with campaign-level template_vars (such as image header URLs).
     await client.query(
       `INSERT INTO campaign_messages
          (campaign_id, tenant_id, contact_id, phone_e164, template_vars, status)
        SELECT $1, $2, c.id, c.phone_e164,
-              COALESCE(c.custom_vars, '{}'::jsonb),
+              COALESCE(c.custom_vars, '{}'::jsonb) || COALESCE(cmp.template_vars, '{}'::jsonb),
               'queued'
        FROM contact_list_members clm
        JOIN contacts c ON c.id = clm.contact_id
+       CROSS JOIN campaigns cmp
        WHERE clm.contact_list_id = $3
+         AND cmp.id = $1
          AND c.status = 'active'
        ON CONFLICT DO NOTHING`,
       [campaign.id, req.user.tenantId, campaign.contact_list_id]

@@ -236,5 +236,15 @@ export const auditApi = {
   list: (params, config = {}) => client.get('/audit', { params, ...config }),
 };
 
+// ---- MEDIA & UPLOADS ----
+export const mediaApi = {
+  upload: (formData, config = {}) =>
+    client.post('/media/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      ...config,
+    }),
+};
+
 export default client;
+
 
