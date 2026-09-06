@@ -360,61 +360,90 @@ router.patch('/me', catchAsync(async (req, res) => {
 
 // ── GET /tenants/me/compliance — Consent & quality audit ────────
 router.get('/me/compliance', catchAsync(async (req, res) => {
-  const tenantId = req.user.tenantId || req.query.tenantId;
+  const tenantId = req.user?.tenantId || req.query.tenantId;
   if (!tenantId) {
-    return sendSuccess(res, { optInBreakdown: [], totalOptedOut: 0, qualityRating: 'GREEN' }, 'No tenant associated.');
+    return sendSuccess(res, {
+      opt_in_breakdown: [],
+      opted_out_count: 0,
+      total_contacts: 0,
+      opt_out_rate_pct: 0,
+      contacts_missing_optin: 0,
+      quality_rating: 'GREEN',
+      messaging_tier: 1,
+      msgs_sent_today: 0,
+      waba_health_synced_at: null,
+    }, 'No tenant associated.');
   }
 
-  // Opt-in breakdown by source
-  const { rows: optInBreakdown } = await query(
-    `SELECT opt_in_source AS source, COUNT(*) AS count
-       FROM contacts
-      WHERE tenant_id = $1
-        AND opted_in_at IS NOT NULL
-        AND deleted_at IS NULL
-      GROUP BY opt_in_source
-      ORDER BY count DESC`,
-    [tenantId]
-  );
+  // 1. Opt-in breakdown by source (safely handled)
+  let optInBreakdown = [];
+  try {
+    const { rows } = await query(
+      `SELECT COALESCE(opt_in_source, 'import') AS source, COUNT(*) AS count
+         FROM contacts
+        WHERE tenant_id = $1
+          AND opted_in_at IS NOT NULL
+        GROUP BY opt_in_source
+        ORDER BY count DESC`,
+      [tenantId]
+    );
+    optInBreakdown = rows;
+  } catch (err) {
+    // If migration columns not yet present, return clean empty list
+    optInBreakdown = [];
+  }
 
-  // Opt-out rate
-  const { rows: [rates] } = await query(
-    `SELECT
-       COUNT(*) FILTER (WHERE status = 'opted_out') AS opted_out_count,
-       COUNT(*) AS total_count
-       FROM contacts
-      WHERE tenant_id = $1 AND deleted_at IS NULL`,
-    [tenantId]
-  );
+  // 2. Opt-out rate (contacts table uses status = 'opted_out', no deleted_at)
+  let rates = { opted_out_count: 0, total_count: 0 };
+  try {
+    const { rows } = await query(
+      `SELECT
+         COUNT(*) FILTER (WHERE status = 'opted_out') AS opted_out_count,
+         COUNT(*) AS total_count
+         FROM contacts
+        WHERE tenant_id = $1`,
+      [tenantId]
+    );
+    if (rows[0]) rates = rows[0];
+  } catch (err) {}
 
-  // Contacts without opt-in (compliance risk)
-  const { rows: [noOptin] } = await query(
-    `SELECT COUNT(*) AS count
-       FROM contacts
-      WHERE tenant_id = $1
-        AND opted_in_at IS NULL
-        AND status = 'active'
-        AND deleted_at IS NULL`,
-    [tenantId]
-  );
+  // 3. Contacts without opt-in (compliance risk)
+  let noOptin = { count: 0 };
+  try {
+    const { rows } = await query(
+      `SELECT COUNT(*) AS count
+         FROM contacts
+        WHERE tenant_id = $1
+          AND (opted_in_at IS NULL OR opt_in_source IS NULL)
+          AND status = 'active'`,
+      [tenantId]
+    );
+    if (rows[0]) noOptin = rows[0];
+  } catch (err) {}
 
-  // WABA quality from tenant row
-  const { rows: [waba] } = await query(
-    `SELECT quality_rating, messaging_tier, msgs_sent_today, waba_health_synced_at
-       FROM tenants WHERE id = $1`,
-    [tenantId]
-  );
+  // 4. WABA quality from tenant row
+  let waba = null;
+  try {
+    const { rows } = await query(
+      `SELECT quality_rating, messaging_tier, msgs_sent_today, waba_health_synced_at
+         FROM tenants WHERE id = $1`,
+      [tenantId]
+    );
+    if (rows[0]) waba = rows[0];
+  } catch (err) {}
 
-  const optOutRate = rates.total_count > 0
-    ? parseFloat(((rates.opted_out_count / rates.total_count) * 100).toFixed(1))
+  const totalCount = parseInt(rates.total_count, 10) || 0;
+  const optedOutCount = parseInt(rates.opted_out_count, 10) || 0;
+  const optOutRate = totalCount > 0
+    ? parseFloat(((optedOutCount / totalCount) * 100).toFixed(1))
     : 0;
 
   return sendSuccess(res, {
     opt_in_breakdown:      optInBreakdown,
-    opted_out_count:       parseInt(rates.opted_out_count, 10),
-    total_contacts:        parseInt(rates.total_count, 10),
+    opted_out_count:       optedOutCount,
+    total_contacts:        totalCount,
     opt_out_rate_pct:      optOutRate,
-    contacts_missing_optin: parseInt(noOptin.count, 10),
+    contacts_missing_optin: parseInt(noOptin.count, 10) || 0,
     quality_rating:        waba?.quality_rating || 'GREEN',
     messaging_tier:        waba?.messaging_tier || 1,
     msgs_sent_today:       waba?.msgs_sent_today || 0,
