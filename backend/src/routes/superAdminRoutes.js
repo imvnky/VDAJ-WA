@@ -430,6 +430,120 @@ router.patch('/tenants/:id/suspend', catchAsync(async (req, res) => {
   return sendSuccess(res, tenant, `Tenant ${suspend ? 'suspended' : 'reactivated'}.`);
 }));
 
+// ── PATCH /admin/tenants/:id ───────────────────────────────────
+// Update basic tenant details (name, plan)
+router.patch('/tenants/:id', catchAsync(async (req, res) => {
+  const { name, plan } = req.body;
+  const updates = [];
+  const params = [];
+  let pidx = 1;
+
+  if (name !== undefined && name.trim()) {
+    updates.push(`name = $${pidx++}`);
+    params.push(name.trim());
+  }
+  if (plan !== undefined) {
+    updates.push(`plan = $${pidx++}`);
+    params.push(plan);
+  }
+
+  if (updates.length === 0) {
+    return sendSuccess(res, null, 'No changes submitted.');
+  }
+
+  updates.push(`updated_at = NOW()`);
+  params.push(req.params.id);
+
+  const { rows: [tenant] } = await query(
+    `UPDATE tenants SET ${updates.join(', ')} WHERE id = $${pidx} AND deleted_at IS NULL RETURNING id, name, plan, status`,
+    params
+  );
+  if (!tenant) throw new AppError('Tenant not found.', 404, 'ERR_VDAJ_TENANT_001');
+
+  return sendSuccess(res, tenant, 'Tenant details updated.');
+}));
+
+// ── PATCH /admin/tenants/:id/reset-admin-password ─────────────
+// Reset the password for a client tenant's admin user directly by tenant ID
+router.patch('/tenants/:id/reset-admin-password', catchAsync(async (req, res) => {
+  const tenantId = req.params.id;
+  const { password } = req.body;
+
+  // Find tenant
+  const { rows: [tenant] } = await query(
+    `SELECT id, name FROM tenants WHERE id = $1 AND deleted_at IS NULL`,
+    [tenantId]
+  );
+  if (!tenant) throw new AppError('Tenant not found.', 404, 'ERR_VDAJ_TENANT_001');
+
+  // Find the tenant's admin user
+  let { rows: [adminUser] } = await query(
+    `SELECT id, email, first_name, last_name FROM users
+     WHERE tenant_id = $1 AND role = 'tenant_admin' AND deleted_at IS NULL
+     ORDER BY created_at ASC LIMIT 1`,
+    [tenantId]
+  );
+
+  // Fallback to any user in that tenant if no tenant_admin
+  if (!adminUser) {
+    const { rows: [anyUser] } = await query(
+      `SELECT id, email, first_name, last_name FROM users
+       WHERE tenant_id = $1 AND deleted_at IS NULL
+       ORDER BY created_at ASC LIMIT 1`,
+      [tenantId]
+    );
+    adminUser = anyUser;
+  }
+
+  if (!adminUser) {
+    throw new AppError('No user accounts found for this client tenant.', 404, 'ERR_VDAJ_AUTH_005');
+  }
+
+  const newPassword = (password && password.trim().length >= 6)
+    ? password.trim()
+    : crypto.randomBytes(10).toString('base64url');
+  const hash = await bcrypt.hash(newPassword, 10);
+
+  await query(
+    `UPDATE users
+     SET password_hash = $1, refresh_token_hash = NULL, updated_at = NOW()
+     WHERE id = $2`,
+    [hash, adminUser.id]
+  );
+
+  recordAudit({
+    tenantId: tenant.id,
+    userId: req.user.id,
+    action: 'TENANT_ADMIN_PASSWORD_RESET',
+    resourceType: 'user',
+    resourceId: adminUser.id,
+    status: 'WARNING',
+    meta: {
+      tenantName: tenant.name,
+      adminEmail: adminUser.email,
+      resetBy: req.user.email,
+    },
+    subTasks: [
+      { name: 'Tenant Admin Resolution', details: `Resolved admin user ${adminUser.email} for ${tenant.name}`, component: 'Identity Management', status: 'SUCCESS' },
+      { name: 'Password Hash Update', details: 'Committed salted password digest and invalidated sessions', component: 'Crypto Security', status: 'SUCCESS' },
+    ],
+    ipAddress: req.ip,
+    userAgent: req.headers['user-agent'],
+  }).catch(() => {});
+
+  return sendSuccess(
+    res,
+    {
+      tenantId: tenant.id,
+      tenantName: tenant.name,
+      adminEmail: adminUser.email,
+      adminName: [adminUser.first_name, adminUser.last_name].filter(Boolean).join(' ') || 'Admin',
+      newPassword,
+    },
+    `Password for ${adminUser.email} updated successfully.`
+  );
+}));
+
 // ── PATCH /admin/tenants/:id/features ──────────────────────────
 // Update the feature toggles (checkbox save).
 // Body: { features: ['inbox', 'campaigns', ...] }
@@ -565,6 +679,103 @@ router.post('/users', catchAsync(async (req, res) => {
   }).catch(() => {});
 
   return sendCreated(res, { ...user, tempPassword: plainPassword }, 'User created.');
+}));
+
+// ── PATCH /admin/users/:id ──────────────────────────────────────
+// Update user details (name, email, role, status, and optional password)
+router.patch('/users/:id', catchAsync(async (req, res) => {
+  const { firstName, lastName, email, role, isActive, password } = req.body;
+  const userId = req.params.id;
+
+  const { rows: [existing] } = await query(
+    `SELECT id, email, role, tenant_id FROM users WHERE id = $1 AND deleted_at IS NULL`,
+    [userId]
+  );
+  if (!existing) throw new AppError('User not found.', 404, 'ERR_VDAJ_AUTH_005');
+
+  const updates = [];
+  const params = [];
+  let pidx = 1;
+
+  if (firstName !== undefined) {
+    updates.push(`first_name = $${pidx++}`);
+    params.push(firstName.trim());
+  }
+  if (lastName !== undefined) {
+    updates.push(`last_name = $${pidx++}`);
+    params.push(lastName.trim());
+  }
+  if (email !== undefined && email.trim() !== existing.email) {
+    const cleanEmail = email.toLowerCase().trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      throw new AppError('Valid email address is required.', 400, 'ERR_VDAJ_VAL_002');
+    }
+    const { rows: duplicate } = await query(
+      `SELECT id FROM users WHERE email = $1 AND id != $2 AND deleted_at IS NULL`,
+      [cleanEmail, userId]
+    );
+    if (duplicate.length > 0) throw new AppError('Email is already in use by another account.', 409, 'ERR_VDAJ_AUTH_007');
+    updates.push(`email = $${pidx++}`);
+    params.push(cleanEmail);
+  }
+  if (role !== undefined) {
+    const VALID_ROLES = ['super_admin', 'tenant_admin', 'manager', 'agent', 'tenant_user'];
+    if (!VALID_ROLES.includes(role)) {
+      throw new AppError(`Role must be one of: ${VALID_ROLES.join(', ')}.`, 400, 'ERR_VDAJ_VAL_002');
+    }
+    updates.push(`role = $${pidx++}`);
+    params.push(role);
+  }
+  if (isActive !== undefined) {
+    updates.push(`is_active = $${pidx++}`);
+    params.push(Boolean(isActive));
+  }
+  let passwordChanged = false;
+  if (password && password.trim().length > 0) {
+    if (password.trim().length < 6) {
+      throw new AppError('Password must be at least 6 characters.', 400, 'ERR_VDAJ_VAL_003');
+    }
+    const hash = await bcrypt.hash(password.trim(), 10);
+    updates.push(`password_hash = $${pidx++}`);
+    params.push(hash);
+    updates.push(`refresh_token_hash = NULL`);
+    passwordChanged = true;
+  }
+
+  if (updates.length === 0) {
+    return sendSuccess(res, existing, 'No changes submitted.');
+  }
+
+  updates.push(`updated_at = NOW()`);
+  params.push(userId);
+
+  const { rows: [updatedUser] } = await query(
+    `UPDATE users SET ${updates.join(', ')} WHERE id = $${pidx} RETURNING id, email, first_name, last_name, role, is_active, tenant_id`,
+    params
+  );
+
+  recordAudit({
+    tenantId: updatedUser.tenant_id,
+    userId: req.user.id,
+    action: 'USER_UPDATED',
+    resourceType: 'user',
+    resourceId: updatedUser.id,
+    status: 'SUCCESS',
+    meta: {
+      email: updatedUser.email,
+      role: updatedUser.role,
+      passwordChanged,
+      updatedBy: req.user.email,
+    },
+    subTasks: [
+      { name: 'Update User Details', details: `Updated profile attributes in database for ${updatedUser.email}`, component: 'Identity Management', status: 'SUCCESS' },
+      ...(passwordChanged ? [{ name: 'Password Update', details: 'Salted and stored new password digest', component: 'Crypto Security', status: 'SUCCESS' }] : []),
+    ],
+    ipAddress: req.ip,
+    userAgent: req.headers['user-agent'],
+  }).catch(() => {});
+
+  return sendSuccess(res, { ...updatedUser, passwordChanged }, 'User details updated successfully.');
 }));
 
 // ── PATCH /admin/users/:id/reset-password ──────────────────────

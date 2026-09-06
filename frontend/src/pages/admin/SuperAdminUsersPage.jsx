@@ -12,7 +12,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { clsx } from 'clsx';
 import { superAdminApi } from '../../lib/api';
-import { showSuccess } from '../../components/atoms/Toast/Toast.jsx';
+import { showSuccess, showError } from '../../components/atoms/Toast/Toast.jsx';
 import { ErrorState, parseApiError } from '../../components/atoms/ErrorState/ErrorState.jsx';
 
 // ── Constants ─────────────────────────────────────────────────
@@ -80,6 +80,208 @@ function ResetResultModal({ user, password, onClose }) {
           Done
         </button>
       </div>
+    </div>
+  );
+}
+
+// ── Edit User & Password Modal ────────────────────────────────
+function EditUserModal({ user, onClose, onUpdated, onPasswordResult }) {
+  const [form, setForm] = useState({
+    firstName: user.first_name || '',
+    lastName: user.last_name || '',
+    email: user.email || '',
+    role: user.role || 'agent',
+    isActive: user.is_active !== undefined ? user.is_active : true,
+    password: '',
+  });
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
+
+  const generatePassword = () => {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%&*';
+    let res = '';
+    for (let i = 0; i < 14; i++) {
+      res += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    set('password', res);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!form.email || !form.email.includes('@')) {
+      showError('Please provide a valid email.');
+      return;
+    }
+    if (form.password && form.password.trim().length < 6) {
+      showError('Password must be at least 6 characters.');
+      return;
+    }
+    setLoading(true);
+    try {
+      const payload = {
+        firstName: form.firstName,
+        lastName: form.lastName,
+        email: form.email,
+        role: form.role,
+        isActive: form.isActive,
+      };
+      if (form.password.trim()) {
+        payload.password = form.password.trim();
+      }
+      await superAdminApi.updateUser(user.id, payload);
+      showSuccess('User details updated successfully.');
+      onUpdated();
+      onClose();
+      if (form.password.trim()) {
+        onPasswordResult({ user: { ...user, email: form.email }, password: form.password.trim() });
+      }
+    } catch (err) {
+      showError(err?.response?.data?.message || err?.message || 'Failed to update user.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const inputClass = "w-full h-9 rounded-xl px-3 text-sm outline-none transition-all";
+  const inputStyle = { background: 'var(--bg-elevated)', border: '1px solid var(--bg-border)', color: 'var(--text-primary)' };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}>
+      <form onSubmit={handleSubmit} className="w-full max-w-md rounded-2xl overflow-hidden shadow-2xl"
+        style={{ background: 'var(--bg-card)', border: '1px solid var(--bg-border)' }}>
+        
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b"
+          style={{ borderColor: 'var(--bg-border)', background: 'var(--bg-elevated)' }}>
+          <div className="flex items-center gap-2.5">
+            <span className="text-lg">✏️</span>
+            <div>
+              <p className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Edit User & Password</p>
+              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{user.tenant_name ? `${user.tenant_name} • ` : ''}{user.email}</p>
+            </div>
+          </div>
+          <button type="button" onClick={onClose} className="text-lg leading-none hover:opacity-60" style={{ color: 'var(--text-muted)' }}>×</button>
+        </div>
+
+        <div className="p-6 space-y-4 max-h-[75vh] overflow-y-auto text-xs">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block font-semibold mb-1" style={{ color: 'var(--text-secondary)' }}>First Name</label>
+              <input
+                type="text"
+                value={form.firstName}
+                onChange={(e) => set('firstName', e.target.value)}
+                className={inputClass}
+                style={inputStyle}
+              />
+            </div>
+            <div>
+              <label className="block font-semibold mb-1" style={{ color: 'var(--text-secondary)' }}>Last Name</label>
+              <input
+                type="text"
+                value={form.lastName}
+                onChange={(e) => set('lastName', e.target.value)}
+                className={inputClass}
+                style={inputStyle}
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block font-semibold mb-1" style={{ color: 'var(--text-secondary)' }}>Email Address</label>
+            <input
+              type="email"
+              value={form.email}
+              onChange={(e) => set('email', e.target.value)}
+              required
+              className={inputClass}
+              style={inputStyle}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block font-semibold mb-1" style={{ color: 'var(--text-secondary)' }}>Role</label>
+              <select
+                value={form.role}
+                onChange={(e) => set('role', e.target.value)}
+                className={clsx(inputClass, 'cursor-pointer')}
+                style={inputStyle}>
+                {ROLES.map((r) => (
+                  <option key={r} value={r}>{ROLE_CFG[r]?.label || r}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block font-semibold mb-1" style={{ color: 'var(--text-secondary)' }}>Status</label>
+              <select
+                value={form.isActive ? 'active' : 'inactive'}
+                onChange={(e) => set('isActive', e.target.value === 'active')}
+                className={clsx(inputClass, 'cursor-pointer')}
+                style={inputStyle}>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Password Reset Section */}
+          <div className="pt-3 border-t space-y-2" style={{ borderColor: 'var(--bg-border)' }}>
+            <div className="flex items-center justify-between">
+              <label className="block font-bold text-xs" style={{ color: 'var(--text-primary)' }}>
+                🔑 Change / Reset Password
+              </label>
+              <button
+                type="button"
+                onClick={generatePassword}
+                className="text-2xs font-semibold px-2 py-1 rounded transition-all hover:opacity-80 flex items-center gap-1"
+                style={{ background: 'rgba(83,74,183,0.15)', color: '#AFA9EC' }}>
+                ⚡ Auto-generate
+              </button>
+            </div>
+            <div className="relative flex items-center">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value={form.password}
+                onChange={(e) => set('password', e.target.value)}
+                placeholder="Leave blank to keep existing password..."
+                className={clsx(inputClass, 'pr-16 font-mono text-xs')}
+                style={inputStyle}
+              />
+              {form.password && (
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-2 text-2xs px-1.5 py-0.5 rounded opacity-70 hover:opacity-100"
+                  style={{ color: 'var(--text-muted)' }}>
+                  {showPassword ? 'Hide' : 'Show'}
+                </button>
+              )}
+            </div>
+            <p className="text-2xs" style={{ color: 'var(--text-muted)' }}>
+              Leave blank if you don't want to change password. Min 6 characters if entered.
+            </p>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t"
+          style={{ borderColor: 'var(--bg-border)', background: 'var(--bg-elevated)' }}>
+          <button type="button" onClick={onClose}
+            className="h-9 px-4 rounded-xl text-xs font-semibold hover:opacity-70 transition-opacity"
+            style={{ background: 'var(--bg-card)', border: '1px solid var(--bg-border)', color: 'var(--text-secondary)' }}>
+            Cancel
+          </button>
+          <button type="submit" disabled={loading}
+            className="h-9 px-5 rounded-xl text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50 transition-opacity"
+            style={{ background: '#534AB7' }}>
+            {loading ? 'Saving…' : 'Save Details'}
+          </button>
+        </div>
+      </form>
     </div>
   );
 }
@@ -214,6 +416,7 @@ export default function SuperAdminUsersPage() {
   const [tenants,    setTenants]    = useState([]);
   const [loading,    setLoading]    = useState(true);
   const [showAdd,    setShowAdd]    = useState(false);
+  const [editUser,   setEditUser]   = useState(null);
   const [resetting,  setResetting]  = useState(null); // userId
   const [resetResult, setResetResult] = useState(null); // { user, password }
   const [search,     setSearch]     = useState('');
@@ -438,13 +641,22 @@ export default function SuperAdminUsersPage() {
                     {/* Actions */}
                     <td className="px-4 py-3.5 whitespace-nowrap">
                       {u.role !== 'super_admin' && (
-                        <button
-                          disabled={resetting === u.id}
-                          onClick={() => handleResetPassword(u)}
-                          className="h-7 px-2.5 rounded-lg text-2xs font-semibold transition-all hover:opacity-80 disabled:opacity-50"
-                          style={{ background: 'rgba(83,74,183,0.1)', color: '#AFA9EC', border: '1px solid rgba(83,74,183,0.2)' }}>
-                          {resetting === u.id ? '…' : '🔑 Reset Password'}
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => setEditUser(u)}
+                            className="h-7 px-2.5 rounded-lg text-2xs font-semibold transition-all hover:opacity-80 flex items-center gap-1"
+                            style={{ background: 'rgba(83,74,183,0.12)', color: '#AFA9EC', border: '1px solid rgba(83,74,183,0.25)' }}>
+                            <span>✏️</span> Edit & Password
+                          </button>
+                          <button
+                            disabled={resetting === u.id}
+                            onClick={() => handleResetPassword(u)}
+                            title="Generate random password immediately"
+                            className="h-7 px-2.5 rounded-lg text-2xs font-semibold transition-all hover:opacity-80 disabled:opacity-50"
+                            style={{ background: 'var(--bg-elevated)', color: 'var(--text-secondary)', border: '1px solid var(--bg-border)' }}>
+                            {resetting === u.id ? '…' : '🔑 Quick Reset'}
+                          </button>
+                        </div>
                       )}
                     </td>
                   </tr>
@@ -461,6 +673,15 @@ export default function SuperAdminUsersPage() {
           tenants={tenants}
           onClose={() => setShowAdd(false)}
           onCreated={load}
+        />
+      )}
+
+      {editUser && (
+        <EditUserModal
+          user={editUser}
+          onClose={() => setEditUser(null)}
+          onUpdated={load}
+          onPasswordResult={(res) => setResetResult(res)}
         />
       )}
 

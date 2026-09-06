@@ -466,6 +466,279 @@ function CredRow({ label, value, highlight }) {
   );
 }
 
+// ── Tenant Password Reset Modal ────────────────────────────────
+function TenantPasswordModal({ tenant, onClose }) {
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState(null);
+  const [copied, setCopied] = useState(false);
+
+  const generatePassword = () => {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%&*';
+    let res = '';
+    for (let i = 0; i < 14; i++) {
+      res += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    setPassword(res);
+  };
+
+  const handleReset = async (e) => {
+    e.preventDefault();
+    if (password && password.trim().length < 6) {
+      showError('Password must be at least 6 characters.');
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await superAdminApi.resetTenantAdminPassword(tenant.id, password.trim() || undefined);
+      setResult(res?.data || res);
+      showSuccess(`Password for ${tenant.name} admin updated.`);
+    } catch (err) {
+      showError(err?.response?.data?.message || err?.message || 'Failed to reset password.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (result) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+        style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}>
+        <div className="w-full max-w-md rounded-2xl p-6 space-y-4"
+          style={{ background: 'var(--bg-card)', border: '1px solid var(--bg-border)', boxShadow: '0 20px 40px rgba(0,0,0,0.3)' }}>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full flex items-center justify-center"
+              style={{ background: 'rgba(29,158,117,0.15)', color: '#1D9E75', fontSize: 18 }}>✓</div>
+            <div>
+              <p className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Password Updated</p>
+              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Share these credentials with the client admin.</p>
+            </div>
+          </div>
+
+          <div className="rounded-xl p-4 space-y-3" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--bg-border)' }}>
+            <div className="flex justify-between items-center text-xs">
+              <span style={{ color: 'var(--text-muted)' }}>Client:</span>
+              <span className="font-bold" style={{ color: 'var(--text-primary)' }}>{result.tenantName || tenant.name}</span>
+            </div>
+            <div className="flex justify-between items-center text-xs">
+              <span style={{ color: 'var(--text-muted)' }}>Admin Email:</span>
+              <span className="font-mono font-medium" style={{ color: 'var(--text-primary)' }}>{result.adminEmail || tenant.admin_email}</span>
+            </div>
+            <div className="pt-2 border-t" style={{ borderColor: 'var(--bg-border)' }}>
+              <p className="text-2xs font-semibold mb-1" style={{ color: 'var(--text-muted)' }}>New Password</p>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 font-mono text-sm font-bold px-2 py-1.5 rounded truncate"
+                  style={{ background: 'rgba(83,74,183,0.1)', color: '#AFA9EC' }}>
+                  {result.newPassword}
+                </code>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(result.newPassword);
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                  }}
+                  className="h-8 px-3 rounded-lg text-xs font-semibold transition-all hover:opacity-80 shrink-0"
+                  style={{ background: '#534AB7', color: '#fff' }}>
+                  {copied ? '✓ Copied' : '⎘ Copy'}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <p className="text-2xs text-amber-500">
+            ⚠️ Active sessions for this admin have been revoked. They will need to log in with this new password.
+          </p>
+
+          <button
+            onClick={onClose}
+            className="w-full h-9 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90"
+            style={{ background: '#534AB7' }}>
+            Done
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}>
+      <form onSubmit={handleReset} className="w-full max-w-md rounded-2xl overflow-hidden"
+        style={{ background: 'var(--bg-card)', border: '1px solid var(--bg-border)', boxShadow: '0 20px 40px rgba(0,0,0,0.3)' }}>
+        <div className="flex items-center justify-between px-6 py-4 border-b"
+          style={{ borderColor: 'var(--bg-border)', background: 'var(--bg-elevated)' }}>
+          <div className="flex items-center gap-2.5">
+            <span className="text-lg">🔑</span>
+            <div>
+              <p className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Reset Admin Password</p>
+              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{tenant.name} ({tenant.admin_email || 'No email'})</p>
+            </div>
+          </div>
+          <button type="button" onClick={onClose} className="text-lg leading-none hover:opacity-60" style={{ color: 'var(--text-muted)' }}>×</button>
+        </div>
+
+        <div className="p-6 space-y-4 text-xs">
+          <div>
+            <label className="block font-semibold mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+              New Password (Custom or Auto-generate)
+            </label>
+            <div className="relative flex items-center">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Leave blank to auto-generate or type new..."
+                className="w-full h-10 rounded-xl px-3 pr-20 text-sm outline-none transition-all font-mono"
+                style={{ background: 'var(--bg-elevated)', border: '1px solid var(--bg-border)', color: 'var(--text-primary)' }}
+              />
+              <div className="absolute right-2 flex items-center gap-1">
+                {password && (
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="text-xs px-1.5 py-0.5 rounded opacity-70 hover:opacity-100"
+                    style={{ color: 'var(--text-muted)' }}>
+                    {showPassword ? 'Hide' : 'Show'}
+                  </button>
+                )}
+              </div>
+            </div>
+            <p className="text-2xs mt-1" style={{ color: 'var(--text-muted)' }}>
+              Min 6 characters. Leave blank if you want the system to generate a secure random password.
+            </p>
+          </div>
+
+          <div className="flex justify-between items-center pt-1">
+            <button
+              type="button"
+              onClick={generatePassword}
+              className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-all hover:opacity-80 flex items-center gap-1.5"
+              style={{ background: 'rgba(83,74,183,0.12)', color: '#AFA9EC', border: '1px solid rgba(83,74,183,0.25)' }}>
+              <span>⚡</span> Generate Strong Password
+            </button>
+            {password && (
+              <button
+                type="button"
+                onClick={() => setPassword('')}
+                className="text-2xs hover:underline"
+                style={{ color: 'var(--text-muted)' }}>
+                Clear
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t"
+          style={{ borderColor: 'var(--bg-border)', background: 'var(--bg-elevated)' }}>
+          <button type="button" onClick={onClose}
+            className="h-9 px-4 rounded-xl text-xs font-semibold hover:opacity-70 transition-opacity"
+            style={{ background: 'var(--bg-card)', border: '1px solid var(--bg-border)', color: 'var(--text-secondary)' }}>
+            Cancel
+          </button>
+          <button type="submit" disabled={loading}
+            className="h-9 px-5 rounded-xl text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50 transition-opacity flex items-center gap-2"
+            style={{ background: '#534AB7' }}>
+            {loading ? 'Updating…' : 'Update Password'}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+// ── Edit Tenant Modal ─────────────────────────────────────────
+function EditTenantModal({ tenant, onClose, onUpdated }) {
+  const [name, setName] = useState(tenant.name || '');
+  const [plan, setPlan] = useState(tenant.plan || 'starter');
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!name.trim()) {
+      showError('Client name is required.');
+      return;
+    }
+    setLoading(true);
+    try {
+      await superAdminApi.updateTenant(tenant.id, { name: name.trim(), plan });
+      showSuccess('Client details updated successfully.');
+      onUpdated();
+      onClose();
+    } catch (err) {
+      showError(err?.response?.data?.message || err?.message || 'Failed to update client.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}>
+      <form onSubmit={handleSubmit} className="w-full max-w-md rounded-2xl overflow-hidden"
+        style={{ background: 'var(--bg-card)', border: '1px solid var(--bg-border)', boxShadow: '0 20px 40px rgba(0,0,0,0.3)' }}>
+        <div className="flex items-center justify-between px-6 py-4 border-b"
+          style={{ borderColor: 'var(--bg-border)', background: 'var(--bg-elevated)' }}>
+          <div className="flex items-center gap-2.5">
+            <span className="text-lg">✏️</span>
+            <div>
+              <p className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Edit Client Details</p>
+              <p className="text-xs font-mono" style={{ color: 'var(--text-muted)' }}>{tenant.slug}</p>
+            </div>
+          </div>
+          <button type="button" onClick={onClose} className="text-lg leading-none hover:opacity-60" style={{ color: 'var(--text-muted)' }}>×</button>
+        </div>
+
+        <div className="p-6 space-y-4 text-xs">
+          <div>
+            <label className="block font-semibold mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+              Client / Business Name
+            </label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+              className="w-full h-10 rounded-xl px-3 text-sm outline-none transition-all"
+              style={{ background: 'var(--bg-elevated)', border: '1px solid var(--bg-border)', color: 'var(--text-primary)' }}
+            />
+          </div>
+
+          <div>
+            <label className="block font-semibold mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+              Subscription Plan
+            </label>
+            <select
+              value={plan}
+              onChange={(e) => setPlan(e.target.value)}
+              className="w-full h-10 rounded-xl px-3 text-sm outline-none capitalize cursor-pointer"
+              style={{ background: 'var(--bg-elevated)', border: '1px solid var(--bg-border)', color: 'var(--text-primary)' }}>
+              {PLANS.map((p) => (
+                <option key={p} value={p}>{p}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t"
+          style={{ borderColor: 'var(--bg-border)', background: 'var(--bg-elevated)' }}>
+          <button type="button" onClick={onClose}
+            className="h-9 px-4 rounded-xl text-xs font-semibold hover:opacity-70 transition-opacity"
+            style={{ background: 'var(--bg-card)', border: '1px solid var(--bg-border)', color: 'var(--text-secondary)' }}>
+            Cancel
+          </button>
+          <button type="submit" disabled={loading}
+            className="h-9 px-5 rounded-xl text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50 transition-opacity"
+            style={{ background: '#534AB7' }}>
+            {loading ? 'Saving…' : 'Save Changes'}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
 // ── Main Page ─────────────────────────────────────────────────
 export default function SuperAdminTenantsPage() {
   const navigate = useNavigate();
@@ -477,6 +750,8 @@ export default function SuperAdminTenantsPage() {
   const [ovLoading,    setOvLoading]    = useState(true);
   const [showAdd,      setShowAdd]      = useState(false);
   const [featurePanel, setFeaturePanel] = useState(null);
+  const [passwordResetTenant, setPasswordResetTenant] = useState(null);
+  const [editTenant,   setEditTenant]   = useState(null);
 
   // Confirm modal state
   const [confirm, setConfirm] = useState(null);
@@ -767,6 +1042,24 @@ export default function SuperAdminTenantsPage() {
                           👤 Login as
                         </button>
 
+                        {/* Reset / Change Admin Password */}
+                        <button
+                          onClick={() => setPasswordResetTenant(t)}
+                          title="Reset/Change tenant admin password"
+                          className="h-7 px-2.5 rounded-lg text-2xs font-semibold transition-all hover:opacity-80 flex items-center gap-1"
+                          style={{ background: 'rgba(83,74,183,0.1)', color: '#AFA9EC', border: '1px solid rgba(83,74,183,0.2)' }}>
+                          <span>🔑</span> Password
+                        </button>
+
+                        {/* Edit Client */}
+                        <button
+                          onClick={() => setEditTenant(t)}
+                          title="Edit client workspace details"
+                          className="h-7 px-2.5 rounded-lg text-2xs font-semibold transition-all hover:opacity-80 flex items-center gap-1"
+                          style={{ background: 'var(--bg-elevated)', color: 'var(--text-secondary)', border: '1px solid var(--bg-border)' }}>
+                          <span>✏️</span> Edit
+                        </button>
+
                         {/* Suspend / Activate */}
                         <button
                           onClick={() => openSuspendConfirm(t)}
@@ -789,6 +1082,21 @@ export default function SuperAdminTenantsPage() {
       {/* ── Modals ── */}
       {showAdd && (
         <AddTenantModal onClose={() => setShowAdd(false)} onCreated={loadTenants} />
+      )}
+
+      {passwordResetTenant && (
+        <TenantPasswordModal
+          tenant={passwordResetTenant}
+          onClose={() => setPasswordResetTenant(null)}
+        />
+      )}
+
+      {editTenant && (
+        <EditTenantModal
+          tenant={editTenant}
+          onClose={() => setEditTenant(null)}
+          onUpdated={loadTenants}
+        />
       )}
 
       {featurePanel && (

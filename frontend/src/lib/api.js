@@ -218,12 +218,15 @@ export const superAdminApi = {
   // Tenants
   listTenants:    (config = {})      => client.get('/admin/tenants', config),
   createTenant:   (data)             => client.post('/admin/tenants', data),
+  updateTenant:   (id, data)         => client.patch(`/admin/tenants/${id}`, data),
   suspendTenant:  (id, s)            => client.patch(`/admin/tenants/${id}/suspend`, { suspend: s }),
   updateStatus:   (id, status)       => client.patch(`/admin/tenants/${id}/status`, { status }),
   updateFeatures: (id, feats)        => client.patch(`/admin/tenants/${id}/features`, { features: feats }),
+  resetTenantAdminPassword: (id, pw) => client.patch(`/admin/tenants/${id}/reset-admin-password`, pw ? { password: pw } : {}),
   // Users
   listUsers:      (config = {})      => client.get('/admin/users', config),
   createUser:     (data)             => client.post('/admin/users', data),
+  updateUser:     (id, data)         => client.patch(`/admin/users/${id}`, data),
   resetPassword:  (id, pw)           => client.patch(`/admin/users/${id}/reset-password`, pw ? { password: pw } : {}),
   changeRole:     (id, role)         => client.patch(`/admin/users/${id}/role`, { role }),
   // Impersonation
