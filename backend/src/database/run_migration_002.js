@@ -3,19 +3,25 @@
  * Execute from: d:\VDAJ_Services\Whatsapp-API\backend
  * Command: node src/database/run_migration_002.js
  */
-require('dotenv').config();
-const { Pool } = require('pg');
-const fs   = require('fs');
 const path = require('path');
+const fs = require('fs');
 
-const pool = new Pool({
-  host:     process.env.DB_HOST,
-  port:     parseInt(process.env.DB_PORT || '5432', 10),
-  user:     process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-  ssl:      process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
-});
+const envPaths = [
+  path.resolve(__dirname, '../../.env'),
+  path.resolve(__dirname, '../../../.env'),
+  path.resolve(process.cwd(), 'backend/.env'),
+  path.resolve(process.cwd(), '.env'),
+];
+
+for (const ep of envPaths) {
+  if (fs.existsSync(ep)) {
+    require('dotenv').config({ path: ep });
+    break;
+  }
+}
+
+// Reuse the centralized database pool from config/database.js
+const { pool } = require('../config/database');
 
 async function run() {
   const client = await pool.connect();
