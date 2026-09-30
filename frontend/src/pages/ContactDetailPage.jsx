@@ -333,10 +333,10 @@ export default function ContactDetailPage() {
           </div>
 
           {/* Quick action: Open in Inbox */}
-          {contact.conversation_id && (
+          {contact.phone_e164 && (
             <Link
-              to="/inbox"
-              state={{ conversationId: contact.conversation_id }}
+              to={`/inbox?phone=${encodeURIComponent(contact.phone_e164)}`}
+              state={{ conversationId: contact.conversation_id, phone: contact.phone_e164 }}
               className="flex items-center gap-2 h-10 px-4 rounded-xl text-xs font-bold shrink-0 transition-all hover:brightness-110"
               style={{ background: 'rgba(29,158,117,0.12)', color: '#1D9E75', border: '1px solid rgba(29,158,117,0.25)' }}
             >

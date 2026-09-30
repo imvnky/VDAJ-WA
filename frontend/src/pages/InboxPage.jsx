@@ -14,6 +14,7 @@
  */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
 import { clsx } from 'clsx';
 import { inboxApi, teamApi, templateApi, WS_BASE } from '../lib/api';
 import useAuthStore from '../store/authStore';
@@ -439,6 +440,7 @@ const STATUS_TABS = [
 
 export default function InboxPage() {
   const { user }           = useAuthStore();
+  const location           = useLocation();
   const [conversations,     setConversations]     = useState([]);
   const [activeConv,        setActiveConv]        = useState(null);
   const [messages,          setMessages]          = useState([]);
@@ -488,28 +490,45 @@ export default function InboxPage() {
       setConversations(convList);
       setConvError(null);
 
-      // Handle ?phone= URL query parameter to auto-select or initiate chat
-      const urlParams = new URLSearchParams(window.location.search);
-      const queryPhone = urlParams.get('phone');
-      if (queryPhone && !activeConv) {
-        const cleanQuery = queryPhone.replace(/\D/g, '');
-        const matched = convList.find((c) => (c.phone_e164 && c.phone_e164.replace(/\D/g, '').includes(cleanQuery)));
-        if (matched) {
-          setActiveConv(matched);
-        } else {
-          // If not yet in list, initiate and prepend
-          inboxApi.initiate({ phone: queryPhone }).then((initRes) => {
-            if (initRes?.data) {
-              setConversations((prev) => [initRes.data, ...prev.filter((p) => p.id !== initRes.data.id)]);
-              setActiveConv(initRes.data);
-            }
-          }).catch(() => {});
+      // Handle ?phone= or ?conversationId= or location.state to auto-select
+      const urlParams = new URLSearchParams(location.search || window.location.search);
+      const queryPhone = urlParams.get('phone') || location.state?.phone;
+      const queryConvId = urlParams.get('conversationId') || urlParams.get('id') || location.state?.conversationId;
+
+      if (!activeConv) {
+        if (queryConvId) {
+          const matched = convList.find((c) => c.id === queryConvId);
+          if (matched) {
+            setActiveConv(matched);
+            return;
+          }
+        }
+        if (queryPhone) {
+          const cleanQuery = queryPhone.replace(/\D/g, '');
+          const matched = convList.find((c) => (c.phone_e164 && c.phone_e164.replace(/\D/g, '').includes(cleanQuery)));
+          if (matched) {
+            setActiveConv(matched);
+            return;
+          } else {
+            // If not yet in list, initiate and prepend
+            inboxApi.initiate({ phone: queryPhone }).then((initRes) => {
+              if (initRes?.data) {
+                setConversations((prev) => [initRes.data, ...prev.filter((p) => p.id !== initRes.data.id)]);
+                setActiveConv(initRes.data);
+              }
+            }).catch(() => {});
+            return;
+          }
+        }
+        // On desktop screens, if conversations exist and none selected, auto-select first conversation
+        if (convList.length > 0 && window.innerWidth >= 1024) {
+          setActiveConv(convList[0]);
         }
       }
     } catch (err) {
       setConvError(parseApiError(err));
     } finally { setLoading(false); }
-  }, [filterTab, statusTab, searchText, activeConv]);
+  }, [filterTab, statusTab, searchText, activeConv, location.search, location.state]);
 
   useEffect(() => { loadConversations(); }, [loadConversations]);
 
