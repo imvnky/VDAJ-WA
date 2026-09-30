@@ -175,7 +175,19 @@ export const inboxApi = {
   conversations: (params, config = {}) => client.get('/inbox/conversations', { params, ...config }),
   initiate: (data) => client.post('/inbox/conversations/initiate', data),
   messages: (id, params) => client.get(`/inbox/conversations/${id}/messages`, { params }),
-  reply: (id, body, messageType) => client.post(`/inbox/conversations/${id}/reply`, { body, messageType }),
+  reply: (id, body, messageType = 'text', templateData = {}) => {
+    const extra = typeof templateData === 'object' && templateData !== null
+      ? templateData
+      : { template_id: templateData };
+    return client.post(`/inbox/conversations/${id}/reply`, {
+      body,
+      messageType,
+      template_id: extra.template_id,
+      template_name: extra.template_name,
+      template_language: extra.template_language,
+      template_vars: extra.template_vars,
+    });
+  },
   resolve: (id, status) => client.patch(`/inbox/conversations/${id}/resolve`, { status }),
   assign: (id, userId) => client.post(`/inbox/conversations/${id}/assign`, { userId }),
   updateStatus: (id, status) => client.patch(`/inbox/conversations/${id}/status`, { status }),

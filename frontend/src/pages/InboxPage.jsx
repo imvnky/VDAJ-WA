@@ -143,7 +143,12 @@ function TemplatePicker({ templates, onSend, onClose }) {
   const handleSend = async () => {
     if (!selected) return;
     setSending(true);
-    try { await onSend(selected, buildBody()); onClose(); } finally { setSending(false); }
+    try {
+      await onSend(selected, buildBody(), variables);
+      onClose();
+    } catch {} finally {
+      setSending(false);
+    }
   };
 
   const approved = templates.filter((t) => (t.status || '').toLowerCase() === 'approved');
@@ -649,9 +654,14 @@ export default function InboxPage() {
     } catch {} finally { setSending(false); }
   };
 
-  const sendTemplate = async (template, resolvedBody) => {
+  const sendTemplate = async (template, resolvedBody, variables = {}) => {
     if (!activeConv) return;
-    const res = await inboxApi.reply(activeConv.id, resolvedBody, 'template');
+    const res = await inboxApi.reply(activeConv.id, resolvedBody, 'template', {
+      template_id: template.id,
+      template_name: template.name,
+      template_language: template.language || 'en',
+      template_vars: variables,
+    });
     setMessages((ms) => [...ms, res.data]);
     setConversations((cs) =>
       cs.map((c) =>

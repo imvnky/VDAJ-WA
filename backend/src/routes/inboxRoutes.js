@@ -187,7 +187,14 @@ router.get('/conversations/:id/messages', catchAsync(async (req, res) => {
 
 // ── POST /inbox/conversations/:id/reply ───────────────────────
 router.post('/conversations/:id/reply', catchAsync(async (req, res) => {
-  const { body: messageBody, messageType = 'text', template_id } = req.body;
+  const {
+    body: messageBody,
+    messageType = 'text',
+    template_id,
+    template_name,
+    template_language,
+    template_vars,
+  } = req.body;
   if (!messageBody?.trim()) throw new AppError('Message body is required.', 400, 'ERR_INBOX_002');
 
   const convRes = await query(
@@ -200,12 +207,18 @@ router.post('/conversations/:id/reply', catchAsync(async (req, res) => {
   if (!convRes.rows.length) throw new AppError('Conversation not found.', 404, 'ERR_INBOX_001');
 
   const conv = convRes.rows[0];
-  if (!conv.meta_system_token || !conv.phone_number_id) {
+  const effectiveToken = conv.meta_system_token || process.env.META_ACCESS_TOKEN;
+  const effectivePhoneId = conv.phone_number_id || process.env.META_PHONE_NUMBER_ID;
+
+  if (!effectiveToken || !effectivePhoneId) {
     throw new AppError('WhatsApp not connected. Go to WhatsApp Setup.', 409, 'ERR_META_NOT_CONNECTED');
   }
 
+  const isTemplate = Boolean(template_id || template_name || messageType === 'template');
+
   // ── BSP Compliance: enforce 24-hour customer service window ──────
-  if (!template_id) {
+  // Pre-approved WhatsApp templates are explicitly permitted outside 24h
+  if (!isTemplate) {
     const lastInbound = conv.last_inbound_at ? new Date(conv.last_inbound_at) : null;
     const msSinceLast = lastInbound ? Date.now() - lastInbound.getTime() : Infinity;
     const hoursSinceLast = msSinceLast / 3_600_000;
@@ -222,12 +235,58 @@ router.post('/conversations/:id/reply', catchAsync(async (req, res) => {
     }
   }
 
-  const metaResponse = await sendWhatsAppMessage({
-    accessToken: conv.meta_system_token,
-    phoneNumberId: conv.phone_number_id,
-    to: conv.phone_e164,
-    body: messageBody,
-  });
+  // Resolve template name and language if sending a template
+  let resolvedTemplateName = template_name;
+  let resolvedTemplateLang = template_language;
+  let resolvedTemplateVars = template_vars;
+
+  if (template_id && (!resolvedTemplateName || !resolvedTemplateLang)) {
+    const tplRes = await query(
+      `SELECT name, language FROM message_templates WHERE id = $1 AND deleted_at IS NULL`,
+      [template_id]
+    );
+    if (tplRes.rows.length) {
+      resolvedTemplateName = resolvedTemplateName || tplRes.rows[0].name;
+      resolvedTemplateLang = resolvedTemplateLang || tplRes.rows[0].language;
+    }
+  }
+
+  let metaResponse;
+  if (isTemplate && resolvedTemplateName) {
+    let formattedTemplateVars = {};
+    if (resolvedTemplateVars) {
+      if (Array.isArray(resolvedTemplateVars)) {
+        formattedTemplateVars.body = resolvedTemplateVars;
+      } else if (Array.isArray(resolvedTemplateVars.body)) {
+        formattedTemplateVars = resolvedTemplateVars;
+      } else if (typeof resolvedTemplateVars === 'object') {
+        const keys = Object.keys(resolvedTemplateVars)
+          .filter((k) => /^\d+$/.test(k))
+          .sort((a, b) => Number(a) - Number(b));
+        if (keys.length > 0) {
+          formattedTemplateVars.body = keys.map((k) => resolvedTemplateVars[k]);
+        } else if (resolvedTemplateVars.header || resolvedTemplateVars.headerUrl) {
+          formattedTemplateVars = resolvedTemplateVars;
+        }
+      }
+    }
+
+    metaResponse = await sendWhatsAppMessage({
+      accessToken: effectiveToken,
+      phoneNumberId: effectivePhoneId,
+      to: conv.phone_e164,
+      templateName: resolvedTemplateName,
+      templateLanguage: resolvedTemplateLang || 'en',
+      templateVars: formattedTemplateVars,
+    });
+  } else {
+    metaResponse = await sendWhatsAppMessage({
+      accessToken: effectiveToken,
+      phoneNumberId: effectivePhoneId,
+      to: conv.phone_e164,
+      body: messageBody,
+    });
+  }
 
   const { rows } = await query(
     `INSERT INTO inbox_messages
