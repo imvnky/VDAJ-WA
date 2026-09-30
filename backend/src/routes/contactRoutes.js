@@ -363,71 +363,104 @@ router.get('/:id', uuidParamValidator('id'), validate, catchAsync(async (req, re
   const tenantId   = req.user.tenantId;
   const contactId  = req.params.id;
 
-  // 1. Base contact row
+  // 1. Base contact row (always exists)
   const { rows: [contact] } = await query(
-    `SELECT c.*,
-            oe.source        AS opt_in_event_source,
-            oe.proof         AS opt_in_event_proof,
-            oe.ip_address    AS opt_in_event_ip,
-            oe.created_at    AS opt_in_event_at
-       FROM contacts c
-       LEFT JOIN LATERAL (
-         SELECT source, proof, ip_address, created_at
-           FROM opt_in_events
-          WHERE contact_id = c.id
-          ORDER BY created_at ASC
-          LIMIT 1
-       ) oe ON TRUE
+    `SELECT c.* FROM contacts c
       WHERE c.id = $1 AND (c.tenant_id = $2 OR $3 = TRUE)`,
     [contactId, tenantId, req.user.role === 'super_admin']
   );
   if (!contact) throw new AppError('Contact not found.', 404, 'ERR_VDAJ_CONT_001');
 
-  // 2. Latest opt-out event (if any)
-  const { rows: [optOutEvent] } = await query(
-    `SELECT trigger_keyword, created_at AS opted_out_at
-       FROM opt_out_events
-      WHERE contact_id = $1
-      ORDER BY created_at DESC
-      LIMIT 1`,
-    [contactId]
-  );
+  // 2. Opt-in event proof (safely handled)
+  let optInEvent = null;
+  try {
+    const { rows: [oe] } = await query(
+      `SELECT source, proof, ip_address, created_at
+         FROM opt_in_events
+        WHERE contact_id = $1
+        ORDER BY created_at ASC
+        LIMIT 1`,
+      [contactId]
+    );
+    optInEvent = oe;
+  } catch (err) {
+    // opt_in_events table might not be migrated yet
+  }
 
-  // 3. Campaign history — last 20 messages sent to this contact
-  const { rows: campaignHistory } = await query(
-    `SELECT
-         cm.id,
-         ca.name          AS campaign_name,
-         cm.status        AS delivery_status,
-         cm.wa_message_id,
-         cm.sent_at,
-         cm.delivered_at,
-         cm.read_at,
-         cm.failed_at,
-         cm.error_message
-       FROM campaign_messages cm
-       JOIN campaigns ca ON ca.id = cm.campaign_id
-      WHERE cm.contact_id = $1
-        AND (ca.tenant_id = $2 OR $3 = TRUE)
-      ORDER BY cm.created_at DESC
-      LIMIT 20`,
-    [contactId, tenantId, req.user.role === 'super_admin']
-  );
+  // 3. Latest opt-out event (safely handled with fallback for trigger_phrase/trigger_keyword)
+  let optOutEvent = null;
+  try {
+    const { rows: [ooe] } = await query(
+      `SELECT COALESCE(trigger_phrase, 'STOP') AS trigger_keyword, created_at AS opted_out_at
+         FROM opt_out_events
+        WHERE contact_id = $1
+        ORDER BY created_at DESC
+        LIMIT 1`,
+      [contactId]
+    );
+    optOutEvent = ooe;
+  } catch (err) {
+    // Fallback if column is trigger_keyword or table missing
+    try {
+      const { rows: [ooe2] } = await query(
+        `SELECT trigger_keyword, created_at AS opted_out_at
+           FROM opt_out_events
+          WHERE contact_id = $1
+          ORDER BY created_at DESC
+          LIMIT 1`,
+        [contactId]
+      );
+      optOutEvent = ooe2;
+    } catch (e2) {}
+  }
 
-  // 4. Active inbox conversation thread (if exists)
-  const { rows: [conversation] } = await query(
-    `SELECT id FROM inbox_conversations
-      WHERE contact_id = $1 AND (tenant_id = $2 OR $3 = TRUE)
-      ORDER BY last_message_at DESC
-      LIMIT 1`,
-    [contactId, tenantId, req.user.role === 'super_admin']
-  );
+  // 4. Campaign history — last 20 messages sent to this contact
+  let campaignHistory = [];
+  try {
+    const { rows } = await query(
+      `SELECT
+           cm.id,
+           ca.name          AS campaign_name,
+           cm.status        AS delivery_status,
+           cm.wa_message_id,
+           cm.sent_at,
+           cm.delivered_at,
+           cm.read_at,
+           cm.failed_at,
+           cm.error_message
+         FROM campaign_messages cm
+         JOIN campaigns ca ON ca.id = cm.campaign_id
+        WHERE cm.contact_id = $1
+          AND (ca.tenant_id = $2 OR $3 = TRUE)
+        ORDER BY cm.created_at DESC
+        LIMIT 20`,
+      [contactId, tenantId, req.user.role === 'super_admin']
+    );
+    campaignHistory = rows;
+  } catch (err) {}
+
+  // 5. Active inbox conversation thread (if exists)
+  let conversation = null;
+  try {
+    const { rows: [conv] } = await query(
+      `SELECT id FROM inbox_conversations
+        WHERE contact_id = $1 AND (tenant_id = $2 OR $3 = TRUE)
+        ORDER BY last_message_at DESC
+        LIMIT 1`,
+      [contactId, tenantId, req.user.role === 'super_admin']
+    );
+    conversation = conv;
+  } catch (err) {}
 
   return sendSuccess(res, {
     ...contact,
-    opt_out_event:     optOutEvent || null,
-    campaign_history:  campaignHistory,
-    conversation_id:   conversation?.id || null,
+    opt_in_event_source: optInEvent?.source || contact.opt_in_source || null,
+    opt_in_event_proof:  optInEvent?.proof || contact.opt_in_proof || null,
+    opt_in_event_ip:     optInEvent?.ip_address || null,
+    opt_in_event_at:     optInEvent?.created_at || contact.opted_in_at || null,
+    opt_out_event:       optOutEvent || null,
+    campaign_history:    campaignHistory,
+    conversation_id:     conversation?.id || null,
   }, 'Contact detail fetched.');
 }));
 
