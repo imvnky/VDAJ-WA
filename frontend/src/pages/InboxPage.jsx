@@ -313,7 +313,7 @@ function ConvoCard({ conv, active, onClick }) {
             )}
             {conv.status !== 'open' && <StatusPill status={conv.status} />}
           </div>
-          {conv.unread_count > 0 && (
+          {!active && conv.unread_count > 0 && (
             <span className="inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-[#534AB7] text-[10px] font-bold text-white shadow-xs">
               {conv.unread_count > 9 ? '9+' : conv.unread_count}
             </span>
@@ -533,7 +533,10 @@ export default function InboxPage() {
       if (searchText.trim())   params.search  = searchText.trim();
 
       const res = await inboxApi.conversations(params, { silent: true });
-      const convList = res?.data || [];
+      const rawList = res?.data || [];
+      const convList = rawList.map((c) =>
+        activeConvRef.current?.id === c.id ? { ...c, unread_count: 0 } : c
+      );
       setConversations(convList);
       setConvError(null);
 
@@ -542,7 +545,7 @@ export default function InboxPage() {
       const queryPhone = urlParams.get('phone') || location.state?.phone;
       const queryConvId = urlParams.get('conversationId') || urlParams.get('id') || location.state?.conversationId;
 
-      if (!activeConv) {
+      if (!activeConvRef.current) {
         if (queryConvId) {
           const matched = convList.find((c) => c.id === queryConvId);
           if (matched) {
@@ -575,7 +578,7 @@ export default function InboxPage() {
     } catch (err) {
       setConvError(parseApiError(err));
     } finally { setLoading(false); }
-  }, [filterTab, statusTab, searchText, activeConv, location.search, location.state]);
+  }, [filterTab, statusTab, searchText, location.search, location.state]);
 
   useEffect(() => { loadConversations(); }, [loadConversations]);
 
@@ -634,6 +637,11 @@ export default function InboxPage() {
                 return [...prev, msg];
               });
 
+              const isCurrentOpen = activeConvRef.current?.id === msg.conversation_id;
+              if (isCurrentOpen) {
+                inboxApi.markRead(msg.conversation_id).catch(() => {});
+              }
+
               setConversations((prev) =>
                 prev.map((c) =>
                   c.id === msg.conversation_id
@@ -641,7 +649,7 @@ export default function InboxPage() {
                         ...c,
                         last_message_preview: msg.body?.slice(0, 100),
                         last_message_at: msg.created_at,
-                        unread_count: (c.unread_count || 0) + 1,
+                        unread_count: isCurrentOpen ? 0 : (c.unread_count || 0) + 1,
                         ...(msg.direction === 'inbound' ? { last_inbound_at: msg.created_at } : {}),
                       }
                     : c
@@ -703,12 +711,19 @@ export default function InboxPage() {
       setMessages([]);
       return;
     }
+    const currentId = activeConv.id;
     let cancelled = false;
     setLoadingMessages(true);
-    inboxApi.messages(activeConv.id)
+
+    // Immediately zero out unread count in conversations state and on backend
+    setConversations((cs) => cs.map((c) => c.id === currentId ? { ...c, unread_count: 0 } : c));
+    inboxApi.markRead(currentId).catch(() => {});
+
+    inboxApi.messages(currentId)
       .then((res) => {
         if (!cancelled) {
           setMessages(res?.data || []);
+          setConversations((cs) => cs.map((c) => c.id === currentId ? { ...c, unread_count: 0 } : c));
         }
       })
       .catch(() => {})
@@ -727,6 +742,7 @@ export default function InboxPage() {
   const selectConv = (conv) => {
     setActiveConv(conv);
     setConversations((cs) => cs.map((c) => c.id === conv.id ? { ...c, unread_count: 0 } : c));
+    inboxApi.markRead(conv.id).catch(() => {});
     replyRef.current?.focus();
   };
 

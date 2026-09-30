@@ -191,6 +191,7 @@ export const inboxApi = {
   resolve: (id, status) => client.patch(`/inbox/conversations/${id}/resolve`, { status }),
   assign: (id, userId) => client.post(`/inbox/conversations/${id}/assign`, { userId }),
   updateStatus: (id, status) => client.patch(`/inbox/conversations/${id}/status`, { status }),
+  markRead: (id) => client.patch(`/inbox/conversations/${id}/read`),
 };
 
 // ---- TEAM ----

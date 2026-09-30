@@ -332,6 +332,17 @@ router.patch('/conversations/:id/resolve', catchAsync(async (req, res) => {
   return sendSuccess(res, rows[0], `Conversation ${status}.`);
 }));
 
+// ── PATCH /inbox/conversations/:id/read ───────────────────────
+router.patch('/conversations/:id/read', catchAsync(async (req, res) => {
+  await query(
+    `UPDATE inbox_conversations
+       SET unread_count = 0, updated_at = NOW()
+     WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL`,
+    [req.params.id, req.user.tenantId]
+  );
+  return sendSuccess(res, null, 'Conversation marked as read.');
+}));
+
 // ── PATCH /inbox/conversations/:id/status ─────────────────────
 // Explicit status change: open | pending | resolved
 router.patch('/conversations/:id/status', catchAsync(async (req, res) => {
