@@ -490,6 +490,7 @@ export default function InboxPage() {
   const [conversations,     setConversations]     = useState([]);
   const [activeConv,        setActiveConv]        = useState(null);
   const [messages,          setMessages]          = useState([]);
+  const [loadingMessages,   setLoadingMessages]   = useState(false);
   const [replyText,         setReplyText]         = useState('');
   const [loading,           setLoading]           = useState(true);
   const [sending,           setSending]           = useState(false);
@@ -660,20 +661,36 @@ export default function InboxPage() {
     return () => { ws?.close(); clearTimeout(retryTimeout); };
   }, [user?.tenantId, agents]);
 
+  // ── Load messages whenever active conversation changes ─────
+  useEffect(() => {
+    if (!activeConv?.id) {
+      setMessages([]);
+      return;
+    }
+    let cancelled = false;
+    setLoadingMessages(true);
+    inboxApi.messages(activeConv.id)
+      .then((res) => {
+        if (!cancelled) {
+          setMessages(res?.data || []);
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setLoadingMessages(false);
+      });
+    return () => { cancelled = true; };
+  }, [activeConv?.id]);
+
   // ── Scroll ────────────────────────────────────────────────
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
   // ── Select conversation ───────────────────────────────────
-  const selectConv = async (conv) => {
+  const selectConv = (conv) => {
     setActiveConv(conv);
-    setMessages([]);
-    try {
-      const res = await inboxApi.messages(conv.id);
-      setMessages(res?.data || []);
-      setConversations((cs) => cs.map((c) => c.id === conv.id ? { ...c, unread_count: 0 } : c));
-    } catch {}
+    setConversations((cs) => cs.map((c) => c.id === conv.id ? { ...c, unread_count: 0 } : c));
     replyRef.current?.focus();
   };
 
@@ -983,25 +1000,41 @@ export default function InboxPage() {
 
           {/* Messages */}
           <div className="flex-1 overflow-y-auto min-h-0 p-5 space-y-3.5">
-            {messages.map((m, idx) => {
-              const prevMsg = messages[idx - 1];
-              const prevDate = prevMsg?.created_at ? new Date(prevMsg.created_at).toDateString() : null;
-              const currDate = m.created_at ? new Date(m.created_at).toDateString() : null;
-              const showDateDivider = currDate && currDate !== prevDate;
+            {loadingMessages && messages.length === 0 ? (
+              <div className="h-full flex items-center justify-center py-16">
+                <div className="flex flex-col items-center gap-2">
+                  <svg className="w-6 h-6 animate-spin text-[#534AB7]" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                  </svg>
+                  <p className="text-xs text-slate-400 font-medium">Loading messages…</p>
+                </div>
+              </div>
+            ) : messages.length === 0 ? (
+              <div className="h-full flex items-center justify-center py-16">
+                <p className="text-xs text-slate-400">No messages yet. Send a message to start.</p>
+              </div>
+            ) : (
+              messages.map((m, idx) => {
+                const prevMsg = messages[idx - 1];
+                const prevDate = prevMsg?.created_at ? new Date(prevMsg.created_at).toDateString() : null;
+                const currDate = m.created_at ? new Date(m.created_at).toDateString() : null;
+                const showDateDivider = currDate && currDate !== prevDate;
 
-              return (
-                <React.Fragment key={m.id || idx}>
-                  {showDateDivider && (
-                    <div className="flex items-center justify-center my-3 select-none">
-                      <span className="px-3 py-1 rounded-full text-[11px] font-semibold text-slate-500 bg-slate-100/90 border border-slate-200/80 shadow-2xs">
-                        {formatDateDivider(m.created_at)}
-                      </span>
-                    </div>
-                  )}
-                  <MessageBubble msg={m} />
-                </React.Fragment>
-              );
-            })}
+                return (
+                  <React.Fragment key={m.id || idx}>
+                    {showDateDivider && (
+                      <div className="flex items-center justify-center my-3 select-none">
+                        <span className="px-3 py-1 rounded-full text-[11px] font-semibold text-slate-500 bg-slate-100/90 border border-slate-200/80 shadow-2xs">
+                          {formatDateDivider(m.created_at)}
+                        </span>
+                      </div>
+                    )}
+                    <MessageBubble msg={m} />
+                  </React.Fragment>
+                );
+              })
+            )}
             <div ref={messagesEndRef} />
           </div>
 
