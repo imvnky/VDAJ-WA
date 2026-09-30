@@ -583,20 +583,33 @@ export default function InboxPage() {
     templateApi.list({ silent: true }).then((r) => setTemplates(r?.data || [])).catch(() => {});
   }, []);
 
+  const agentsRef = useRef(agents);
+  useEffect(() => { agentsRef.current = agents; }, [agents]);
+
+  const activeConvRef = useRef(activeConv);
+  useEffect(() => { activeConvRef.current = activeConv; }, [activeConv]);
+
   // ── WebSocket ─────────────────────────────────────────────
   useEffect(() => {
     if (!user?.tenantId && user?.role !== 'super_admin') return;
-    let ws;
-    let retryTimeout;
+    let ws = null;
+    let retryTimeout = null;
+    let isDisposed = false;
 
     const connect = () => {
+      if (isDisposed) return;
       try {
         const tenantQuery = user?.tenantId ? `tenantId=${user.tenantId}` : 'tenantId=all';
         ws = new WebSocket(`${WS_BASE}/ws/inbox?${tenantQuery}`);
         wsRef.current = ws;
-        ws.onopen  = () => setWsStatus('connected');
-        ws.onclose = () => { setWsStatus('disconnected'); retryTimeout = setTimeout(connect, 5000); };
-        ws.onerror = () => setWsStatus('error');
+        ws.onopen  = () => { if (!isDisposed) setWsStatus('connected'); };
+        ws.onclose = () => {
+          if (!isDisposed) {
+            setWsStatus('disconnected');
+            retryTimeout = setTimeout(connect, 5000);
+          }
+        };
+        ws.onerror = () => { if (!isDisposed) setWsStatus('error'); };
         ws.onmessage = (event) => {
           try {
             const payload = JSON.parse(event.data);
@@ -604,10 +617,23 @@ export default function InboxPage() {
             if (payload.type === 'new_message') {
               const msg = payload.data;
               setMessages((prev) => {
-                if (prev.length && prev[0]?.conversation_id === msg.conversation_id)
-                  return [...prev, msg];
-                return prev;
+                const currentConvId = activeConvRef.current?.id;
+                const matchesCurrent = currentConvId
+                  ? currentConvId === msg.conversation_id
+                  : (prev.length > 0 && prev[0]?.conversation_id === msg.conversation_id);
+
+                if (!matchesCurrent) return prev;
+
+                // Strict deduplication: check id and wa_message_id
+                const isDuplicate = prev.some((m) =>
+                  (m.id && msg.id && m.id === msg.id) ||
+                  (m.wa_message_id && msg.wa_message_id && m.wa_message_id === msg.wa_message_id)
+                );
+                if (isDuplicate) return prev;
+
+                return [...prev, msg];
               });
+
               setConversations((prev) =>
                 prev.map((c) =>
                   c.id === msg.conversation_id
@@ -626,7 +652,7 @@ export default function InboxPage() {
             // Phase 2: real-time assignment updates
             if (payload.type === 'CONVERSATION_ASSIGNED') {
               const { conversationId, assignedTo } = payload.data;
-              const assignedAgent = agents.find((a) => a.id === assignedTo);
+              const assignedAgent = agentsRef.current.find((a) => a.id === assignedTo);
               setConversations((prev) =>
                 prev.map((c) =>
                   c.id === conversationId
@@ -658,8 +684,18 @@ export default function InboxPage() {
     };
 
     connect();
-    return () => { ws?.close(); clearTimeout(retryTimeout); };
-  }, [user?.tenantId, agents]);
+    return () => {
+      isDisposed = true;
+      clearTimeout(retryTimeout);
+      if (ws) {
+        ws.onopen = null;
+        ws.onclose = null;
+        ws.onerror = null;
+        ws.onmessage = null;
+        ws.close();
+      }
+    };
+  }, [user?.tenantId]);
 
   // ── Load messages whenever active conversation changes ─────
   useEffect(() => {
