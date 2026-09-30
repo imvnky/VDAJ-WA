@@ -31,6 +31,44 @@ function timeAgo(ts) {
   return new Date(ts).toLocaleDateString();
 }
 
+function formatDateDivider(dateStr) {
+  if (!dateStr) return '';
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return '';
+  const now = new Date();
+
+  const isToday = date.toDateString() === now.toDateString();
+  if (isToday) return 'Today';
+
+  const yesterday = new Date();
+  yesterday.setDate(now.getDate() - 1);
+  const isYesterday = date.toDateString() === yesterday.toDateString();
+  if (isYesterday) return 'Yesterday';
+
+  const isSameYear = date.getFullYear() === now.getFullYear();
+  return date.toLocaleDateString([], {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    ...(isSameYear ? {} : { year: 'numeric' }),
+  });
+}
+
+function formatMessageTime(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return '';
+  const dateFormatted = d.toLocaleDateString([], {
+    day: 'numeric',
+    month: 'short',
+  });
+  const timeFormatted = d.toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+  return `${dateFormatted}, ${timeFormatted}`;
+}
+
 function Avatar({ name, phone }) {
   const letter = (name || phone || '?')[0]?.toUpperCase();
   const hue = (phone?.charCodeAt(phone.length - 1) || 0) % 360;
@@ -296,6 +334,9 @@ function MessageBubble({ msg }) {
     failed: <span className="text-rose-300 font-bold">✗</span>
   };
 
+  const formattedDateTime = formatMessageTime(msg.created_at);
+  const fullDateTime = msg.created_at ? new Date(msg.created_at).toLocaleString() : '';
+
   return (
     <div className={clsx('flex w-full', isOut ? 'justify-end' : 'justify-start')}>
       <div className={clsx(
@@ -310,9 +351,9 @@ function MessageBubble({ msg }) {
         <p className={clsx('text-sm leading-relaxed whitespace-pre-wrap break-words', isOut ? 'text-white' : 'text-slate-800')}>
           {msg.body}
         </p>
-        <div className="flex items-center justify-end gap-1.5 mt-1 select-none">
-          <span className={clsx('text-[10px] font-medium', isOut ? 'text-white/70' : 'text-slate-400')}>
-            {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+        <div className="flex items-center justify-end gap-1.5 mt-1 select-none" title={fullDateTime}>
+          <span className={clsx('text-[10px] font-medium tracking-tight', isOut ? 'text-white/75' : 'text-slate-400')}>
+            {formattedDateTime}
           </span>
           {isOut && <span className="text-[11px] leading-none inline-flex items-center">{statusIcon[msg.status] || '✓'}</span>}
         </div>
@@ -942,7 +983,25 @@ export default function InboxPage() {
 
           {/* Messages */}
           <div className="flex-1 overflow-y-auto min-h-0 p-5 space-y-3.5">
-            {messages.map((m) => <MessageBubble key={m.id} msg={m} />)}
+            {messages.map((m, idx) => {
+              const prevMsg = messages[idx - 1];
+              const prevDate = prevMsg?.created_at ? new Date(prevMsg.created_at).toDateString() : null;
+              const currDate = m.created_at ? new Date(m.created_at).toDateString() : null;
+              const showDateDivider = currDate && currDate !== prevDate;
+
+              return (
+                <React.Fragment key={m.id || idx}>
+                  {showDateDivider && (
+                    <div className="flex items-center justify-center my-3 select-none">
+                      <span className="px-3 py-1 rounded-full text-[11px] font-semibold text-slate-500 bg-slate-100/90 border border-slate-200/80 shadow-2xs">
+                        {formatDateDivider(m.created_at)}
+                      </span>
+                    </div>
+                  )}
+                  <MessageBubble msg={m} />
+                </React.Fragment>
+              );
+            })}
             <div ref={messagesEndRef} />
           </div>
 
