@@ -28,86 +28,100 @@ router.get('/overview', catchAsync(async (req, res) => {
   const tid  = (!isSuperAdmin && req.user.tenantId) ? req.user.tenantId : (req.query.tenantId || null);
   const days = Math.min(parseInt(req.query.days || 30, 10), 365);
 
-  const tSnapCond = tid ? 'AND tenant_id = $1' : '';
-  const tMsgCond  = tid ? 'AND cm.tenant_id = $1' : '';
-  const tCampCond = tid ? 'AND tenant_id = $1' : '';
-  const tContCond = tid ? 'AND tenant_id = $1' : '';
-  const tParams   = tid ? [tid] : [];
-
-  // ── Primary: pre-aggregated snapshots ─────────────────────────
-  const { rows: snapshotRows } = await query(
-    `SELECT
-       COALESCE(SUM(msgs_sent),       0)::int AS total_sent,
-       COALESCE(SUM(msgs_delivered),  0)::int AS total_delivered,
-       COALESCE(SUM(msgs_read),       0)::int AS total_read,
-       COALESCE(SUM(msgs_failed),     0)::int AS total_failed,
-       COALESCE(SUM(opt_outs),        0)::int AS total_opt_outs,
-       COALESCE(SUM(new_contacts),    0)::int AS total_new_contacts,
-       COUNT(DISTINCT snapshot_date)::int     AS days_tracked
-     FROM analytics_snapshots
-     WHERE snapshot_date >= CURRENT_DATE - ${days}
-       ${tSnapCond}`,
-    tParams
+  const { rows: overviewRows } = await query(
+    `WITH live_by_date AS (
+       SELECT
+         msg_time::date AS date,
+         COUNT(*) FILTER (WHERE status IN ('sent','delivered','read'))::int AS msgs_sent,
+         COUNT(*) FILTER (WHERE status IN ('delivered','read'))::int AS msgs_delivered,
+         COUNT(*) FILTER (WHERE status = 'read')::int AS msgs_read,
+         COUNT(*) FILTER (WHERE status = 'failed')::int AS msgs_failed
+       FROM (
+         SELECT status::text, COALESCE(sent_at, created_at) AS msg_time, tenant_id FROM campaign_messages
+         UNION ALL
+         SELECT status::text, created_at AS msg_time, tenant_id FROM inbox_messages WHERE direction = 'outbound'
+       ) m
+       WHERE (CAST($1 AS UUID) IS NULL OR tenant_id = $1)
+         AND msg_time >= NOW() - make_interval(days => $2)
+       GROUP BY msg_time::date
+     ),
+     snaps_by_date AS (
+       SELECT
+         snapshot_date::date AS date,
+         msgs_sent,
+         msgs_delivered,
+         msgs_read,
+         msgs_failed,
+         opt_outs,
+         new_contacts
+       FROM analytics_snapshots
+       WHERE (CAST($1 AS UUID) IS NULL OR tenant_id = $1)
+         AND snapshot_date >= CURRENT_DATE - make_interval(days => $2)
+         AND snapshot_date < CURRENT_DATE
+     ),
+     combined AS (
+       SELECT
+         COALESCE(l.date, s.date)::text AS date,
+         GREATEST(COALESCE(l.msgs_sent, 0), COALESCE(s.msgs_sent, 0))::int AS msgs_sent,
+         GREATEST(COALESCE(l.msgs_delivered, 0), COALESCE(s.msgs_delivered, 0))::int AS msgs_delivered,
+         GREATEST(COALESCE(l.msgs_read, 0), COALESCE(s.msgs_read, 0))::int AS msgs_read,
+         GREATEST(COALESCE(l.msgs_failed, 0), COALESCE(s.msgs_failed, 0))::int AS msgs_failed,
+         COALESCE(s.opt_outs, 0)::int AS opt_outs,
+         COALESCE(s.new_contacts, 0)::int AS new_contacts
+       FROM live_by_date l
+       FULL OUTER JOIN snaps_by_date s ON l.date = s.date
+     )
+     SELECT
+       COALESCE(SUM(msgs_sent), 0)::int AS total_sent,
+       COALESCE(SUM(LEAST(msgs_delivered, msgs_sent)), 0)::int AS total_delivered,
+       COALESCE(SUM(LEAST(msgs_read, msgs_delivered, msgs_sent)), 0)::int AS total_read,
+       COALESCE(SUM(msgs_failed), 0)::int AS total_failed,
+       COALESCE(SUM(opt_outs), 0)::int AS total_opt_outs,
+       COALESCE(SUM(new_contacts), 0)::int AS total_new_contacts,
+       COUNT(DISTINCT date)::int AS days_tracked
+     FROM combined`,
+    [tid, days]
   );
 
-  let o = snapshotRows[0];
-
-  // ── Fallback: live aggregation when snapshots are empty ────────
-  if (!o || parseInt(o.total_sent, 10) === 0) {
-    const { rows: liveRows } = await query(
-      `SELECT
-         COALESCE(COUNT(*) FILTER (WHERE cm.status IN ('sent','delivered','read')), 0)::int AS total_sent,
-         COALESCE(COUNT(*) FILTER (WHERE cm.status = 'delivered'),                  0)::int AS total_delivered,
-         COALESCE(COUNT(*) FILTER (WHERE cm.status = 'read'),                       0)::int AS total_read,
-         COALESCE(COUNT(*) FILTER (WHERE cm.status = 'failed'),                     0)::int AS total_failed,
-         0::int AS total_opt_outs,
-         0::int AS total_new_contacts,
-         0::int AS days_tracked
-       FROM campaign_messages cm
-       WHERE cm.created_at >= NOW() - INTERVAL '${days} days'
-         ${tMsgCond}`,
-      tParams
-    );
-    o = liveRows[0] || {};
-  }
+  const o = overviewRows[0] || {};
 
   // ── Campaign summary ───────────────────────────────────────────
   const { rows: [camps] } = await query(
     `SELECT
-       COUNT(*)::int                                        AS total_campaigns,
-       COUNT(*) FILTER (WHERE status = 'completed')::int    AS completed,
-       COUNT(*) FILTER (WHERE status = 'running')::int      AS running,
-       COUNT(*) FILTER (WHERE status = 'draft')::int        AS draft
+       COUNT(*)::int                                     AS total_campaigns,
+       COUNT(*) FILTER (WHERE status = 'completed')::int AS completed,
+       COUNT(*) FILTER (WHERE status = 'running')::int   AS running,
+       COUNT(*) FILTER (WHERE status = 'draft')::int     AS draft
      FROM campaigns
      WHERE deleted_at IS NULL
-       ${tCampCond}`,
-    tParams
+       AND (CAST($1 AS UUID) IS NULL OR tenant_id = $1)`,
+    [tid]
   );
 
   // ── Contact summary ────────────────────────────────────────────
   const { rows: [contacts] } = await query(
     `SELECT
-       COUNT(*)::int                                        AS total_contacts,
-       COUNT(*) FILTER (WHERE status = 'active')::int       AS active_contacts,
-       COUNT(*) FILTER (WHERE status = 'opted_out')::int    AS opted_out
+       COUNT(*)::int                                     AS total_contacts,
+       COUNT(*) FILTER (WHERE status = 'active')::int    AS active_contacts,
+       COUNT(*) FILTER (WHERE status = 'opted_out')::int AS opted_out
      FROM contacts
      WHERE 1=1
-       ${tContCond}`,
-    tParams
+       AND (CAST($1 AS UUID) IS NULL OR tenant_id = $1)`,
+    [tid]
   );
 
-  // ── Derived rates ──────────────────────────────────────────────
+  // ── Derived rates (ensuring delivery/read don't exceed sent) ────
   const totalSent      = parseInt(o.total_sent || 0, 10);
-  const totalDelivered = parseInt(o.total_delivered || 0, 10);
-  const totalRead      = parseInt(o.total_read || 0, 10);
+  const totalDelivered = Math.min(parseInt(o.total_delivered || 0, 10), totalSent);
+  const totalRead      = Math.min(parseInt(o.total_read || 0, 10), totalDelivered);
   const totalFailed    = parseInt(o.total_failed || 0, 10);
   const totalOptOuts   = parseInt(o.total_opt_outs || 0, 10);
 
   const deliveryRate = totalSent > 0
-    ? parseFloat(((totalDelivered / totalSent) * 100).toFixed(1))
+    ? parseFloat(Math.min((totalDelivered / totalSent) * 100, 100).toFixed(1))
     : 0;
   const readRate = totalDelivered > 0
-    ? parseFloat(((totalRead / totalDelivered) * 100).toFixed(1))
+    ? parseFloat(Math.min((totalRead / totalDelivered) * 100, 100).toFixed(1))
     : 0;
   const optOutRate = totalSent > 0
     ? parseFloat(((totalOptOuts / totalSent) * 100).toFixed(2))
@@ -125,7 +139,6 @@ router.get('/overview', catchAsync(async (req, res) => {
       totalOptOuts,
       totalNewContacts: parseInt(o.total_new_contacts || 0, 10),
       daysTracked:      parseInt(o.days_tracked || 0, 10),
-      // Snake_case aliases for frontend backwards compatibility
       total_sent:       totalSent,
       total_delivered:  totalDelivered,
       total_read:       totalRead,
@@ -160,68 +173,69 @@ router.get('/trend', catchAsync(async (req, res) => {
   const tid  = (!isSuperAdmin && req.user.tenantId) ? req.user.tenantId : (req.query.tenantId || null);
   const days = Math.min(parseInt(req.query.days || 30, 10), 365);
 
-  const tSnapCond = tid ? 'AND tenant_id = $1' : '';
-  const tMsgCond  = tid ? 'AND cm.tenant_id = $1' : '';
-  const tParams   = tid ? [tid] : [];
-
-  // ── Primary: snapshot-based trend ─────────────────────────────
-  const { rows: snapRows } = await query(
-    `SELECT
-       snapshot_date::text AS date,
+  const { rows: trendRows } = await query(
+    `WITH live_by_date AS (
+       SELECT
+         msg_time::date AS date,
+         COUNT(*) FILTER (WHERE status IN ('sent','delivered','read'))::int AS msgs_sent,
+         COUNT(*) FILTER (WHERE status IN ('delivered','read'))::int AS msgs_delivered,
+         COUNT(*) FILTER (WHERE status = 'read')::int AS msgs_read,
+         COUNT(*) FILTER (WHERE status = 'failed')::int AS msgs_failed
+       FROM (
+         SELECT status::text, COALESCE(sent_at, created_at) AS msg_time, tenant_id FROM campaign_messages
+         UNION ALL
+         SELECT status::text, created_at AS msg_time, tenant_id FROM inbox_messages WHERE direction = 'outbound'
+       ) m
+       WHERE (CAST($1 AS UUID) IS NULL OR tenant_id = $1)
+         AND msg_time >= NOW() - make_interval(days => $2)
+       GROUP BY msg_time::date
+     ),
+     snaps_by_date AS (
+       SELECT
+         snapshot_date::date AS date,
+         msgs_sent,
+         msgs_delivered,
+         msgs_read,
+         msgs_failed,
+         opt_outs,
+         new_contacts
+       FROM analytics_snapshots
+       WHERE (CAST($1 AS UUID) IS NULL OR tenant_id = $1)
+         AND snapshot_date >= CURRENT_DATE - make_interval(days => $2)
+         AND snapshot_date < CURRENT_DATE
+     ),
+     combined AS (
+       SELECT
+         COALESCE(l.date, s.date)::text AS date,
+         GREATEST(COALESCE(l.msgs_sent, 0), COALESCE(s.msgs_sent, 0))::int AS msgs_sent,
+         GREATEST(COALESCE(l.msgs_delivered, 0), COALESCE(s.msgs_delivered, 0))::int AS msgs_delivered,
+         GREATEST(COALESCE(l.msgs_read, 0), COALESCE(s.msgs_read, 0))::int AS msgs_read,
+         GREATEST(COALESCE(l.msgs_failed, 0), COALESCE(s.msgs_failed, 0))::int AS msgs_failed,
+         COALESCE(s.opt_outs, 0)::int AS opt_outs,
+         COALESCE(s.new_contacts, 0)::int AS new_contacts
+       FROM live_by_date l
+       FULL OUTER JOIN snaps_by_date s ON l.date = s.date
+     )
+     SELECT
+       date,
        msgs_sent,
-       msgs_delivered,
-       msgs_read,
+       LEAST(msgs_delivered, msgs_sent)::int AS msgs_delivered,
+       LEAST(msgs_read, msgs_delivered, msgs_sent)::int AS msgs_read,
        msgs_failed,
        opt_outs,
        new_contacts,
        CASE WHEN msgs_sent > 0
-            THEN ROUND((msgs_delivered::numeric / msgs_sent) * 100, 1)
+            THEN LEAST(ROUND((LEAST(msgs_delivered, msgs_sent)::numeric / msgs_sent) * 100, 1), 100.0)
             ELSE 0 END AS delivery_rate,
-       CASE WHEN msgs_delivered > 0
-            THEN ROUND((msgs_read::numeric / msgs_delivered) * 100, 1)
+       CASE WHEN LEAST(msgs_delivered, msgs_sent) > 0
+            THEN LEAST(ROUND((LEAST(msgs_read, msgs_delivered, msgs_sent)::numeric / LEAST(msgs_delivered, msgs_sent)) * 100, 1), 100.0)
             ELSE 0 END AS read_rate
-     FROM analytics_snapshots
-     WHERE snapshot_date >= CURRENT_DATE - ${days}
-       ${tSnapCond}
-     ORDER BY snapshot_date ASC`,
-    tParams
+     FROM combined
+     ORDER BY date ASC`,
+    [tid, days]
   );
 
-  if (snapRows.length > 0) {
-    return sendSuccess(res, snapRows);
-  }
-
-  // ── Fallback: live aggregation grouped by day ──────────────────
-  const { rows: liveRows } = await query(
-    `SELECT
-       COALESCE(cm.sent_at::date, cm.created_at::date)::text AS date,
-       COUNT(*) FILTER (WHERE cm.status IN ('sent','delivered','read'))::int AS msgs_sent,
-       COUNT(*) FILTER (WHERE cm.status = 'delivered')::int                  AS msgs_delivered,
-       COUNT(*) FILTER (WHERE cm.status = 'read')::int                       AS msgs_read,
-       COUNT(*) FILTER (WHERE cm.status = 'failed')::int                     AS msgs_failed,
-       0::int                                                                AS opt_outs,
-       0::int                                                                AS new_contacts,
-       CASE WHEN COUNT(*) FILTER (WHERE cm.status IN ('sent','delivered','read')) > 0
-            THEN ROUND(
-              COUNT(*) FILTER (WHERE cm.status = 'delivered')::numeric /
-              NULLIF(COUNT(*) FILTER (WHERE cm.status IN ('sent','delivered','read')), 0) * 100, 1
-            )
-            ELSE 0 END                                                       AS delivery_rate,
-       CASE WHEN COUNT(*) FILTER (WHERE cm.status = 'delivered') > 0
-            THEN ROUND(
-              COUNT(*) FILTER (WHERE cm.status = 'read')::numeric /
-              NULLIF(COUNT(*) FILTER (WHERE cm.status = 'delivered'), 0) * 100, 1
-            )
-            ELSE 0 END                                                       AS read_rate
-     FROM campaign_messages cm
-     WHERE cm.created_at >= NOW() - INTERVAL '${days} days'
-       ${tMsgCond}
-     GROUP BY 1
-     ORDER BY 1 ASC`,
-    tParams
-  );
-
-  return sendSuccess(res, liveRows);
+  return sendSuccess(res, trendRows);
 }));
 
 // ── GET /analytics/campaigns ───────────────────────────────────

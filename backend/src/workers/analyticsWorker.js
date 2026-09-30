@@ -36,16 +36,20 @@ async function aggregateTenantSnapshot(tenantId, targetDate) {
     ? new Date(targetDate).toISOString().slice(0, 10)
     : new Date(Date.now() - 86_400_000).toISOString().slice(0, 10); // yesterday UTC
 
-  // ── Aggregate campaign_messages for this tenant+date ──────────
+  // ── Aggregate all outbound messages for this tenant+date ───────
   const { rows: [agg] } = await query(
     `SELECT
        COALESCE(COUNT(*) FILTER (WHERE status IN ('sent','delivered','read')), 0) AS msgs_sent,
-       COALESCE(COUNT(*) FILTER (WHERE status = 'delivered'),                  0) AS msgs_delivered,
-       COALESCE(COUNT(*) FILTER (WHERE status = 'read'),                       0) AS msgs_read,
-       COALESCE(COUNT(*) FILTER (WHERE status = 'failed'),                     0) AS msgs_failed
-     FROM campaign_messages
-     WHERE tenant_id     = $1
-       AND sent_at::date = $2::date`,
+       COALESCE(COUNT(*) FILTER (WHERE status IN ('delivered','read')),          0) AS msgs_delivered,
+       COALESCE(COUNT(*) FILTER (WHERE status = 'read'),                         0) AS msgs_read,
+       COALESCE(COUNT(*) FILTER (WHERE status = 'failed'),                       0) AS msgs_failed
+     FROM (
+       SELECT status::text, COALESCE(sent_at, created_at) AS msg_time, tenant_id FROM campaign_messages
+       UNION ALL
+       SELECT status::text, created_at AS msg_time, tenant_id FROM inbox_messages WHERE direction = 'outbound'
+     ) m
+     WHERE tenant_id      = $1
+       AND msg_time::date = $2::date`,
     [tenantId, date]
   );
 
