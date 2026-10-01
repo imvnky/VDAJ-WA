@@ -38,18 +38,9 @@ const HEADER_TYPES = [
 ];
 
 // ── WhatsApp Mobile Preview Card ──────────────────────────────
-function WhatsAppLivePreview({ form }) {
+function WhatsAppLivePreview({ form, sampleValues = {} }) {
   const now = new Date();
   const time = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-  // Sample values for variable replacement in preview
-  const sampleValues = {
-    '1': 'Viren',
-    '2': 'tomorrow at 4:00 PM',
-    '3': 'VDAJ-8942',
-    '4': '20% OFF',
-    'name': 'Viren',
-  };
 
   const getInterpolatedBody = () => {
     if (!form.bodyText) {
@@ -57,8 +48,17 @@ function WhatsAppLivePreview({ form }) {
     }
     let text = form.bodyText;
     return text.replace(/\{\{(\w+)\}\}/g, (match, p1) => {
-      const sample = sampleValues[p1] || `Sample_${p1}`;
-      return `*${sample}*`;
+      const userVal = sampleValues && sampleValues[p1] && sampleValues[p1].trim() !== '' ? sampleValues[p1].trim() : null;
+      const fallback = p1 === '1' || p1.toLowerCase() === 'name' ? 'Customer' : `Sample ${p1}`;
+      return `*${userVal || fallback}*`;
+    });
+  };
+
+  const getInterpolatedHeader = () => {
+    if (!form.headerText) return '';
+    return form.headerText.replace(/\{\{(\w+)\}\}/g, (match, p1) => {
+      const userVal = sampleValues && (sampleValues[`header_${p1}`] || sampleValues[p1])?.trim();
+      return `*${userVal || 'Customer'}*`;
     });
   };
 
@@ -114,7 +114,7 @@ function WhatsAppLivePreview({ form }) {
             {/* Header Preview */}
             {form.headerType === 'TEXT' && form.headerText && (
               <p className="text-xs font-bold text-white border-b border-white/10 pb-1">
-                {form.headerText}
+                {renderFormatted(getInterpolatedHeader())}
               </p>
             )}
             {form.headerType !== 'NONE' && form.headerType !== 'TEXT' && (
@@ -758,7 +758,7 @@ function CreateTemplateModal({ onClose, onCreated, prefill = null }) {
                   Real-time rendering
                 </span>
               </div>
-              <WhatsAppLivePreview form={form} />
+              <WhatsAppLivePreview form={form} sampleValues={sampleValues} />
             </div>
           </div>
         </div>
