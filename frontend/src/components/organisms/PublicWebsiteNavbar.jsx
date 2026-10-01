@@ -1,7 +1,7 @@
 /**
  * VDAJ Services LLP — Public Website Executive Navigation Bar
  * Colorlib Locksmith corporate aesthetic with VDAJ Services LLP branding.
- * Top utility contact bar + pristine white navbar with brand colors.
+ * Top utility contact bar + pristine, perfectly-spaced corporate white navbar.
  */
 
 import React, { useState } from 'react';
@@ -20,7 +20,7 @@ export default function PublicWebsiteNavbar() {
 
   return (
     <div className="w-full">
-      {/* Top Utility Bar (Locksmith Style Contact Strip) */}
+      {/* Top Utility Bar */}
       <div className="bg-[#0F172A] text-slate-300 text-xs py-2 border-b border-white/10 hidden sm:block font-sans">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center">
           <div className="flex items-center gap-6">
@@ -62,19 +62,19 @@ export default function PublicWebsiteNavbar() {
       </div>
 
       {/* Main Executive White Navbar */}
-      <header className="sticky top-0 z-50 bg-white border-b border-slate-200 shadow-sm transition-all">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between gap-6">
+      <header className="sticky top-0 z-50 bg-white border-b border-slate-200/80 shadow-xs transition-all">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-6">
           
           {/* Brand Logo Lockup */}
-          <Link to="/" className="flex items-center gap-3 no-underline group">
-            <Logo size={36} variant="dark" showWordmark={true} />
+          <Link to="/" className="flex items-center gap-3 no-underline shrink-0 group">
+            <Logo size={34} variant="dark" showWordmark={true} />
           </Link>
 
-          {/* Desktop Navigation Links (Locksmith Bold Uppercase Typography) */}
-          <nav className="hidden lg:flex items-center gap-7 text-[14px] font-bold uppercase tracking-wider text-slate-800">
+          {/* Desktop Navigation Links — Refined Title Case, Crisp Kerning */}
+          <nav className="hidden lg:flex items-center gap-6 text-[13.5px] font-semibold text-slate-700">
             <a
               href="https://www.vdajservices.com/#whatsapp"
-              className="text-slate-700 hover:text-[#534AB7] transition-colors flex items-center gap-1.5 py-1 relative group"
+              className="hover:text-[#534AB7] transition-colors flex items-center gap-1.5 py-1"
             >
               <span>WhatsApp Platform</span>
               <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#1D9E75]/10 text-[#1D9E75] border border-[#1D9E75]/20">
@@ -83,19 +83,19 @@ export default function PublicWebsiteNavbar() {
             </a>
             <a
               href="https://www.vdajservices.com/#services"
-              className="text-slate-700 hover:text-[#534AB7] transition-colors py-1"
+              className="hover:text-[#534AB7] transition-colors py-1"
             >
               Services
             </a>
             <a
               href="https://www.vdajservices.com/#architecture"
-              className="text-slate-700 hover:text-[#534AB7] transition-colors py-1"
+              className="hover:text-[#534AB7] transition-colors py-1"
             >
               Architecture
             </a>
             <a
               href="https://www.vdajservices.com/#governance"
-              className="text-slate-700 hover:text-[#534AB7] transition-colors py-1"
+              className="hover:text-[#534AB7] transition-colors py-1"
             >
               About LLP
             </a>
@@ -103,8 +103,8 @@ export default function PublicWebsiteNavbar() {
               to="/legal/privacy"
               className={`py-1 transition-colors relative ${
                 isPrivacy
-                  ? 'text-[#534AB7] font-extrabold after:content-[""] after:absolute after:bottom-0 after:left-0 after:w-full after:h-0.5 after:bg-[#534AB7]'
-                  : 'text-slate-700 hover:text-[#534AB7]'
+                  ? 'text-[#534AB7] font-bold after:content-[""] after:absolute after:bottom-[-2px] after:left-0 after:w-full after:h-0.5 after:bg-[#534AB7]'
+                  : 'hover:text-[#534AB7]'
               }`}
             >
               Privacy Policy
@@ -113,8 +113,8 @@ export default function PublicWebsiteNavbar() {
               to="/legal/terms"
               className={`py-1 transition-colors relative ${
                 isTerms
-                  ? 'text-[#534AB7] font-extrabold after:content-[""] after:absolute after:bottom-0 after:left-0 after:w-full after:h-0.5 after:bg-[#534AB7]'
-                  : 'text-slate-700 hover:text-[#534AB7]'
+                  ? 'text-[#534AB7] font-bold after:content-[""] after:absolute after:bottom-[-2px] after:left-0 after:w-full after:h-0.5 after:bg-[#534AB7]'
+                  : 'hover:text-[#534AB7]'
               }`}
             >
               Terms
@@ -122,19 +122,19 @@ export default function PublicWebsiteNavbar() {
           </nav>
 
           {/* Desktop Action CTAs */}
-          <div className="hidden sm:flex items-center gap-3">
+          <div className="hidden sm:flex items-center gap-3 shrink-0">
             <a
               href="mailto:info@vdajservices.com"
-              className="text-[13px] font-bold uppercase tracking-wider text-slate-700 hover:text-[#534AB7] px-3.5 py-2 rounded border border-slate-300 hover:border-[#534AB7] hover:bg-[#534AB7]/5 transition-all"
+              className="text-[13px] font-semibold text-slate-700 hover:text-[#534AB7] px-3.5 py-2 rounded-md border border-slate-200 hover:border-slate-300 hover:bg-slate-50 transition-all"
             >
               Contact Sales
             </a>
             <Link
               to={isAuthenticated ? '/dashboard' : '/login'}
-              className="inline-flex items-center gap-2 text-[13px] font-bold uppercase tracking-wider text-white px-4 py-2 rounded bg-[#534AB7] hover:bg-[#4338CA] shadow-[0_4px_12px_rgba(83,74,183,0.25)] hover:shadow-[0_6px_18px_rgba(83,74,183,0.35)] transition-all"
+              className="inline-flex items-center gap-2 text-[13px] font-semibold text-white px-4 py-2 rounded-md bg-[#534AB7] hover:bg-[#4338CA] shadow-sm hover:shadow transition-all"
             >
               <span>{isAuthenticated ? 'Enter Portal' : 'Client Portal'}</span>
-              <span className="text-white/90">→</span>
+              <span className="text-white/80">→</span>
             </Link>
           </div>
 
@@ -142,7 +142,7 @@ export default function PublicWebsiteNavbar() {
           <div className="flex lg:hidden items-center gap-2">
             <Link
               to={isAuthenticated ? '/dashboard' : '/login'}
-              className="text-xs font-bold uppercase text-white px-3 py-1.5 rounded bg-[#534AB7]"
+              className="text-xs font-semibold text-white px-3 py-1.5 rounded-md bg-[#534AB7]"
             >
               Portal
             </Link>
@@ -151,7 +151,7 @@ export default function PublicWebsiteNavbar() {
               className="p-2 rounded text-slate-700 hover:text-[#534AB7] hover:bg-slate-100"
               aria-label="Toggle Navigation"
             >
-              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 {mobileMenuOpen ? (
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 ) : (
@@ -164,7 +164,7 @@ export default function PublicWebsiteNavbar() {
 
         {/* Mobile Drawer */}
         {mobileMenuOpen && (
-          <div className="lg:hidden border-t border-slate-200 bg-white px-5 py-4 space-y-3 font-bold uppercase text-sm">
+          <div className="lg:hidden border-t border-slate-200 bg-white px-5 py-4 space-y-2.5 text-sm font-medium">
             <a
               href="https://www.vdajservices.com/#whatsapp"
               className="block text-slate-700 hover:text-[#534AB7] py-1.5"
@@ -195,21 +195,21 @@ export default function PublicWebsiteNavbar() {
             </a>
             <Link
               to="/legal/privacy"
-              className={`block py-1.5 ${isPrivacy ? 'text-[#534AB7]' : 'text-slate-700 hover:text-[#534AB7]'}`}
+              className={`block py-1.5 ${isPrivacy ? 'text-[#534AB7] font-bold' : 'text-slate-700'}`}
               onClick={() => setMobileMenuOpen(false)}
             >
               Privacy Policy
             </Link>
             <Link
               to="/legal/terms"
-              className={`block py-1.5 ${isTerms ? 'text-[#534AB7]' : 'text-slate-700 hover:text-[#534AB7]'}`}
+              className={`block py-1.5 ${isTerms ? 'text-[#534AB7] font-bold' : 'text-slate-700'}`}
               onClick={() => setMobileMenuOpen(false)}
             >
               Terms of Service
             </Link>
             <Link
               to="/legal/data-deletion"
-              className={`block py-1.5 ${isDeletion ? 'text-[#534AB7]' : 'text-slate-700 hover:text-[#534AB7]'}`}
+              className={`block py-1.5 ${isDeletion ? 'text-[#534AB7] font-bold' : 'text-slate-700'}`}
               onClick={() => setMobileMenuOpen(false)}
             >
               Data Deletion Instructions
@@ -217,7 +217,7 @@ export default function PublicWebsiteNavbar() {
             <div className="pt-2 border-t border-slate-200">
               <a
                 href="mailto:info@vdajservices.com"
-                className="block text-center text-xs font-bold uppercase text-slate-700 py-2 rounded bg-slate-100"
+                className="block text-center text-xs font-semibold text-slate-700 py-2 rounded bg-slate-100"
               >
                 Contact Sales (info@vdajservices.com)
               </a>
