@@ -36,6 +36,6 @@ const redisClient = process.env.REDIS_URL
 redisClient.on('connect', () => logger.info('Redis connected'));
 redisClient.on('ready', () => logger.info('Redis ready'));
 redisClient.on('error', (err) => logger.error('Redis error', { error: err.message }));
-redisClient.on('close', () => logger.warn('Redis connection closed'));
-
+redisClient.redis = redisClient;
 module.exports = redisClient;
+module.exports.redis = redisClient;
