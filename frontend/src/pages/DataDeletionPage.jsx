@@ -1,166 +1,136 @@
 /**
- * VDAJ Services LLP — User Data Deletion & Privacy Rights
- * Route: /legal/data-deletion and /data-deletion (public, no auth required)
- * MNC Grade UI/UX · Compliant with Meta Platform Terms §4.b & India DPDP Act 2023
+ * VDAJ Services LLP — User Data Deletion & Privacy Rights Charter
+ * Route: /legal/data-deletion & /data-deletion (public, no auth required)
+ * Compliant with Meta Platform Terms §4.b, GDPR Article 17, and India DPDP Act 2023.
+ * Fortune-500 Tier-1 MNC UI/UX Architecture.
  */
 
 import React from 'react';
-import { Link } from 'react-router-dom';
-import Logo from '../components/atoms/Logo';
+import PublicWebsiteNavbar from '../components/organisms/PublicWebsiteNavbar';
+import PublicWebsiteFooter from '../components/organisms/PublicWebsiteFooter';
 
 export default function DataDeletionPage() {
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 font-sans selection:bg-indigo-100 selection:text-indigo-900">
-      {/* Sticky Executive Navigation */}
-      <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-slate-200 px-6 py-3.5 shadow-xs">
-        <div className="max-w-5xl mx-auto flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-3 no-underline">
-            <Logo size={36} showWordmark={true} />
-          </Link>
+    <div className="min-h-screen bg-[#08080C] text-slate-200 font-sans selection:bg-[#534AB7]/40 selection:text-white">
+      {/* MNC Website Executive Header */}
+      <PublicWebsiteNavbar />
 
-          <div className="flex items-center gap-4 text-sm font-medium">
-            <Link
-              to="/legal/privacy"
-              className="text-slate-600 hover:text-indigo-600 transition-colors hidden sm:inline-block"
-            >
-              Privacy Policy
-            </Link>
-            <Link
-              to="/legal/terms"
-              className="text-slate-600 hover:text-indigo-600 transition-colors hidden sm:inline-block"
-            >
-              Terms of Service
-            </Link>
-            <a
-              href="https://www.vdajservices.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-slate-600 hover:text-indigo-600 transition-colors hidden md:inline-block"
-            >
-              Main Website
+      {/* Hero Header */}
+      <div className="relative border-b border-white/[0.08] bg-gradient-to-b from-[#0F0F1A] via-[#0B0B14] to-[#08080C] pt-12 pb-16">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center gap-2 text-xs font-mono text-slate-400 mb-6">
+            <a href="https://www.vdajservices.com" className="hover:text-white transition-colors">
+              Enterprise Home
             </a>
-            <Link
-              to="/login"
-              className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-xs transition-all"
-            >
-              <span>Back to App</span>
-              <span>→</span>
-            </Link>
+            <span>/</span>
+            <span className="text-slate-400">Trust & Compliance</span>
+            <span>/</span>
+            <span className="text-[#AFA9EC] font-semibold">User Data Deletion</span>
+          </div>
+
+          <div className="max-w-3xl">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#1D9E75]/10 border border-[#1D9E75]/30 text-[#26C18E] text-xs font-semibold mb-4">
+              <span className="w-2 h-2 rounded-full bg-[#1D9E75]"></span>
+              <span>Meta Platform Terms §4.b · GDPR Art. 17 · India DPDP Act 2023</span>
+            </div>
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-white tracking-tight leading-tight">
+              User Data Deletion <br />
+              <span className="bg-gradient-to-r from-white via-[#AFA9EC] to-[#26C18E] bg-clip-text text-transparent">
+                Instructions & Protocols
+              </span>
+            </h1>
+            <p className="mt-4 text-slate-400 text-sm sm:text-base leading-relaxed">
+              In accordance with Meta Platform Terms §4.b and statutory data principal rights, this page outlines the procedures and technical mechanisms available to end-users and client organizations to request complete erasure of their personal identifiers and communications data.
+            </p>
           </div>
         </div>
-      </header>
+      </div>
 
-      {/* Main Container */}
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
-        {/* Document Header Card */}
-        <div className="bg-white rounded-2xl p-8 sm:p-10 border border-slate-200/80 shadow-xs mb-8">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-700 text-xs font-semibold mb-4">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span>Meta Platform Compliance · GDPR Art. 17 · India DPDP Act 2023</span>
+      {/* Content Container */}
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 lg:py-16 space-y-12">
+        
+        {/* Mechanism 1: Instant Automated Self-Serve Erasure via WhatsApp */}
+        <section className="p-6 sm:p-8 rounded-2xl bg-[#0E0E16] border border-white/[0.08] space-y-4">
+          <div className="flex items-center gap-3">
+            <span className="text-xs font-mono font-bold text-[#26C18E] px-2.5 py-0.5 rounded bg-[#1D9E75]/20 border border-[#1D9E75]/40">
+              METHOD 01 (INSTANT)
+            </span>
+            <h2 className="text-xl font-bold text-white tracking-tight">
+              Instant Self-Service Opt-Out & Erasure via WhatsApp
+            </h2>
           </div>
-
-          <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight mb-3">
-            User Data Deletion Instructions
-          </h1>
-
-          <p className="text-sm text-slate-500 flex flex-wrap items-center gap-x-4 gap-y-1">
-            <span><strong>Entity:</strong> VDAJ Services LLP</span>
-            <span>·</span>
-            <span><strong>Platform:</strong> VDAJ Communications Gateway</span>
-            <span>·</span>
-            <span><strong>Effective Date:</strong> September 1, 2026</span>
+          <p className="text-sm text-slate-300 leading-relaxed">
+            Any individual recipient receiving messages from a business workspace powered by VDAJ Services LLP can invoke an immediate, automated opt-out without contacting customer support:
           </p>
-        </div>
-
-        {/* Content Body */}
-        <div className="bg-white rounded-2xl p-8 sm:p-10 border border-slate-200/80 shadow-xs space-y-8 text-slate-700 leading-relaxed text-sm sm:text-base">
-          <section>
-            <h2 className="text-lg font-bold text-slate-900 mb-2">1. Overview & Commitment</h2>
-            <p>
-              In accordance with Meta Platform Terms (Section 4.b), the WhatsApp Business Messaging Policy, 
-              the General Data Protection Regulation (GDPR Article 17 - Right to Erasure), and the Digital 
-              Personal Data Protection (DPDP) Act 2023, <strong>VDAJ Services LLP</strong> provides clear, 
-              accessible mechanisms for users and recipients to request the complete deletion of their personal 
-              data processed through our WhatsApp communications platform.
-            </p>
-          </section>
-
-          <section>
-            <h2 className="text-lg font-bold text-slate-900 mb-3">2. How to Request Data Deletion</h2>
-            <div className="grid sm:grid-cols-2 gap-4">
-              <div className="p-4 rounded-xl border border-slate-200 bg-slate-50">
-                <div className="flex items-center gap-2 font-bold text-slate-900 mb-1">
-                  <span className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs">A</span>
-                  <span>WhatsApp In-Chat Opt-Out</span>
-                </div>
-                <p className="text-xs text-slate-600">
-                  Reply with <strong>STOP</strong>, <strong>UNSUBSCRIBE</strong>, or <strong>OPT OUT</strong> to any WhatsApp message sent through our gateway. Our automated compliance engine will instantly revoke consent and flag your number against future marketing broadcasts.
-                </p>
-              </div>
-
-              <div className="p-4 rounded-xl border border-slate-200 bg-slate-50">
-                <div className="flex items-center gap-2 font-bold text-slate-900 mb-1">
-                  <span className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs">B</span>
-                  <span>Direct Privacy Request by Email</span>
-                </div>
-                <p className="text-xs text-slate-600">
-                  Send an email to <a href="mailto:privacy@vdajservices.com" className="text-indigo-600 font-semibold underline">privacy@vdajservices.com</a> with the subject line <em>"Data Deletion Request"</em>. Please specify your registered phone number (with country code) or organization email.
-                </p>
-              </div>
+          <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] text-xs font-mono space-y-2">
+            <div><strong>Action:</strong> Reply directly to the WhatsApp chat with:</div>
+            <div className="text-base font-bold text-[#AFA9EC]">STOP</div>
+            <div className="text-slate-400 text-[11px]">
+              (Also recognized: <code className="text-white">UNSUBSCRIBE</code>, <code className="text-white">OPT-OUT</code>, <code className="text-white">CANCEL</code>)
             </div>
-          </section>
-
-          <section>
-            <h2 className="text-lg font-bold text-slate-900 mb-2">3. Scope of Deleted Data</h2>
-            <p className="mb-3">Upon receipt and verification of a verified erasure request, we securely purge:</p>
-            <ul className="list-disc pl-5 space-y-1.5 text-slate-600 text-xs sm:text-sm">
-              <li>Customer contact records, display names, and associated metadata.</li>
-              <li>Historic two-way message content, interactive button selections, and media attachments.</li>
-              <li>Device identifiers, IP audit records older than 30 days, and tracking tokens.</li>
-              <li>Campaign audience segmentation entries and tags.</li>
-            </ul>
-          </section>
-
-          <section>
-            <h2 className="text-lg font-bold text-slate-900 mb-2">4. Processing Timelines & Confirmation</h2>
-            <div className="bg-indigo-50/70 border border-indigo-100 p-4 rounded-xl text-xs sm:text-sm space-y-2 text-indigo-950">
-              <p>
-                <strong>Acknowledgment:</strong> Your deletion request is acknowledged within <strong>48 hours</strong> with a unique tracking reference code.
-              </p>
-              <p>
-                <strong>Execution SLA:</strong> Data is permanently expunged across active database partitions and replica clusters within <strong>30 days</strong>.
-              </p>
-              <p>
-                <strong>Exemptions:</strong> Transactional accounting records or compliance audit trails required by statutory law (e.g., GST or telecom retention mandates) are retained in anonymized form solely for legal defense.
-              </p>
-            </div>
-          </section>
-
-          <section>
-            <h2 className="text-lg font-bold text-slate-900 mb-2">5. Data Protection Officer (DPO) Contact</h2>
-            <p className="text-slate-600">
-              For escalation or inquiries regarding our data handling policies, reach our Privacy & Compliance Cell:
-            </p>
-            <div className="mt-2 text-xs sm:text-sm font-mono text-slate-700 bg-slate-50 border border-slate-200 p-3 rounded-lg">
-              <div><strong>VDAJ Services LLP — Data Protection Officer</strong></div>
-              <div>Email: <a href="mailto:privacy@vdajservices.com" className="text-indigo-600 underline">privacy@vdajservices.com</a> / <a href="mailto:admin@vdajservices.com" className="text-indigo-600 underline">admin@vdajservices.com</a></div>
-              <div>Registered Office: 200, Sector 1, Pune / Bangalore, India</div>
-            </div>
-          </section>
-        </div>
-
-        {/* Footer Navigation */}
-        <div className="mt-8 flex flex-wrap items-center justify-between text-xs text-slate-500 gap-4">
-          <p>© {new Date().getFullYear()} VDAJ Services LLP. All rights reserved.</p>
-          <div className="flex items-center gap-4">
-            <Link to="/legal/privacy" className="hover:text-indigo-600 transition-colors">Privacy Policy</Link>
-            <span>·</span>
-            <Link to="/legal/terms" className="hover:text-indigo-600 transition-colors">Terms of Service</Link>
-            <span>·</span>
-            <a href="https://wa.vdajservices.com" className="hover:text-indigo-600 transition-colors">VDAJ Platform</a>
           </div>
-        </div>
-      </main>
+          <p className="text-xs text-slate-400 leading-relaxed">
+            Our real-time webhook interceptor executes atomically in under 200ms: the contact status is set to Opted Out, a permanent suppression key is registered in our Redis index, the conversation is marked resolved, and all further campaign messaging is permanently halted.
+          </p>
+        </section>
+
+        {/* Mechanism 2: Formal Statutory Deletion Request */}
+        <section className="p-6 sm:p-8 rounded-2xl bg-[#0E0E16] border border-white/[0.08] space-y-4">
+          <div className="flex items-center gap-3">
+            <span className="text-xs font-mono font-bold text-[#AFA9EC] px-2.5 py-0.5 rounded bg-[#534AB7]/20 border border-[#534AB7]/40">
+              METHOD 02 (ADMINISTRATIVE)
+            </span>
+            <h2 className="text-xl font-bold text-white tracking-tight">
+              Formal Written Data Erasure Request (&ldquo;Right to be Forgotten&rdquo;)
+            </h2>
+          </div>
+          <p className="text-sm text-slate-300 leading-relaxed">
+            To request full database-level purging of all conversation records, telephone records, and metadata, please submit a written deletion request to our Data Protection Officer:
+          </p>
+
+          <div className="p-5 rounded-xl bg-white/[0.02] border border-white/[0.06] space-y-3 text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 font-mono">
+              <div>
+                <span className="text-slate-500 block uppercase tracking-wider text-[10px]">Email Recipient:</span>
+                <a href="mailto:info@vdajservices.com" className="text-[#AFA9EC] font-semibold hover:underline">
+                  info@vdajservices.com
+                </a>
+              </div>
+              <div>
+                <span className="text-slate-500 block uppercase tracking-wider text-[10px]">Subject Header:</span>
+                <span className="text-slate-200">Data Deletion Request — [Phone Number]</span>
+              </div>
+            </div>
+            <div className="pt-2 border-t border-white/[0.06] text-slate-400">
+              <strong>Required Information:</strong> Include your full international phone number (in +E.164 format, e.g. +91 98765 43210) and the name of the business you were communicating with.
+            </div>
+          </div>
+
+          <div className="text-xs text-slate-400 space-y-1">
+            <p><strong>Turnaround SLA:</strong> Acknowledgment within 24 business hours; complete purge execution within 7 business days.</p>
+            <p><strong>Confirmation:</strong> A formal audit deletion certificate with a unique purge confirmation code will be dispatched to your email.</p>
+          </div>
+        </section>
+
+        {/* Mechanism 3: Automatic Purge Lifecycle */}
+        <section className="p-6 sm:p-8 rounded-2xl bg-[#0E0E16] border border-white/[0.08] space-y-4">
+          <div className="flex items-center gap-3">
+            <span className="text-xs font-mono font-bold text-[#60A5FA] px-2.5 py-0.5 rounded bg-blue-500/20 border border-blue-500/40">
+              METHOD 03 (AUTOMATED)
+            </span>
+            <h2 className="text-xl font-bold text-white tracking-tight">
+              Automated 90-Day Retention Expiration
+            </h2>
+          </div>
+          <p className="text-sm text-slate-300 leading-relaxed">
+            By default, VDAJ Services LLP applies an automated data minimization purge protocol. Raw message delivery payloads, media references, and webhook payloads are automatically and irrevocably purged on a rolling 90-day lifecycle, retaining only aggregate high-level metrics (e.g. total delivered count) for billing audit compliance.
+          </p>
+        </section>
+
+      </div>
+
+      {/* MNC Website Executive Footer */}
+      <PublicWebsiteFooter />
     </div>
   );
 }
