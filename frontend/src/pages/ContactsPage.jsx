@@ -45,10 +45,44 @@ function TagPill({ tag, onClick }) {
 
 // ── Opt-In Status Badge ────────────────────────────────────────
 function OptInBadge({ contact }) {
+  if (contact.status === 'opted_out') {
+    const outDate = contact.opted_out_at
+      ? new Date(contact.opted_out_at).toLocaleDateString('en-GB', {
+          day: '2-digit', month: 'short', year: 'numeric',
+        })
+      : null;
+    return (
+      <span
+        className="inline-flex items-center gap-1 text-2xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap"
+        style={{
+          background: 'rgba(239,68,68,0.12)',
+          color: '#ef4444',
+          border: '1px solid rgba(239,68,68,0.3)',
+        }}
+        title={outDate ? `Opted Out on ${outDate}` : 'Opted Out'}
+      >
+        ✕ Opted Out
+      </span>
+    );
+  }
+
+  if (contact.status === 'invalid') {
+    return (
+      <span
+        className="inline-flex items-center gap-1 text-2xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap"
+        style={{ background: 'rgba(251,191,36,0.10)', color: '#fbbf24', border: '1px solid rgba(251,191,36,0.25)' }}
+      >
+        ⚠ Invalid
+      </span>
+    );
+  }
+
   if (!contact.opted_in_at) {
     return (
-      <span className="inline-flex items-center gap-1 text-2xs font-semibold px-2 py-0.5 rounded-full"
-        style={{ background: 'rgba(239,68,68,0.10)', color: '#f87171', border: '1px solid rgba(239,68,68,0.25)' }}>
+      <span
+        className="inline-flex items-center gap-1 text-2xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap"
+        style={{ background: 'rgba(239,68,68,0.10)', color: '#f87171', border: '1px solid rgba(239,68,68,0.25)' }}
+      >
         ⚠ Unknown
       </span>
     );
@@ -60,9 +94,11 @@ function OptInBadge({ contact }) {
     .replace(/_/g, ' ')
     .replace(/\b\w/g, (c) => c.toUpperCase());
   return (
-    <span className="inline-flex items-center gap-1 text-2xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap"
+    <span
+      className="inline-flex items-center gap-1 text-2xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap"
       style={{ background: 'rgba(29,158,117,0.10)', color: '#1D9E75', border: '1px solid rgba(29,158,117,0.25)' }}
-      title={`${src} · ${date}`}>
+      title={`${src} · ${date}`}
+    >
       ✓ {src}
     </span>
   );
