@@ -93,10 +93,31 @@ const callMetaApi = async ({ method = 'POST', path, accessToken, body }) => {
 const buildTemplatePayload = (to, templateName, language, templateVars = {}) => {
   const components = [];
 
-  if (Array.isArray(templateVars.body) && templateVars.body.length > 0) {
+  // Extract body parameters safely from array or numeric key maps (e.g. { "1": "val1", "2": "val2" })
+  let bodyValues = [];
+  if (Array.isArray(templateVars.body)) {
+    bodyValues = templateVars.body;
+  } else if (typeof templateVars === 'object' && templateVars !== null) {
+    const numericKeys = Object.keys(templateVars)
+      .filter((k) => /^\d+$/.test(k))
+      .sort((a, b) => Number(a) - Number(b));
+    if (numericKeys.length > 0) {
+      bodyValues = numericKeys.map((k) => templateVars[k]);
+    }
+  }
+
+  if (bodyValues.length > 0) {
     components.push({
       type: 'body',
-      parameters: templateVars.body.map((val) => ({ type: 'text', text: String(val) })),
+      parameters: bodyValues.map((val, idx) => {
+        const strVal = val != null ? String(val).trim() : '';
+        // Meta rejects empty string parameters with (#100) Param text cannot be empty
+        const fallback = idx === 0 ? 'Customer' : '-';
+        return {
+          type: 'text',
+          text: strVal !== '' ? strVal : fallback,
+        };
+      }),
     });
   }
 
@@ -290,10 +311,30 @@ const createMetaTemplate = async (tenantCredentials, templateData) => {
   }
 
   // Body — always required
-  components.push({
+  const bodyComp = {
     type: 'BODY',
     text: templateData.body_text,
-  });
+  };
+
+  // If body contains variables like {{1}}, {{2}}, Meta Graph API mandates example.body_text
+  const bodyVarMatches = [...(templateData.body_text || '').matchAll(/\{\{(\w+)\}\}/g)];
+  if (bodyVarMatches.length > 0) {
+    const uniqueVars = Array.from(new Set(bodyVarMatches.map((m) => m[1])));
+    const providedSamples = templateData.body_sample_values || templateData.bodySampleValues || templateData.sample_values || {};
+    const sampleArray = uniqueVars.map((v, i) => {
+      if (Array.isArray(providedSamples) && providedSamples[i] && String(providedSamples[i]).trim() !== '') {
+        return String(providedSamples[i]).trim();
+      }
+      if (typeof providedSamples === 'object' && providedSamples[v] && String(providedSamples[v]).trim() !== '') {
+        return String(providedSamples[v]).trim();
+      }
+      return i === 0 ? 'Customer' : 'Sample Details';
+    });
+    bodyComp.example = {
+      body_text: [sampleArray],
+    };
+  }
+  components.push(bodyComp);
 
   if (templateData.footer_text) {
     components.push({

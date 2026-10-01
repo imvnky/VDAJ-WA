@@ -187,13 +187,27 @@ const processMessage = async (msg, jobData) => {
       throw new AppError(`Invalid phone: ${msg.phone_e164}`, 400, 'ERR_VDAJ_VAL_002');
     }
 
+    // Safely resolve dynamic contact variables and fallback defaults
+    const resolvedVars = { ...(msg.template_vars || {}) };
+    const recipientName = (resolvedVars.contact_name || resolvedVars.first_name || resolvedVars.name || '').trim();
+
+    if (resolvedVars['1'] === '{{name}}' || resolvedVars['1'] === '{{contact_name}}' || resolvedVars['1'] === '{{first_name}}') {
+      resolvedVars['1'] = recipientName || resolvedVars['1_fallback'] || 'Customer';
+    } else if (resolvedVars['1'] == null || String(resolvedVars['1']).trim() === '') {
+      resolvedVars['1'] = recipientName || resolvedVars['1_fallback'] || 'Customer';
+    }
+
+    if (resolvedVars['2'] === '{{phone}}') {
+      resolvedVars['2'] = msg.phone_e164;
+    }
+
     const metaResponse = await sendWhatsAppMessage({
       phoneNumberId,
       accessToken: metaSystemToken,
       to: msg.phone_e164,
       templateName,
       templateLanguage,
-      templateVars: msg.template_vars || {},
+      templateVars: resolvedVars,
     });
 
     // Update message status to 'sent'

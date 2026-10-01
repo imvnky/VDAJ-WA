@@ -162,27 +162,47 @@ function ServiceWindowBanner({ lastInboundAt }) {
 }
 
 // ── Template Picker Modal ─────────────────────────────────────
-function TemplatePicker({ templates, onSend, onClose }) {
+function TemplatePicker({ templates, activeContact, onSend, onClose }) {
   const [selected,  setSelected]  = useState(null);
   const [variables, setVariables] = useState({});
   const [sending,   setSending]   = useState(false);
+
+  const contactName = (activeContact?.display_name || activeContact?.first_name || activeContact?.contact_name || '').trim();
 
   const extractVars = (body = '') => {
     const matches = [...body.matchAll(/\{\{(\d+)\}\}/g)];
     return [...new Set(matches.map((m) => m[1]))].sort((a, b) => +a - +b);
   };
 
-  const varKeys  = selected ? extractVars(selected.body_text) : [];
-  const buildBody = () => {
+  const varKeys = selected ? extractVars(selected.body_text) : [];
+  const buildBody = (vars = variables) => {
     if (!selected) return '';
-    return selected.body_text.replace(/\{\{(\d+)\}\}/g, (_, n) => variables[n] || `{{${n}}}`);
+    return selected.body_text.replace(/\{\{(\d+)\}\}/g, (_, n) => {
+      const val = vars[n] || (n === '1' ? (contactName || 'Customer') : `{{${n}}}`);
+      return val;
+    });
+  };
+
+  const handleSelectTemplate = (t) => {
+    setSelected(t);
+    const initialVars = {};
+    if (contactName) {
+      initialVars['1'] = contactName;
+    }
+    setVariables(initialVars);
   };
 
   const handleSend = async () => {
     if (!selected) return;
     setSending(true);
     try {
-      await onSend(selected, buildBody(), variables);
+      const safeVars = { ...variables };
+      varKeys.forEach((k, idx) => {
+        if (!safeVars[k] || safeVars[k].trim() === '') {
+          safeVars[k] = idx === 0 ? (contactName || 'Customer') : '-';
+        }
+      });
+      await onSend(selected, buildBody(safeVars), safeVars);
       onClose();
     } catch {} finally {
       setSending(false);
@@ -222,7 +242,7 @@ function TemplatePicker({ templates, onSend, onClose }) {
             <>
               <div className="space-y-2">
                 {approved.map((t) => (
-                  <button key={t.id} onClick={() => { setSelected(t); setVariables({}); }}
+                  <button key={t.id} onClick={() => handleSelectTemplate(t)}
                     className="w-full text-left px-4 py-3 rounded-xl border transition-all"
                     style={{
                       background: selected?.id === t.id ? 'rgba(83,74,183,0.08)' : 'var(--bg-elevated)',
@@ -246,7 +266,7 @@ function TemplatePicker({ templates, onSend, onClose }) {
                     <div key={k}>
                       <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--text-muted)' }}>{`{{${k}}}`}</label>
                       <input value={variables[k] || ''} onChange={(e) => setVariables((v) => ({ ...v, [k]: e.target.value }))}
-                        placeholder={`Value for {{${k}}}`}
+                        placeholder={k === '1' ? `Recipient Name (Default: ${contactName || 'Customer'})` : `Value for {{${k}}}`}
                         className="w-full h-9 rounded-xl px-3 text-sm outline-none"
                         style={{ background: 'var(--bg-elevated)', border: '1px solid var(--bg-border)', color: 'var(--text-primary)' }} />
                     </div>
@@ -1175,6 +1195,7 @@ export default function InboxPage() {
       {showPicker && (
         <TemplatePicker
           templates={templates}
+          activeContact={activeConv}
           onSend={sendTemplate}
           onClose={() => setShowPicker(false)}
         />

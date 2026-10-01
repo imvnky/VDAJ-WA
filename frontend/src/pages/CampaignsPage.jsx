@@ -43,8 +43,15 @@ function WhatsAppPreview({ template, variables = {}, headerMediaUrl = '' }) {
     }
     let body = template.body_text || template.body || '';
     Object.entries(variables).forEach(([key, val]) => {
+      if (key.endsWith('_fallback')) return;
       const regex = new RegExp(`\\{\\{${key}\\}\\}`, 'g');
-      body = body.replace(regex, val?.trim() ? `*${val.trim()}*` : `{{${key}}}`);
+      let displayVal = val != null ? String(val).trim() : '';
+      if (displayVal === '{{name}}' || displayVal === '{{contact_name}}' || displayVal === '{{first_name}}') {
+        displayVal = 'John Doe';
+      } else if (displayVal === '{{phone}}') {
+        displayVal = '+91 80077 73138';
+      }
+      body = body.replace(regex, displayVal ? `*${displayVal}*` : `{{${key}}}`);
     });
     return body;
   };
@@ -174,6 +181,52 @@ function ComposerModal({ onClose, onCreated, contactLists, templates }) {
     return unique;
   }, [selectedTemplate]);
 
+  const [varSources, setVarSources] = useState({});
+  const [fallbacks, setFallbacks] = useState({});
+
+  // Auto-initialize variable sources and defaults whenever a template with variables is chosen
+  useEffect(() => {
+    if (detectedVariables.length > 0) {
+      setVarSources((prevSources) => {
+        const nextSources = { ...prevSources };
+        const nextFallbacks = { ...fallbacks };
+        const nextVars = { ...form.variables };
+
+        detectedVariables.forEach((vKey, idx) => {
+          if (!nextSources[vKey]) {
+            nextSources[vKey] = idx === 0 ? 'contact_name' : 'custom';
+          }
+          if (!nextFallbacks[vKey]) {
+            nextFallbacks[vKey] = idx === 0 ? 'Customer' : '-';
+          }
+          if (!nextVars[vKey]) {
+            nextVars[vKey] = nextSources[vKey] === 'contact_name' ? '{{name}}' : '';
+          }
+        });
+
+        setFallbacks(nextFallbacks);
+        setForm((f) => ({ ...f, variables: nextVars }));
+        return nextSources;
+      });
+    }
+  }, [detectedVariables]);
+
+  const handleSourceChange = (vKey, source) => {
+    setVarSources((prev) => ({ ...prev, [vKey]: source }));
+    if (source === 'contact_name') {
+      handleVariableChange(vKey, '{{name}}');
+      if (!fallbacks[vKey]) setFallbacks((prev) => ({ ...prev, [vKey]: 'Customer' }));
+    } else if (source === 'contact_phone') {
+      handleVariableChange(vKey, '{{phone}}');
+    } else {
+      handleVariableChange(vKey, '');
+    }
+  };
+
+  const handleFallbackChange = (vKey, val) => {
+    setFallbacks((prev) => ({ ...prev, [vKey]: val }));
+  };
+
   const handleVariableChange = (varKey, val) => {
     setForm((f) => ({
       ...f,
@@ -198,6 +251,16 @@ function ComposerModal({ onClose, onCreated, contactLists, templates }) {
     setLoading(true);
     try {
       const campaignVariables = { ...form.variables };
+      // Ensure every detected template variable has a valid mapping and fallback
+      detectedVariables.forEach((vKey, idx) => {
+        const fallback = (fallbacks[vKey] || (idx === 0 ? 'Customer' : '-')).trim();
+        const currentVal = (campaignVariables[vKey] || '').trim();
+        if (!currentVal) {
+          campaignVariables[vKey] = fallback;
+        }
+        campaignVariables[`${vKey}_fallback`] = fallback;
+      });
+
       if (headerMediaUrl) {
         campaignVariables.headerUrl = headerMediaUrl;
         campaignVariables.imageUrl = headerMediaUrl;
@@ -393,30 +456,101 @@ function ComposerModal({ onClose, onCreated, contactLists, templates }) {
                 </div>
               )}
 
-              {/* Dynamic Variable Inputs */}
+              {/* Dynamic Variable Configuration & Fallback Mapping */}
               {detectedVariables.length > 0 && (
-                <div className="mt-3 pt-3 border-t border-[#E2E8F0] space-y-3">
-                  <label className="text-xs font-bold text-[#0F172A]">
-                    Template Variables ({detectedVariables.length})
-                  </label>
-                  <p className="text-[11px] text-[#64748B]">
-                    Provide fallback default values. Contacts with custom attributes will use their personalized values.
-                  </p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {detectedVariables.map((vKey) => (
-                      <div key={vKey}>
-                        <label className="block text-[11px] font-medium text-[#475569] mb-1">
-                          Variable {vKey} ({`{{${vKey}}}`})
-                        </label>
-                        <input
-                          type="text"
-                          placeholder={`Enter value for variable ${vKey}`}
-                          value={form.variables[vKey] || ''}
-                          onChange={(e) => handleVariableChange(vKey, e.target.value)}
-                          className="w-full px-3 py-2 text-xs bg-[#FFFFFF] border border-[#CBD5E1] rounded-lg text-[#0F172A] placeholder-[#94A3B8] focus:border-[#534AB7] focus:outline-none"
-                        />
-                      </div>
-                    ))}
+                <div className="mt-4 pt-4 border-t border-[#E2E8F0] space-y-3.5">
+                  <div>
+                    <h4 className="text-xs font-bold text-[#0F172A] uppercase tracking-wider flex items-center gap-1.5">
+                      <span>Variable Mapping & Fallbacks</span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#EDE9FE] text-[#534AB7]">
+                        {detectedVariables.length} variable{detectedVariables.length > 1 ? 's' : ''} detected
+                      </span>
+                    </h4>
+                    <p className="text-[11px] text-[#64748B] mt-0.5">
+                      Select a contact attribute or enter custom text. If a contact has missing data, the fallback is delivered automatically.
+                    </p>
+                  </div>
+
+                  <div className="space-y-3">
+                    {detectedVariables.map((vKey, idx) => {
+                      const source = varSources[vKey] || (idx === 0 ? 'contact_name' : 'custom');
+                      const fallback = fallbacks[vKey] || (idx === 0 ? 'Customer' : '-');
+                      return (
+                        <div key={vKey} className="p-3 bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl space-y-2.5">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold font-mono text-[#534AB7] bg-white px-2 py-0.5 rounded border border-[#CBD5E1]">
+                              {`{{${vKey}}}`}
+                            </span>
+                            <span className="text-[10px] text-[#64748B] font-semibold">
+                              Meta Parameter #{idx + 1}
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                            {/* Source Selection */}
+                            <div>
+                              <label className="block text-[11px] font-medium text-[#475569] mb-1">
+                                Value Source:
+                              </label>
+                              <select
+                                value={source}
+                                onChange={(e) => handleSourceChange(vKey, e.target.value)}
+                                className="w-full px-2.5 py-1.5 text-xs bg-[#FFFFFF] border border-[#CBD5E1] rounded-lg text-[#0F172A] focus:border-[#534AB7] focus:outline-none"
+                              >
+                                <option value="contact_name">👤 Contact Name (Personalized)</option>
+                                <option value="contact_phone">📱 Recipient Phone Number</option>
+                                <option value="custom">✍️ Static Custom Text</option>
+                              </select>
+                            </div>
+
+                            {/* Fallback / Custom Value Input */}
+                            <div>
+                              {source === 'contact_name' ? (
+                                <>
+                                  <label className="block text-[11px] font-medium text-[#475569] mb-1">
+                                    Default Fallback <span className="text-gray-400 font-normal">(if name is blank)</span>:
+                                  </label>
+                                  <input
+                                    type="text"
+                                    placeholder="e.g. Customer"
+                                    value={fallback}
+                                    onChange={(e) => handleFallbackChange(vKey, e.target.value)}
+                                    className="w-full px-2.5 py-1.5 text-xs bg-[#FFFFFF] border border-[#CBD5E1] rounded-lg text-[#0F172A] placeholder-[#94A3B8] focus:border-[#534AB7] focus:outline-none"
+                                  />
+                                </>
+                              ) : source === 'contact_phone' ? (
+                                <>
+                                  <label className="block text-[11px] font-medium text-[#475569] mb-1">
+                                    Recipient Value:
+                                  </label>
+                                  <div className="px-2.5 py-1.5 text-xs bg-[#F1F5F9] border border-[#CBD5E1] rounded-lg text-[#475569] font-mono truncate">
+                                    +91XXXXXXXXXX (From Contact)
+                                  </div>
+                                </>
+                              ) : (
+                                <>
+                                  <label className="block text-[11px] font-medium text-[#475569] mb-1">
+                                    Custom Text to Send:
+                                  </label>
+                                  <input
+                                    type="text"
+                                    placeholder={`Enter text for {{${vKey}}}`}
+                                    value={form.variables[vKey] || ''}
+                                    onChange={(e) => handleVariableChange(vKey, e.target.value)}
+                                    className="w-full px-2.5 py-1.5 text-xs bg-[#FFFFFF] border border-[#CBD5E1] rounded-lg text-[#0F172A] placeholder-[#94A3B8] focus:border-[#534AB7] focus:outline-none"
+                                  />
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="p-2.5 rounded-lg bg-[#E6F7F1] border border-[#A7F3D0] text-[11px] text-[#065F46] flex items-center gap-2">
+                    <span>✓</span>
+                    <span><strong>Meta Cloud API Protection:</strong> If a contact has empty data, the fallback is delivered automatically to guarantee 0% message drops.</span>
                   </div>
                 </div>
               )}

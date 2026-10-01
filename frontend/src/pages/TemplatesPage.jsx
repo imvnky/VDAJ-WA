@@ -206,6 +206,7 @@ function CreateTemplateModal({ onClose, onCreated, prefill = null }) {
   });
   const [uploadingMedia, setUploadingMedia] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [sampleValues, setSampleValues] = useState({});
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
@@ -284,6 +285,7 @@ function CreateTemplateModal({ onClose, onCreated, prefill = null }) {
         headerSampleUrl: form.headerSampleUrl || null,
         footerText: form.footerText || null,
         buttons: form.buttons.filter((b) => b.text.trim() !== ''),
+        bodySampleValues: sampleValues,
       };
 
       const res = await templateApi.create(payload);
@@ -609,6 +611,39 @@ function CreateTemplateModal({ onClose, onCreated, prefill = null }) {
                 </span>
                 <span>{form.bodyText.length} / 1024</span>
               </div>
+
+              {detectedVars.length > 0 && (
+                <div className="p-3 bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl space-y-2.5">
+                  <div>
+                    <h4 className="text-xs font-bold text-[#0F172A] flex items-center gap-1.5">
+                      <span>⚡ Variable Sample Values</span>
+                      <span className="text-[10px] font-normal text-[#64748B]">(Meta Review Mandate)</span>
+                    </h4>
+                    <p className="text-[11px] text-[#64748B]">
+                      Meta requires sample preview content for each variable to approve your template.
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {detectedVars.map((vKey, idx) => (
+                      <div key={vKey}>
+                        <label className="block text-[11px] font-semibold text-[#475569] mb-1">
+                          Sample for {`{{${vKey}}}`}
+                        </label>
+                        <input
+                          type="text"
+                          placeholder={idx === 0 ? "e.g. John" : "e.g. 10:30 AM / ₹499"}
+                          value={sampleValues[vKey] || ''}
+                          onChange={(e) => setSampleValues((prev) => ({ ...prev, [vKey]: e.target.value }))}
+                          className="w-full px-2.5 py-1.5 text-xs bg-[#FFFFFF] border border-[#CBD5E1] rounded-lg text-[#0F172A] placeholder-[#94A3B8] focus:border-[#534AB7] focus:outline-none"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-[#065F46] font-medium">
+                    ✓ If left blank, standard defaults (&quot;Customer&quot;, &quot;Sample Details&quot;) will be automatically submitted to prevent rejection.
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* ── FOOTER SECTION ── */}
