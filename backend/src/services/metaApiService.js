@@ -425,14 +425,17 @@ const syncMetaTemplateStatus = async (wabaId, accessToken, metaTemplateId) => {
  * @param {string} metaAppSecret
  * @returns {Promise<{accessToken: string, tokenType: string}>}
  */
-const exchangeEmbeddedSignupToken = async (code, metaAppId, metaAppSecret) => {
+const exchangeEmbeddedSignupToken = async (code, metaAppId, metaAppSecret, redirectUri = '') => {
   const tokenUrl = `${META_API_BASE}/${API_VERSION}/oauth/access_token`;
-  const params = new URLSearchParams({
+  const queryParams = {
     client_id:     metaAppId,
     client_secret: metaAppSecret,
     code,
-    redirect_uri: `${process.env.NGROK_URL || process.env.CORS_ORIGIN}/api/v1/auth/meta/callback`,
-  });
+  };
+  if (redirectUri) {
+    queryParams.redirect_uri = redirectUri;
+  }
+  const params = new URLSearchParams(queryParams);
 
   let tokenRes;
   try {

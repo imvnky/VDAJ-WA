@@ -18,7 +18,8 @@ import useAuthStore from '../store/authStore';
 import { showSuccess, showError } from '../components/atoms/Toast/Toast.jsx';
 import { PrimaryButton } from '../components/atoms/Button/Button.jsx';
 
-const META_APP_ID = import.meta.env.VITE_META_APP_ID;
+const META_APP_ID = import.meta.env.VITE_META_APP_ID || '1447754957201480';
+const META_CONFIG_ID = import.meta.env.VITE_META_CONFIG_ID || '1098672846294128';
 const SDK_VERSION = 'v21.0'; // Must match backend META_API_VERSION
 
 function StatusCard({ label, value, status, icon }) {
@@ -148,7 +149,7 @@ export default function MetaOnboardingPage() {
         setConnecting(false);
       },
       {
-        config_id:                      META_APP_ID,
+        config_id:                      META_CONFIG_ID,
         response_type:                  'code',
         override_default_response_type: true,
         extras: {
