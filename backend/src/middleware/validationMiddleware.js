@@ -71,7 +71,7 @@ const contactValidators = [
     .withMessage('ERR_VDAJ_VAL_002: Phone must be E.164 format.'),
   body('firstName').optional().trim().isLength({ max: 100 }).escape(),
   body('lastName').optional().trim().isLength({ max: 100 }).escape(),
-  body('email').optional().trim().isEmail().normalizeEmail(),
+  body('email').optional({ checkFalsy: true }).trim().isEmail().normalizeEmail(),
 ];
 
 module.exports = {

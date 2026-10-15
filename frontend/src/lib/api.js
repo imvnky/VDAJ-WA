@@ -138,6 +138,9 @@ export const contactApi = {
   updateTags: (id, tags) => client.patch(`/contacts/${id}/tags`, { tags }),
   optOut: (id) => client.patch(`/contacts/${id}/opt-out`),
   toggleStatus: (id, status) => client.patch(`/contacts/${id}/status`, { status }),
+  update: (id, data) => client.put(`/contacts/${id}`, data),
+  delete: (id) => client.delete(`/contacts/${id}`),
+  tags: (config = {}) => client.get('/contacts/tags', config),
   lists: (config = {}) => client.get('/contacts/lists', config),
   createList: (data) => client.post('/contacts/lists', data),
 };

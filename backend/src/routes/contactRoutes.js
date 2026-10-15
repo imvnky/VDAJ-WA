@@ -18,7 +18,7 @@ router.use(authenticate);
 
 // ── GET /contacts ─────────────────────────────────────────────
 router.get('/', catchAsync(async (req, res) => {
-  const { page = 1, limit = 50, search, status, tag } = req.query;
+  const { page = 1, limit = 50, search, status, tag, listId } = req.query;
   const offset = (page - 1) * limit;
 
   let whereClause = 'WHERE c.tenant_id = $1';
@@ -41,6 +41,12 @@ router.get('/', catchAsync(async (req, res) => {
     params.push(tag);
     idx++;
   }
+  // Group / List filter
+  if (listId) {
+    whereClause += ` AND EXISTS (SELECT 1 FROM contact_list_members clm WHERE clm.contact_id = c.id AND clm.contact_list_id = $${idx})`;
+    params.push(listId);
+    idx++;
+  }
 
   const { rows } = await query(
     `SELECT c.*, COUNT(*) OVER() AS total_count
@@ -59,27 +65,106 @@ router.get('/', catchAsync(async (req, res) => {
   });
 }));
 
+// ── GET /contacts/tags — All distinct tags for tenant ─────────
+router.get('/tags', catchAsync(async (req, res) => {
+  const tenantId = req.user.tenantId || req.tenant?.id;
+  const { rows } = await query(
+    `SELECT DISTINCT UNNEST(tags) AS tag
+     FROM contacts
+     WHERE (tenant_id = $1 OR $2 = TRUE) AND tags IS NOT NULL AND array_length(tags, 1) > 0
+     ORDER BY tag ASC`,
+    [tenantId, req.user.role === 'super_admin']
+  );
+  return sendSuccess(res, rows.map((r) => r.tag).filter(Boolean), 'Tags fetched.');
+}));
+
 // ── POST /contacts — Single contact ───────────────────────────
 router.post('/', contactValidators, validate, catchAsync(async (req, res) => {
-  const { phoneE164, firstName, lastName, email, customVars } = req.body;
+  const {
+    phoneE164,
+    firstName,
+    lastName,
+    email,
+    customVars,
+    tags          = [],
+    listId,
+    opt_in_source = 'manual',
+    opt_in_proof,
+  } = req.body;
 
-  const { rows: [contact] } = await query(
-    `INSERT INTO contacts (tenant_id, phone_e164, first_name, last_name, email, custom_vars)
-     VALUES ($1, $2, $3, $4, $5, $6)
-     ON CONFLICT (tenant_id, phone_e164) DO NOTHING
-     RETURNING *`,
-    [
-      req.user.tenantId,
-      phoneE164,
-      firstName || null,
-      lastName || null,
-      email || null,
-      JSON.stringify(customVars || {}),
-    ]
-  );
+  let tenantId = req.user.tenantId || req.tenant?.id;
+  if (!tenantId) {
+    const { rows: [firstTenant] } = await query(
+      `SELECT id FROM tenants WHERE deleted_at IS NULL ORDER BY created_at ASC LIMIT 1`
+    );
+    tenantId = firstTenant?.id;
+  }
+  if (!tenantId) {
+    throw new AppError('Tenant workspace could not be identified.', 400, 'ERR_VDAJ_TENANT_001');
+  }
 
-  if (!contact) throw new AppError('Contact already exists.', 409, 'ERR_VDAJ_CONT_003');
-  return sendCreated(res, contact, 'Contact created.');
+  // Parse tags array
+  const cleanTags = Array.isArray(tags)
+    ? tags.map((t) => String(t).trim().toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 30)).filter(Boolean)
+    : String(tags || '').split(',').map((t) => t.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 30)).filter(Boolean);
+
+  const proof = opt_in_proof?.trim() || `Manual entry by user ${req.user.id || req.user.email || 'portal'} on ${new Date().toISOString().slice(0, 10)}`;
+
+  let createdContact = null;
+
+  await withTransaction(async (client) => {
+    // Ensure tags column exists (idempotent)
+    await client.query(`ALTER TABLE contacts ADD COLUMN IF NOT EXISTS tags TEXT[] DEFAULT '{}'`);
+
+    const { rows: [contact] } = await client.query(
+      `INSERT INTO contacts
+         (tenant_id, phone_e164, first_name, last_name, email, custom_vars, tags, opted_in_at, opt_in_source, opt_in_proof)
+       VALUES
+         ($1, $2, $3, $4, $5, $6, $7, NOW(), $8, $9)
+       ON CONFLICT (tenant_id, phone_e164) DO NOTHING
+       RETURNING *`,
+      [
+        tenantId,
+        phoneE164,
+        firstName?.trim() || null,
+        lastName?.trim() || null,
+        email?.trim() || null,
+        JSON.stringify(customVars || {}),
+        cleanTags,
+        opt_in_source,
+        proof,
+      ]
+    );
+
+    if (!contact) {
+      throw new AppError('A contact with this phone number already exists in your workspace.', 409, 'ERR_VDAJ_CONT_003');
+    }
+
+    createdContact = contact;
+
+    // Attach to list / group if provided
+    if (listId) {
+      await client.query(
+        `INSERT INTO contact_list_members (contact_list_id, contact_id)
+         VALUES ($1, $2)
+         ON CONFLICT DO NOTHING`,
+        [listId, contact.id]
+      );
+    }
+
+    // Insert audit record into opt_in_events safely
+    try {
+      await client.query(
+        `INSERT INTO opt_in_events (tenant_id, contact_id, phone_e164, source, proof, ip_address)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [tenantId, contact.id, contact.phone_e164, opt_in_source, proof, req.ip || null]
+      );
+    } catch (e) {
+      // safe fallback
+    }
+  });
+
+  return sendCreated(res, createdContact, 'Contact created.');
 }));
 
 // ── POST /contacts/bulk — CSV batch upsert ────────────────────
@@ -336,11 +421,16 @@ router.post('/bulk', catchAsync(async (req, res) => {
 
 // ── GET /contacts/lists ────────────────────────────────────────
 router.get('/lists', catchAsync(async (req, res) => {
+  const tenantId = req.user.tenantId || req.tenant?.id;
   const { rows } = await query(
-    `SELECT * FROM contact_lists
-     WHERE tenant_id = $1 AND deleted_at IS NULL
-     ORDER BY created_at DESC`,
-    [req.user.tenantId]
+    `SELECT cl.*,
+            COALESCE(COUNT(clm.contact_id)::int, cl.contact_count, 0) AS contact_count
+     FROM contact_lists cl
+     LEFT JOIN contact_list_members clm ON clm.contact_list_id = cl.id
+     WHERE (cl.tenant_id = $1 OR $2 = TRUE) AND cl.deleted_at IS NULL
+     GROUP BY cl.id
+     ORDER BY cl.created_at DESC`,
+    [tenantId, req.user.role === 'super_admin']
   );
   return sendSuccess(res, rows, 'Contact lists fetched.');
 }));
@@ -527,6 +617,74 @@ router.patch('/:id/opt-out', uuidParamValidator('id'), validate, catchAsync(asyn
   );
   if (!contact) throw new AppError('Contact not found.', 404, 'ERR_VDAJ_CONT_001');
   return sendSuccess(res, contact, 'Contact opted out.');
+}));
+
+// ── PUT /contacts/:id — Update single contact ─────────────────
+router.put('/:id', uuidParamValidator('id'), validate, catchAsync(async (req, res) => {
+  const { firstName, lastName, email, customVars, tags, listId } = req.body;
+  const tenantId = req.user.tenantId || req.tenant?.id;
+
+  let cleanTags = undefined;
+  if (tags !== undefined) {
+    cleanTags = Array.isArray(tags)
+      ? tags.map((t) => String(t).trim().toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 30)).filter(Boolean)
+      : String(tags || '').split(',').map((t) => t.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 30)).filter(Boolean);
+  }
+
+  let updatedContact = null;
+  await withTransaction(async (client) => {
+    const { rows: [contact] } = await client.query(
+      `UPDATE contacts
+       SET first_name  = CASE WHEN $1::text IS NOT NULL THEN $1::text ELSE first_name END,
+           last_name   = CASE WHEN $2::text IS NOT NULL THEN $2::text ELSE last_name END,
+           email       = CASE WHEN $3::text IS NOT NULL THEN $3::text ELSE email END,
+           custom_vars = CASE WHEN $4::text IS NOT NULL THEN $4::jsonb ELSE custom_vars END,
+           tags        = CASE WHEN $5::text[] IS NOT NULL THEN $5::text[] ELSE tags END,
+           updated_at  = NOW()
+       WHERE id = $6 AND (tenant_id = $7 OR $8 = TRUE)
+       RETURNING *`,
+      [
+        firstName !== undefined ? (firstName?.trim() || null) : null,
+        lastName !== undefined ? (lastName?.trim() || null) : null,
+        email !== undefined ? (email?.trim() || null) : null,
+        customVars ? JSON.stringify(customVars) : null,
+        cleanTags !== undefined ? cleanTags : null,
+        req.params.id,
+        tenantId,
+        req.user.role === 'super_admin',
+      ]
+    );
+
+    if (!contact) throw new AppError('Contact not found.', 404, 'ERR_VDAJ_CONT_001');
+
+    if (listId) {
+      await client.query(
+        `INSERT INTO contact_list_members (contact_list_id, contact_id)
+         VALUES ($1, $2)
+         ON CONFLICT DO NOTHING`,
+        [listId, contact.id]
+      );
+    }
+
+    updatedContact = contact;
+  });
+
+  return sendSuccess(res, updatedContact, 'Contact updated.');
+}));
+
+// ── DELETE /contacts/:id — Delete single contact ──────────────
+router.delete('/:id', uuidParamValidator('id'), validate, catchAsync(async (req, res) => {
+  const tenantId = req.user.tenantId || req.tenant?.id;
+
+  const { rows: [deleted] } = await query(
+    `DELETE FROM contacts
+     WHERE id = $1 AND (tenant_id = $2 OR $3 = TRUE)
+     RETURNING id, phone_e164`,
+    [req.params.id, tenantId, req.user.role === 'super_admin']
+  );
+
+  if (!deleted) throw new AppError('Contact not found.', 404, 'ERR_VDAJ_CONT_001');
+  return sendSuccess(res, { id: deleted.id }, 'Contact deleted.');
 }));
 
 module.exports = router;
