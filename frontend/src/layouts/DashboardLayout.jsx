@@ -17,6 +17,7 @@ import Logo from '../components/atoms/Logo.jsx';
 import NotificationBell, { useNotificationWS } from '../components/NotificationBell.jsx';
 import UpdateBanner from '../components/organisms/UpdateBanner.jsx';
 import ImpersonationBanner from '../components/ImpersonationBanner.jsx';
+import WorkspaceSwitcher from '../components/organisms/WorkspaceSwitcher.jsx';
 
 const NAV_ITEMS = [
   {
@@ -47,23 +48,31 @@ const NAV_ITEMS = [
     ],
   },
   {
-    section: 'Administration',
+    section: 'Platform Governance',
     role: ['super_admin'],  // entire section is super_admin only
     items: [
       { to: '/admin/tenants',  label: 'Clients',         icon: <ClientsIcon /> },
-      { to: '/admin/users',    label: 'Users',           icon: <UsersIcon /> },
+      { to: '/admin/users',    label: 'Platform Users',  icon: <UsersIcon /> },
       { to: '/admin/queue',    label: 'Queue Monitor',   icon: <QueueIcon /> },
+      { to: '/activity',       label: 'Audit Trail',     icon: <AuditIcon /> },
     ],
   },
 ];
 
 // ─── Main Layout ───────────────────────────────────────────────
 export default function DashboardLayout() {
-  const { user, tenant, clearAuth } = useAuthStore();
+  const { user, tenant, isImpersonating, clearAuth } = useAuthStore();
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const isInbox = location.pathname.startsWith('/inbox');
+
+  // If Super Admin is in Platform Mode and hits /dashboard, direct them to /admin/tenants
+  useEffect(() => {
+    if (user?.role === 'super_admin' && !isImpersonating && location.pathname === '/dashboard') {
+      navigate('/admin/tenants', { replace: true });
+    }
+  }, [user, isImpersonating, location.pathname, navigate]);
 
   const handleLogout = async () => {
     try { await authApi.logout(); } catch {}
@@ -116,6 +125,16 @@ export default function DashboardLayout() {
         {/* Nav */}
         <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-5 no-scrollbar">
           {NAV_ITEMS.map((section) => {
+            const isPlatformMode = user?.role === 'super_admin' && !isImpersonating;
+
+            // In Platform Mode, only show Platform Governance
+            if (isPlatformMode) {
+              if (section.section !== 'Platform Governance') return null;
+            } else {
+              // In Client Workspace Mode (or regular tenant user), hide Platform Governance
+              if (section.section === 'Platform Governance') return null;
+            }
+
             if (section.role && !section.role.includes(user?.role)) return null;
             const enabledFeats = tenant?.enabledFeatures || null;
             const visibleItems = section.items.filter((item) => {
@@ -212,12 +231,15 @@ export default function DashboardLayout() {
       {/* ── MAIN CONTENT ── */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Topbar */}
-        <header className="flex items-center gap-4 px-4 sm:px-6 h-16 shrink-0 z-20" style={topbarStyle}>
+        <header className="flex items-center gap-3 sm:gap-4 px-4 sm:px-6 h-16 shrink-0 z-20" style={topbarStyle}>
           <button className="lg:hidden text-[#5A5A6E] hover:text-[#0F0F0F]" onClick={() => setMobileOpen(true)}>
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
+
+          {/* Workspace Switcher */}
+          <WorkspaceSwitcher />
 
           <div className="flex-1" />
 
@@ -227,7 +249,7 @@ export default function DashboardLayout() {
           <span className="hidden sm:flex items-center gap-1.5 h-7 px-3 rounded-full text-2xs font-semibold"
             style={{ background: '#E8F9F4', color: '#148059', border: '1px solid #A3E4D0' }}>
             <span className="w-1.5 h-1.5 rounded-full bg-[#1D9E75] animate-pulse" />
-            {user?.role === 'super_admin' ? 'Enterprise Active' : (tenant?.status === 'active' ? 'Active' : 'Live')}
+            {user?.role === 'super_admin' && !isImpersonating ? 'Platform Owner' : (tenant?.status === 'active' ? 'Active' : 'Live')}
           </span>
         </header>
 

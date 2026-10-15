@@ -46,7 +46,11 @@ export default function LoginPage() {
       const res = await authApi.login(form.email, form.password);
       setAuth(res.data.user, res.data.tenant || null, res.data.token);
       showSuccess('Welcome back!');
-      navigate('/dashboard');
+      if (res.data.user?.role === 'super_admin') {
+        navigate('/admin/tenants');
+      } else {
+        navigate('/dashboard');
+      }
     } catch {
       // Toast fired by the Axios interceptor
     } finally {

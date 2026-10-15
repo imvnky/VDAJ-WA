@@ -115,9 +115,13 @@ function RequireRole({ roles }) {
 
 // ── Root Redirect ─────────────────────────────────────────────
 function RootRedirect() {
-  const { isAuthenticated, isLoading } = useAuthStore();
+  const { isAuthenticated, isLoading, user, isImpersonating } = useAuthStore();
   if (isLoading) return <FullPageLoader />;
-  return isAuthenticated ? <Navigate to="/dashboard" replace /> : <Navigate to="/login" replace />;
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  if (user?.role === 'super_admin' && !isImpersonating) {
+    return <Navigate to="/admin/tenants" replace />;
+  }
+  return <Navigate to="/dashboard" replace />;
 }
 
 // ── App ───────────────────────────────────────────────────────
