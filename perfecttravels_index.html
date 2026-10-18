@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Perfect Travels | Official Tour & Travel Portal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #059669;
+      --primary-dark: #047857;
+      --secondary: #0f172a;
+      --accent: #10b981;
+      --bg: #f8fafc;
+      --surface: #ffffff;
+      --text: #1e293b;
+      --muted: #64748b;
+      --border: #e2e8f0;
+      --radius: 14px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', sans-serif; }
+    body { background-color: var(--bg); color: var(--text); line-height: 1.6; }
+    header { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 50; }
+    .header-container { max-width: 1200px; margin: 0 auto; padding: 1rem 1.5rem; display: flex; justify-content: space-between; align-items: center; }
+    .brand { display: flex; align-items: center; gap: 0.75rem; text-decoration: none; color: var(--secondary); }
+    .brand-icon { width: 44px; height: 44px; background: linear-gradient(135deg, var(--primary), var(--accent)); border-radius: 12px; display: grid; place-items: center; color: white; font-weight: 800; font-size: 1.25rem; }
+    .brand-title { font-size: 1.125rem; font-weight: 700; line-height: 1.2; }
+    .brand-sub { font-size: 0.75rem; color: var(--muted); font-weight: 500; text-transform: uppercase; }
+    .hero { background: linear-gradient(180deg, #ecfdf5 0%, #ffffff 100%); padding: 5rem 1.5rem 3.5rem; text-align: center; border-bottom: 1px solid var(--border); }
+    .hero-container { max-width: 850px; margin: 0 auto; }
+    .badge { display: inline-flex; align-items: center; gap: 0.5rem; background: #d1fae5; color: #047857; padding: 0.4rem 1rem; border-radius: 9999px; font-size: 0.8125rem; font-weight: 600; margin-bottom: 1.5rem; border: 1px solid #a7f3d0; }
+    .hero h1 { font-size: 2.75rem; font-weight: 800; color: var(--secondary); margin-bottom: 1.25rem; }
+    .hero p { font-size: 1.125rem; color: var(--muted); margin-bottom: 2rem; max-width: 650px; margin-inline: auto; }
+    .features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.5rem; max-width: 1100px; margin: -2rem auto 4rem; padding: 0 1.5rem; }
+    .card { background: var(--surface); border-radius: var(--radius); padding: 2rem; border: 1px solid var(--border); box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.04); }
+    .card-icon { font-size: 2rem; margin-bottom: 1rem; }
+    .card h3 { font-size: 1.2rem; font-weight: 700; color: var(--secondary); margin-bottom: 0.5rem; }
+    .card p { color: var(--muted); font-size: 0.925rem; }
+    .legal-box { max-width: 1100px; margin: 0 auto 5rem; padding: 0 1.5rem; }
+    .legal-content { background: white; border-left: 5px solid var(--primary); border-radius: var(--radius); padding: 2.5rem; box-shadow: 0 4px 15px rgba(0,0,0,0.03); }
+    .legal-content h2 { font-size: 1.35rem; font-weight: 700; color: var(--secondary); margin-bottom: 1.5rem; }
+    .info-table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+    .info-table td { padding: 0.85rem 0.5rem; border-bottom: 1px solid #f1f5f9; font-size: 0.95rem; }
+    .info-table td:first-child { font-weight: 600; color: var(--muted); width: 32%; }
+    .info-table td:last-child { color: var(--secondary); font-weight: 500; }
+    footer { background: var(--secondary); color: #94a3b8; padding: 3rem 1.5rem; font-size: 0.875rem; text-align: center; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-container">
+      <div class="brand">
+        <div class="brand-icon">PT</div>
+        <div>
+          <div class="brand-title">Perfect travels</div>
+          <div class="brand-sub">Vasai Virar, Maharashtra</div>
+        </div>
+      </div>
+      <div><a href="tel:+919763321210" style="text-decoration:none; color:var(--primary); font-weight:700;">📞 +91 9763321210</a></div>
+    </div>
+  </header>
+
+  <section class="hero">
+    <div class="hero-container">
+      <div class="badge">Official Registered Enterprise</div>
+      <h1>Reliable Tours & Travel Services</h1>
+      <p>Providing premium passenger transport, holiday tours, cab services, and corporate travel solutions across Maharashtra and India.</p>
+    </div>
+  </section>
+
+  <div class="features-grid">
+    <div class="card"><div class="card-icon">🚖</div><h3>Outstation & Local Cabs</h3><p>Comfortable, sanitized, and punctual vehicles with experienced chauffeurs for safe travels.</p></div>
+    <div class="card"><div class="card-icon">✈️</div><h3>Custom Tour Packages</h3><p>Tailored vacation packages, pilgrimage journeys, and family holiday itineraries across India.</p></div>
+    <div class="card"><div class="card-icon">📜</div><h3>GST Registered</h3><p>Fully compliant registered commercial passenger transport service with verified credentials.</p></div>
+  </div>
+
+  <section class="legal-box">
+    <div class="legal-content">
+      <h2>🏛️ Legal Entity & GST Registration Details</h2>
+      <table class="info-table">
+        <tr><td>Trade Name</td><td><strong>Perfect travels</strong></td></tr>
+        <tr><td>Legal Name (Proprietor)</td><td>Harinarayan Dhanraj Harkut</td></tr>
+        <tr><td>Constitution of Business</td><td>Proprietorship</td></tr>
+        <tr><td>GST Registration Number (GSTIN)</td><td><span style="background:#d1fae5; padding:2px 8px; border-radius:4px; font-weight:600; color:#047857;">27ANIPH5248J2ZP</span></td></tr>
+        <tr><td>Principal Place of Business</td><td>Building No./Flat No.: 3, C2/812, Zeal Regency CHS Ltd, Chikhaldongri Road, near by HDIL layout, Virar West, Vasai Virar, Palghar, Maharashtra - 401303</td></tr>
+        <tr><td>Official Phone Number</td><td>+91 9763321210</td></tr>
+        <tr><td>Registration Type</td><td>Regular (Form GST REG-06)</td></tr>
+        <tr><td>Date of Issue</td><td>23/05/2026</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <footer>
+    <p>© 2026 <strong>Perfect travels</strong>. All rights reserved.</p>
+    <p style="margin-top: 0.5rem; font-size: 0.8rem; color: #64748b;">Virar West, Vasai Virar, Maharashtra 401303 | Tel: +91 9763321210</p>
+  </footer>
+</body>
+</html>
