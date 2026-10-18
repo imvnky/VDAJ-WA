@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>S M R Swimming Pool and Health Club | Official Portal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #0284c7;
+      --primary-dark: #0369a1;
+      --secondary: #0f172a;
+      --accent: #38bdf8;
+      --bg: #f8fafc;
+      --surface: #ffffff;
+      --text: #1e293b;
+      --muted: #64748b;
+      --border: #e2e8f0;
+      --radius: 14px;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+    header {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+    .header-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 1rem 1.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      text-decoration: none;
+      color: var(--secondary);
+    }
+    .brand-icon {
+      width: 44px;
+      height: 44px;
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      border-radius: 12px;
+      display: grid;
+      place-items: center;
+      color: white;
+      font-weight: 800;
+      font-size: 1.25rem;
+      box-shadow: 0 4px 12px rgba(2, 132, 199, 0.25);
+    }
+    .brand-title {
+      font-size: 1.125rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      line-height: 1.2;
+    }
+    .brand-sub {
+      font-size: 0.75rem;
+      color: var(--muted);
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .hero {
+      background: linear-gradient(180deg, #f0f9ff 0%, #ffffff 100%);
+      padding: 5rem 1.5rem 3.5rem;
+      text-align: center;
+      border-bottom: 1px solid var(--border);
+    }
+    .hero-container {
+      max-width: 850px;
+      margin: 0 auto;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: #e0f2fe;
+      color: #0369a1;
+      padding: 0.4rem 1rem;
+      border-radius: 9999px;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      margin-bottom: 1.5rem;
+      border: 1px solid #bae6fd;
+    }
+    .badge::before {
+      content: '';
+      width: 8px;
+      height: 8px;
+      background: #0284c7;
+      border-radius: 50%;
+      box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.2);
+    }
+    .hero h1 {
+      font-size: 2.75rem;
+      font-weight: 800;
+      color: var(--secondary);
+      line-height: 1.2;
+      margin-bottom: 1.25rem;
+      letter-spacing: -0.03em;
+    }
+    .hero p {
+      font-size: 1.125rem;
+      color: var(--muted);
+      margin-bottom: 2rem;
+      max-width: 650px;
+      margin-inline: auto;
+    }
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 1.5rem;
+      max-width: 1100px;
+      margin: -2rem auto 4rem;
+      padding: 0 1.5rem;
+      position: relative;
+      z-index: 10;
+    }
+    .card {
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 2rem;
+      border: 1px solid var(--border);
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.04), 0 8px 10px -6px rgba(0, 0, 0, 0.02);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.06);
+    }
+    .card-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 10px;
+      background: #f0f9ff;
+      color: var(--primary);
+      display: grid;
+      place-items: center;
+      font-size: 1.5rem;
+      margin-bottom: 1.25rem;
+    }
+    .card h3 {
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: var(--secondary);
+      margin-bottom: 0.5rem;
+    }
+    .card p {
+      color: var(--muted);
+      font-size: 0.925rem;
+    }
+    .legal-box {
+      max-width: 1100px;
+      margin: 0 auto 5rem;
+      padding: 0 1.5rem;
+    }
+    .legal-content {
+      background: white;
+      border: 1px solid #e0e7ff;
+      border-left: 5px solid var(--primary);
+      border-radius: var(--radius);
+      padding: 2.5rem;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.03);
+    }
+    .legal-content h2 {
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: var(--secondary);
+      margin-bottom: 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .info-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1rem;
+    }
+    .info-table td {
+      padding: 0.85rem 0.5rem;
+      border-bottom: 1px solid #f1f5f9;
+      font-size: 0.95rem;
+    }
+    .info-table td:first-child {
+      font-weight: 600;
+      color: var(--muted);
+      width: 32%;
+    }
+    .info-table td:last-child {
+      color: var(--secondary);
+      font-weight: 500;
+    }
+    footer {
+      background: var(--secondary);
+      color: #94a3b8;
+      padding: 3rem 1.5rem;
+      font-size: 0.875rem;
+      text-align: center;
+      border-top: 1px solid #1e293b;
+    }
+    footer a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+    @media (max-width: 768px) {
+      .hero h1 { font-size: 2rem; }
+      .info-table td { display: block; width: 100% !important; padding: 0.4rem 0; }
+      .info-table tr { border-bottom: 1px solid #f1f5f9; display: block; padding: 0.5rem 0; }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="header-container">
+      <a href="/" class="brand">
+        <div class="brand-icon">SMR</div>
+        <div>
+          <div class="brand-title">S M R SWIMMING POOL AND HEALTH CLUB</div>
+          <div class="brand-sub">Latur, Maharashtra</div>
+        </div>
+      </a>
+      <div>
+        <a href="tel:+919028278751" style="text-decoration:none; color:var(--primary); font-weight:700; font-size:0.95rem;">
+          📞 +91 9028278751
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <section class="hero">
+    <div class="hero-container">
+      <div class="badge">Official Enterprise Portal</div>
+      <h1>Premier Swimming & Health Club in Latur</h1>
+      <p>Providing professional aquatic training, modern fitness infrastructure, and health wellness programs under the auspices of Shri Marwadi Rajasthan Shikshan Sanstha.</p>
+    </div>
+  </section>
+
+  <div class="features-grid">
+    <div class="card">
+      <div class="card-icon">🏊‍♂️</div>
+      <h3>Olympic-Standard Pool</h3>
+      <p>Clean, temperature-controlled, hygienic swimming facilities with certified life-guards and professional coaches for all age groups.</p>
+    </div>
+    <div class="card">
+      <div class="card-icon">🏋️‍♂️</div>
+      <h3>Health & Fitness Club</h3>
+      <p>Equipped with modern cardiovascular, strength, and conditioning fitness equipment tailored for overall physical well-being.</p>
+    </div>
+    <div class="card">
+      <div class="card-icon">📜</div>
+      <h3>Government Certified</h3>
+      <p>Fully compliant registered MSME enterprise dedicated to sports excellence, youth development, and community fitness.</p>
+    </div>
+  </div>
+
+  <section class="legal-box">
+    <div class="legal-content">
+      <h2>🏛️ Legal Entity & Registration Information</h2>
+      <p style="color:var(--muted); font-size: 0.95rem; margin-bottom: 1.25rem;">
+        Official business registration records as filed with the Ministry of Micro, Small & Medium Enterprises (MSME), Government of India:
+      </p>
+      
+      <table class="info-table">
+        <tr>
+          <td>Legal Entity Name</td>
+          <td><strong>S M R SWIMMING POOL AND HEALTH CLUB</strong></td>
+        </tr>
+        <tr>
+          <td>Enterprise Constitution</td>
+          <td>Trust (Parent Body: Shri Marwadi Rajasthan Shikshan Sanstha)</td>
+        </tr>
+        <tr>
+          <td>Udyam Registration Number</td>
+          <td><span style="background:#e0f2fe; padding:2px 8px; border-radius:4px; font-weight:600; color:#0369a1;">UDYAM-MH-16-0130497</span></td>
+        </tr>
+        <tr>
+          <td>Registered Business Address</td>
+          <td>01, RAJASTHAN SHALE SAMOR LATUR, Latur, Maharashtra - 413531, India</td>
+        </tr>
+        <tr>
+          <td>Official Contact Number</td>
+          <td>+91 9028278751</td>
+        </tr>
+        <tr>
+          <td>Official Contact Email</td>
+          <td>smrswimminglatur007@gmail.com / contact@smrlatur.com</td>
+        </tr>
+        <tr>
+          <td>Major Activity</td>
+          <td>Services (Sports & Fitness Facility Operations)</td>
+        </tr>
+        <tr>
+          <td>National Industry Classification (NIC)</td>
+          <td>93110 - Operation of sports facilities (swimming pools, fitness centers)</td>
+        </tr>
+      </table>
+    </div>
+  </section>
+
+  <footer>
+    <p>© 2026 <strong>S M R SWIMMING POOL AND HEALTH CLUB</strong>. All rights reserved.</p>
+    <p style="margin-top: 0.5rem; font-size: 0.8rem; color: #64748b;">
+      01, Rajasthan Shale Samor, Latur, Maharashtra 413531 | Tel: +91 9028278751
+    </p>
+  </footer>
+
+</body>
+</html>
