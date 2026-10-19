@@ -588,14 +588,17 @@ export default function InboxPage() {
             setActiveConv(matched);
             return;
           } else {
-            // If not yet in list, initiate and prepend
-            inboxApi.initiate({ phone: queryPhone }).then((initRes) => {
+            // If not yet in list, initiate and prepend synchronously
+            try {
+              const initRes = await inboxApi.initiate({ phone: queryPhone });
               if (initRes?.data) {
                 setConversations((prev) => [initRes.data, ...prev.filter((p) => p.id !== initRes.data.id)]);
                 setActiveConv(initRes.data);
+                return;
               }
-            }).catch(() => {});
-            return;
+            } catch (err) {
+              console.warn('[Inbox] Failed to initiate conversation for phone:', queryPhone, err);
+            }
           }
         }
         // On desktop screens, if conversations exist and none selected, auto-select first conversation
