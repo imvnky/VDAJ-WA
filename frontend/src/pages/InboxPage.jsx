@@ -560,14 +560,22 @@ export default function InboxPage() {
       setConversations(convList);
       setConvError(null);
 
-      // Handle ?phone= or ?conversationId= or location.state to auto-select
+      // Handle ?phone= or ?contactId= or ?conversationId= or location.state to auto-select
       const urlParams = new URLSearchParams(location.search || window.location.search);
       const queryPhone = urlParams.get('phone') || location.state?.phone;
       const queryConvId = urlParams.get('conversationId') || urlParams.get('id') || location.state?.conversationId;
+      const queryContactId = urlParams.get('contactId') || location.state?.contactId;
 
-      if (!activeConvRef.current) {
+      if (!activeConvRef.current || queryContactId || queryPhone || queryConvId) {
         if (queryConvId) {
           const matched = convList.find((c) => c.id === queryConvId);
+          if (matched) {
+            setActiveConv(matched);
+            return;
+          }
+        }
+        if (queryContactId) {
+          const matched = convList.find((c) => c.contact_id === queryContactId || c.contactId === queryContactId);
           if (matched) {
             setActiveConv(matched);
             return;

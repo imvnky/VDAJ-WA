@@ -766,7 +766,7 @@ export default function ContactsPage() {
                 <div className="col-span-2 flex items-center justify-end gap-1.5">
                   {/* Jump to Inbox */}
                   <Link
-                    to={`/inbox?contactId=${c.id}`}
+                    to={`/inbox?phone=${encodeURIComponent(c.phone || '')}&contactId=${c.id}`}
                     title="Open in WhatsApp Inbox"
                     className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-[#534AB7] hover:bg-[#534AB7]/10 transition-colors"
                   >
