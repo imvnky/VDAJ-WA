@@ -68,6 +68,8 @@ import CampaignsPage      from './pages/CampaignsPage';
 import ContactsPage       from './pages/ContactsPage';
 import ContactDetailPage  from './pages/ContactDetailPage';
 import SettingsPage       from './pages/SettingsPage';
+import TeamPage           from './pages/TeamPage';
+import CompliancePage     from './pages/CompliancePage';
 import ActivityLogPage    from './pages/ActivityLogPage';
 import WhatsAppLogsPage   from './pages/WhatsAppLogsPage';
 import TemplatesPage      from './pages/TemplatesPage';
@@ -179,6 +181,8 @@ export default function App() {
             <Route path="/campaigns"      element={<CampaignsPage />} />
             <Route path="/contacts"       element={<ContactsPage />} />
             <Route path="/contacts/:id"   element={<ContactDetailPage />} />
+            <Route path="/team"           element={<TeamPage />} />
+            <Route path="/compliance"     element={<CompliancePage />} />
             <Route path="/settings"        element={<SettingsPage />} />
             <Route path="/logs"            element={<WhatsAppLogsPage />} />
             <Route path="/activity"        element={<ActivityLogPage />} />

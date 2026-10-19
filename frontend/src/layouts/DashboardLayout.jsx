@@ -18,6 +18,7 @@ import NotificationBell, { useNotificationWS } from '../components/NotificationB
 import UpdateBanner from '../components/organisms/UpdateBanner.jsx';
 import ImpersonationBanner from '../components/ImpersonationBanner.jsx';
 import WorkspaceSwitcher from '../components/organisms/WorkspaceSwitcher.jsx';
+import UserProfileDropdown from '../components/organisms/UserProfileDropdown.jsx';
 
 const NAV_ITEMS = [
   {
@@ -39,12 +40,13 @@ const NAV_ITEMS = [
     ],
   },
   {
-    section: 'Setup',
+    section: 'Management',
     items: [
-      { to: '/settings',       label: 'Settings',        icon: <SettingsIcon /> },
+      { to: '/team',           label: 'Team',            icon: <UsersIcon /> },
+      { to: '/compliance',     label: 'Compliance',      icon: <ComplianceIcon /> },
       { to: '/activity',       label: 'Audit Trail',     icon: <AuditIcon /> },
       { to: '/logs',           label: 'Message Logs',    icon: <LogIcon />,     feature: 'logs' },
-      { to: '/whatsapp-setup', label: 'WhatsApp',        icon: <WaIcon /> },
+      { to: '/settings',       label: 'Settings',        icon: <SettingsIcon /> },
     ],
   },
   {
@@ -179,31 +181,8 @@ export default function DashboardLayout() {
           })}
         </nav>
 
-        {/* User Card */}
-        <div className="px-3 py-3 shrink-0 border-t border-[#E6E4F5]">
-          <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-[#F8F7FF] border border-[#E6E4F5]/80">
-            <div className="w-8 h-8 rounded-full bg-[#534AB7] flex items-center justify-center text-xs font-bold text-white shrink-0">
-              {user?.firstName?.[0]?.toUpperCase() || 'U'}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-bold text-[#0F0F0F] truncate">
-                {user?.firstName} {user?.lastName}
-              </p>
-              <p className="text-2xs text-[#9494A8] truncate uppercase font-semibold">
-                {user?.role?.replace('_', ' ')}
-              </p>
-            </div>
-            <button onClick={handleLogout} title="Logout"
-              className="shrink-0 text-[#9494A8] hover:text-[#DC2626] transition-colors">
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h6a2 2 0 012 2v1" />
-              </svg>
-            </button>
-          </div>
-        </div>
-
         {/* Legal Footer */}
-        <div className="px-4 pb-3 shrink-0">
+        <div className="px-4 py-4 shrink-0 border-t border-[#E6E4F5]/60 mt-auto">
           <div className="flex items-center gap-2 flex-wrap text-2xs text-[#9494A8]">
             <a
               href="/legal/privacy"
@@ -251,6 +230,9 @@ export default function DashboardLayout() {
             <span className="w-1.5 h-1.5 rounded-full bg-[#1D9E75] animate-pulse" />
             {user?.role === 'super_admin' && !isImpersonating ? 'Platform Owner' : (tenant?.status === 'active' ? 'Active' : 'Live')}
           </span>
+
+          {/* User Profile Dropdown */}
+          <UserProfileDropdown />
         </header>
 
         {/* Page content */}
@@ -283,3 +265,4 @@ function LogIcon()      { return <svg viewBox="0 0 24 24" fill="none" stroke="cu
 function ClientsIcon()  { return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>; }
 function UsersIcon()    { return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>; }
 function AuditIcon()    { return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>; }
+function ComplianceIcon() { return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"/></svg>; }
