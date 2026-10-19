@@ -9,7 +9,7 @@
  *  4. Compliance     — opt-in breakdown, opt-out rate, WABA quality tracker
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { clsx } from 'clsx';
 import { tenantApi, teamApi } from '../lib/api';
 import { showSuccess, showError } from '../components/atoms/Toast/Toast.jsx';
@@ -86,6 +86,52 @@ function QualityBadge({ rating }) {
     </span>
   );
 }
+
+function NameStatusBadge({ status }) {
+  const norm = (status || 'APPROVED').toUpperCase();
+  const cfg = {
+    APPROVED:                 { bg: '#E6F7F1', text: '#065F46', border: '#A7F3D0', label: 'Approved' },
+    AVAILABLE_WITHOUT_REVIEW: { bg: '#E6F7F1', text: '#065F46', border: '#A7F3D0', label: 'Verified' },
+    PENDING_REVIEW:           { bg: '#FEF3C7', text: '#92400E', border: '#FDE68A', label: 'Pending Review' },
+    DECLINED:                 { bg: '#FFE4E6', text: '#9F1239', border: '#FECDD3', label: 'Declined' },
+    EXPIRED:                  { bg: '#F1F5F9', text: '#475569', border: '#CBD5E1', label: 'Expired' },
+  };
+  const c = cfg[norm] || cfg.APPROVED;
+  return (
+    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border ml-2"
+      style={{ background: c.bg, color: c.text, borderColor: c.border }}>
+      {c.label}
+    </span>
+  );
+}
+
+function ConnectionBadge({ status }) {
+  const norm = (status || 'CONNECTED').toUpperCase();
+  const isConnected = norm === 'CONNECTED';
+  return (
+    <span className={clsx(
+      "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ml-2",
+      isConnected
+        ? "bg-[#E6F7F1] text-[#065F46] border-[#A7F3D0]"
+        : "bg-[#FEF3C7] text-[#92400E] border-[#FDE68A]"
+    )}>
+      <span className={clsx("w-1.5 h-1.5 rounded-full", isConnected ? "bg-[#1D9E75]" : "bg-[#D97706]")} />
+      {isConnected ? 'Connected' : 'Pending'}
+    </span>
+  );
+}
+
+const VERTICALS = [
+  { value: 'PROF_SERVICES', label: 'Professional Services' },
+  { value: 'FITNESS',       label: 'Health & Fitness / Sports' },
+  { value: 'ENTERTAIN',     label: 'Entertainment & Recreation' },
+  { value: 'EDUCATION',     label: 'Education' },
+  { value: 'HEALTH',        label: 'Healthcare & Medical' },
+  { value: 'RETAIL',        label: 'Retail & Shopping' },
+  { value: 'RESTAURANT',    label: 'Restaurant & Hospitality' },
+  { value: 'TRAVEL',        label: 'Travel & Transportation' },
+  { value: 'OTHER',         label: 'Other / Business' },
+];
 
 // ── Role badge ────────────────────────────────────────────────
 function RoleBadge({ role }) {
@@ -397,7 +443,23 @@ export default function SettingsPage() {
   // ── WhatsApp tab state ─────────────────────────────────────
   const [waba, setWaba] = useState(null);
   const [wabaLoading, setWabaLoading] = useState(true);
+  const [wabaSyncing, setWabaSyncing] = useState(false);
   const [editWabaOpen, setEditWabaOpen] = useState(false);
+
+  // ── WhatsApp Business Profile state ────────────────────────
+  const [profile, setProfile] = useState({
+    about: '',
+    description: '',
+    address: '',
+    email: '',
+    vertical: 'OTHER',
+    websites: ['', ''],
+    profile_picture_url: '',
+  });
+  const [profileLoading,  setProfileLoading]  = useState(false);
+  const [profileSaving,   setProfileSaving]   = useState(false);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const avatarInputRef = useRef(null);
 
   // ── Team tab state ─────────────────────────────────────────
   const [team, setTeam]           = useState([]);
@@ -435,6 +497,87 @@ export default function SettingsPage() {
       .finally(() => setWabaLoading(false));
   }, []);
 
+  const handleSyncWaba = async () => {
+    setWabaSyncing(true);
+    try {
+      const res = await tenantApi.wabaHealthSync();
+      const updated = res?.data || res;
+      setWaba((prev) => ({ ...prev, ...updated }));
+      showSuccess('Synced real-time status & verified name from Meta!');
+    } catch (err) {
+      showError(err?.message || 'Failed to sync with Meta.');
+    } finally {
+      setWabaSyncing(false);
+    }
+  };
+
+  const loadProfile = useCallback(() => {
+    setProfileLoading(true);
+    tenantApi.getProfile({ silent: true })
+      .then((res) => {
+        const p = res?.data || {};
+        setProfile({
+          about: p.about || '',
+          description: p.description || '',
+          address: p.address || '',
+          email: p.email || '',
+          vertical: p.vertical || 'OTHER',
+          websites: Array.isArray(p.websites) ? [p.websites[0] || '', p.websites[1] || ''] : ['', ''],
+          profile_picture_url: p.profile_picture_url || '',
+        });
+      })
+      .catch(() => {})
+      .finally(() => setProfileLoading(false));
+  }, []);
+
+  const handleSaveProfile = async (e) => {
+    e?.preventDefault();
+    setProfileSaving(true);
+    try {
+      const payload = {
+        about: profile.about.trim(),
+        description: profile.description.trim(),
+        address: profile.address.trim(),
+        email: profile.email.trim(),
+        vertical: profile.vertical,
+        websites: profile.websites.map((w) => w.trim()).filter(Boolean),
+      };
+      await tenantApi.updateProfile(payload);
+      showSuccess('WhatsApp Business Profile saved to Meta!');
+    } catch (err) {
+      showError(err?.message || 'Failed to update WhatsApp profile.');
+    } finally {
+      setProfileSaving(false);
+    }
+  };
+
+  const handleAvatarFile = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!['image/jpeg', 'image/png'].includes(file.type)) {
+      showError('Please select a JPG or PNG image.');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      showError('File must be smaller than 5MB.');
+      return;
+    }
+
+    setAvatarUploading(true);
+    const fd = new FormData();
+    fd.append('file', file);
+    try {
+      await tenantApi.uploadAvatar(fd);
+      showSuccess('Profile photo uploaded directly to Meta CDN!');
+      loadProfile();
+    } catch (err) {
+      showError(err?.message || 'Failed to upload photo to Meta.');
+    } finally {
+      setAvatarUploading(false);
+      e.target.value = '';
+    }
+  };
+
   useEffect(() => {
     loadAccount();
     loadWaba();
@@ -455,6 +598,9 @@ export default function SettingsPage() {
         .then((res) => setCompliance(res?.data || null))
         .catch(() => {})
         .finally(() => setComplianceLoading(false));
+    }
+    if (activeTab === 'whatsapp') {
+      loadProfile();
     }
   }, [activeTab]); // eslint-disable-line
 
@@ -625,32 +771,61 @@ export default function SettingsPage() {
             <>
               <Section
                 title="Account Details"
+                subtitle="Live status synchronized directly with Meta Graph API"
                 action={
-                  <button
-                    type="button"
-                    onClick={() => setEditWabaOpen(true)}
-                    className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-[#E2E8F0] bg-white hover:bg-[#F8FAFC] text-[#475569] hover:text-[#0F172A] shadow-xs transition-all cursor-pointer"
-                  >
-                    <svg className="w-3.5 h-3.5 text-[#64748B]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
-                    </svg>
-                    <span>Edit Credentials</span>
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleSyncWaba}
+                      disabled={wabaSyncing}
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border border-[#CBD5E1] bg-white hover:bg-[#F8FAFC] text-[#534AB7] shadow-xs transition-all cursor-pointer disabled:opacity-50"
+                      title="Sync real-time data from Meta Graph API"
+                    >
+                      <svg className={clsx("w-3.5 h-3.5 text-[#534AB7]", wabaSyncing && "animate-spin")} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+                      </svg>
+                      <span>{wabaSyncing ? 'Syncing…' : 'Sync with Meta'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditWabaOpen(true)}
+                      className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-[#E2E8F0] bg-white hover:bg-[#F8FAFC] text-[#475569] hover:text-[#0F172A] shadow-xs transition-all cursor-pointer"
+                    >
+                      <svg className="w-3.5 h-3.5 text-[#64748B]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
+                      </svg>
+                      <span>Edit Credentials</span>
+                    </button>
+                  </div>
                 }
               >
-                <div className="grid grid-cols-2 gap-4">
-                  {[
-                    { label: 'WABA ID',         value: waba.waba_id || tenantProfile?.waba_id || '—' },
-                    { label: 'Phone Number ID',  value: waba.phone_number_id || tenantProfile?.phone_number_id || '—' },
-                    { label: 'Display Phone',    value: waba.display_phone_number || tenantProfile?.display_phone_number || '—' },
-                    { label: 'Verified Name',    value: waba.verified_name || tenantProfile?.verified_name || '—' },
-                  ].map(({ label, value }) => (
-                    <div key={label}>
-                      <p className="text-2xs font-semibold uppercase tracking-wider mb-1"
-                        style={{ color: 'var(--text-muted)' }}>{label}</p>
-                      <p className="text-sm font-mono" style={{ color: 'var(--text-primary)' }}>{value}</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-2xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>WABA ID</p>
+                    <p className="text-sm font-mono" style={{ color: 'var(--text-primary)' }}>{waba.waba_id || tenantProfile?.waba_id || '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-2xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>Phone Number ID</p>
+                    <p className="text-sm font-mono" style={{ color: 'var(--text-primary)' }}>{waba.phone_number_id || tenantProfile?.phone_number_id || '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-2xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>Display Phone</p>
+                    <div className="flex items-center">
+                      <span className="text-sm font-mono font-medium" style={{ color: 'var(--text-primary)' }}>
+                        {waba.display_phone_number || tenantProfile?.display_phone_number || '—'}
+                      </span>
+                      {waba.display_phone_number && <ConnectionBadge status={waba.status} />}
                     </div>
-                  ))}
+                  </div>
+                  <div>
+                    <p className="text-2xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>Verified Name</p>
+                    <div className="flex items-center">
+                      <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+                        {waba.verified_name || tenantProfile?.verified_name || '—'}
+                      </span>
+                      {waba.verified_name && <NameStatusBadge status={waba.name_status} />}
+                    </div>
+                  </div>
                 </div>
               </Section>
 
@@ -689,6 +864,163 @@ export default function SettingsPage() {
                     </p>
                   </div>
                 </div>
+              </Section>
+
+              {/* ── WhatsApp Business Profile (Meta CDN) ───────── */}
+              <Section
+                title="WhatsApp Business Profile"
+                subtitle="Customer-facing profile displayed inside WhatsApp. Streamed directly to Meta CDN."
+              >
+                {profileLoading ? (
+                  <div className="space-y-3">
+                    <Skeleton className="h-16" />
+                    <Skeleton className="h-28" />
+                  </div>
+                ) : (
+                  <form onSubmit={handleSaveProfile} className="space-y-5">
+                    {/* Photo Upload Row */}
+                    <div className="flex items-center gap-4 p-4 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC]">
+                      <div className="relative shrink-0">
+                        {profile.profile_picture_url ? (
+                          <img
+                            src={profile.profile_picture_url}
+                            alt="WhatsApp Profile"
+                            className="w-16 h-16 rounded-full object-cover border-2 border-[#534AB7] shadow-sm"
+                          />
+                        ) : (
+                          <div className="w-16 h-16 rounded-full bg-[#EEECFC] text-[#534AB7] font-bold text-xl flex items-center justify-center border-2 border-[#CBD5E1]">
+                            {tenantProfile?.name?.charAt(0) || 'W'}
+                          </div>
+                        )}
+                        {avatarUploading && (
+                          <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center">
+                            <svg className="w-5 h-5 text-white animate-spin" viewBox="0 0 24 24" fill="none">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                            </svg>
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="file"
+                            ref={avatarInputRef}
+                            onChange={handleAvatarFile}
+                            accept="image/jpeg,image/png"
+                            className="hidden"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => avatarInputRef.current?.click()}
+                            disabled={avatarUploading}
+                            className="h-8 px-3 rounded-lg text-xs font-semibold bg-white border border-[#CBD5E1] text-[#0F172A] hover:bg-[#F1F5F9] transition-all cursor-pointer shadow-xs disabled:opacity-50"
+                          >
+                            {avatarUploading ? 'Uploading to Meta CDN…' : 'Change Profile Logo'}
+                          </button>
+                        </div>
+                        <p className="text-2xs text-[#64748B] mt-1">
+                          Recommended: Square image, min 192×192px (JPG or PNG, max 5MB). Directly hosted on Meta CDN (0 MB VPS storage consumed).
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <Field label="Business Category">
+                        <select
+                          value={profile.vertical}
+                          onChange={(e) => setProfile((p) => ({ ...p, vertical: e.target.value }))}
+                          className="h-10 rounded-xl px-3 text-sm outline-none w-full cursor-pointer"
+                          style={{ background: 'var(--bg-elevated)', border: '1px solid var(--bg-border)', color: 'var(--text-primary)' }}
+                        >
+                          {VERTICALS.map((v) => (
+                            <option key={v.value} value={v.value}>{v.label}</option>
+                          ))}
+                        </select>
+                      </Field>
+
+                      <Field label="Customer Contact Email">
+                        <TextInput
+                          value={profile.email}
+                          onChange={(e) => setProfile((p) => ({ ...p, email: e.target.value }))}
+                          placeholder="support@company.com"
+                        />
+                      </Field>
+                    </div>
+
+                    <Field label="About / Status (Shown under name on WhatsApp — max 139 chars)">
+                      <div className="relative">
+                        <TextInput
+                          value={profile.about}
+                          onChange={(e) => setProfile((p) => ({ ...p, about: e.target.value.slice(0, 139) }))}
+                          placeholder="e.g. Professional fitness and aquatic wellness club."
+                        />
+                        <span className="absolute right-3 top-2.5 text-2xs font-mono text-[#94A3B8]">
+                          {profile.about.length}/139
+                        </span>
+                      </div>
+                    </Field>
+
+                    <Field label="Business Description (Company profile on WhatsApp — max 512 chars)">
+                      <div className="relative">
+                        <textarea
+                          rows={3}
+                          value={profile.description}
+                          onChange={(e) => setProfile((p) => ({ ...p, description: e.target.value.slice(0, 512) }))}
+                          placeholder="Detailed overview of services, facilities, and working philosophy…"
+                          className="rounded-xl p-3 text-sm outline-none w-full resize-none"
+                          style={{ background: 'var(--bg-elevated)', border: '1px solid var(--bg-border)', color: 'var(--text-primary)' }}
+                        />
+                        <span className="absolute right-3 bottom-2 text-2xs font-mono text-[#94A3B8]">
+                          {profile.description.length}/512
+                        </span>
+                      </div>
+                    </Field>
+
+                    <Field label="Business Address">
+                      <TextInput
+                        value={profile.address}
+                        onChange={(e) => setProfile((p) => ({ ...p, address: e.target.value }))}
+                        placeholder="Street Address, City, State, PIN"
+                      />
+                    </Field>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <Field label="Primary Website">
+                        <TextInput
+                          value={profile.websites[0] || ''}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setProfile((p) => ({ ...p, websites: [val, p.websites[1] || ''] }));
+                          }}
+                          placeholder="https://yourwebsite.com"
+                        />
+                      </Field>
+
+                      <Field label="Secondary Website (Optional)">
+                        <TextInput
+                          value={profile.websites[1] || ''}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setProfile((p) => ({ ...p, websites: [p.websites[0] || '', val] }));
+                          }}
+                          placeholder="https://instagram.com/yourhandle"
+                        />
+                      </Field>
+                    </div>
+
+                    <div className="flex justify-end pt-2">
+                      <button
+                        type="submit"
+                        disabled={profileSaving}
+                        className="h-10 px-5 rounded-xl text-xs font-bold text-white transition-all shadow-sm hover:brightness-110 cursor-pointer disabled:opacity-50"
+                        style={{ background: 'linear-gradient(135deg,#534AB7,#3B3499)' }}
+                      >
+                        {profileSaving ? 'Saving to Meta…' : 'Save WhatsApp Profile'}
+                      </button>
+                    </div>
+                  </form>
+                )}
               </Section>
             </>
           )}

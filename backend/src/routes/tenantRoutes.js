@@ -14,11 +14,30 @@
 
 const express = require('express');
 const router = express.Router();
+const multer = require('multer');
 const { query } = require('../config/database');
 const { sendSuccess, sendCreated, catchAsync } = require('../middleware/responseHandler');
 const { authenticate, authorize } = require('../middleware/authMiddleware');
 const AppError = require('../utils/AppError');
 const { recordAudit } = require('../services/auditService');
+const {
+  getWABAHealth,
+  getBusinessProfile,
+  updateBusinessProfile,
+  uploadBusinessProfilePicture,
+} = require('../services/metaApiService');
+
+// In-memory buffer: Streams file directly to Meta without saving to local disk
+const uploadMemory = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB max for WhatsApp profile pictures
+  fileFilter: (req, file, cb) => {
+    if (!['image/jpeg', 'image/png'].includes(file.mimetype)) {
+      return cb(new AppError('Only JPG and PNG images are supported for WhatsApp profile photos.', 400, 'ERR_VDAJ_VAL_001'));
+    }
+    cb(null, true);
+  },
+});
 
 router.use(authenticate);
 
@@ -141,6 +160,7 @@ router.get('/me/waba-health', catchAsync(async (req, res) => {
     `SELECT
        waba_id,
        phone_number_id,
+       meta_system_token,
        quality_rating,
        messaging_tier,
        msgs_sent_today,
@@ -155,6 +175,41 @@ router.get('/me/waba-health', catchAsync(async (req, res) => {
   );
 
   if (!health) throw new AppError('Tenant not found.', 404, 'ERR_VDAJ_TENANT_001');
+
+  // Dynamic live sync: If display fields are empty OR refresh is requested
+  const shouldLiveSync = (
+    Boolean(health.phone_number_id && health.meta_system_token) &&
+    (!health.display_phone_number || !health.verified_name || req.query.refresh === 'true')
+  );
+
+  let liveNameStatus = 'APPROVED';
+  let livePhoneStatus = 'CONNECTED';
+
+  if (shouldLiveSync) {
+    try {
+      const metaData = await getWABAHealth(health.phone_number_id, health.meta_system_token);
+      if (metaData) {
+        health.display_phone_number = metaData.display_phone_number || health.display_phone_number;
+        health.verified_name        = metaData.verified_name || health.verified_name;
+        health.quality_rating       = (metaData.quality_rating || health.quality_rating || 'GREEN').toUpperCase();
+        liveNameStatus              = metaData.name_status || 'APPROVED';
+        livePhoneStatus             = metaData.status || 'CONNECTED';
+
+        await query(
+          `UPDATE tenants
+             SET display_phone_number  = COALESCE($2, display_phone_number),
+                 verified_name         = COALESCE($3, verified_name),
+                 quality_rating        = COALESCE($4, quality_rating),
+                 waba_health_synced_at = NOW(),
+                 updated_at            = NOW()
+           WHERE id = $1`,
+          [tenantId, health.display_phone_number, health.verified_name, health.quality_rating]
+        ).catch(() => {});
+      }
+    } catch (syncErr) {
+      // Graceful fallback: do not fail request if Meta is slow/rate-limited
+    }
+  }
 
   // Reset msgs_sent_today counter if date has rolled over (UTC)
   const todayUTC = new Date().toISOString().slice(0, 10);
@@ -179,9 +234,149 @@ router.get('/me/waba-health', catchAsync(async (req, res) => {
     usage_pct:             Math.round((msgsSentToday / dailyLimit) * 100),
     display_phone_number:  health.display_phone_number  || process.env.META_DISPLAY_PHONE_NUMBER || null,
     verified_name:         health.verified_name          || process.env.META_VERIFIED_NAME || null,
+    name_status:           liveNameStatus,
+    status:                livePhoneStatus,
     waba_connected:        health.waba_connected || Boolean(effectivePhoneNumberId),
-    waba_health_synced_at: health.waba_health_synced_at || null,
+    waba_health_synced_at: health.waba_health_synced_at || new Date().toISOString(),
   }, 'WABA health retrieved.');
+}));
+
+// ── POST /tenants/me/waba-health/sync ───────────────────────────
+// Live on-demand refresh from Meta Graph API
+router.post('/me/waba-health/sync', catchAsync(async (req, res) => {
+  const tenantId = req.user.tenantId || req.query.tenantId;
+  if (!tenantId) throw new AppError('Tenant context required.', 400, 'ERR_VDAJ_TENANT_001');
+
+  const { rows: [t] } = await query(
+    `SELECT phone_number_id, meta_system_token, waba_id FROM tenants WHERE id = $1 AND deleted_at IS NULL`,
+    [tenantId]
+  );
+  if (!t?.phone_number_id || !t?.meta_system_token) {
+    throw new AppError('WhatsApp credentials not configured for this workspace.', 400, 'ERR_META_006');
+  }
+
+  const metaData = await getWABAHealth(t.phone_number_id, t.meta_system_token);
+  const rating   = (metaData.quality_rating || 'GREEN').toUpperCase();
+
+  await query(
+    `UPDATE tenants
+       SET display_phone_number  = COALESCE($2, display_phone_number),
+           verified_name         = COALESCE($3, verified_name),
+           quality_rating        = COALESCE($4, quality_rating),
+           waba_health_synced_at = NOW(),
+           updated_at            = NOW()
+     WHERE id = $1`,
+    [tenantId, metaData.display_phone_number || null, metaData.verified_name || null, rating]
+  );
+
+  return sendSuccess(res, {
+    display_phone_number: metaData.display_phone_number,
+    verified_name:        metaData.verified_name,
+    quality_rating:       rating,
+    name_status:          metaData.name_status || 'APPROVED',
+    status:               metaData.status || 'CONNECTED',
+    waba_health_synced_at: new Date().toISOString(),
+  }, 'WABA status synced with Meta in real-time.');
+}));
+
+// ── GET /tenants/me/whatsapp-profile ───────────────────────────
+// Live fetch WhatsApp Business Profile from Meta CDN / Cloud API
+router.get('/me/whatsapp-profile', catchAsync(async (req, res) => {
+  const tenantId = req.user.tenantId || req.query.tenantId;
+  if (!tenantId) throw new AppError('Tenant context required.', 400, 'ERR_VDAJ_TENANT_001');
+
+  const { rows: [t] } = await query(
+    `SELECT phone_number_id, meta_system_token FROM tenants WHERE id = $1 AND deleted_at IS NULL`,
+    [tenantId]
+  );
+  if (!t?.phone_number_id || !t?.meta_system_token) {
+    throw new AppError('WhatsApp credentials not configured for this workspace.', 400, 'ERR_META_006');
+  }
+
+  const profile = await getBusinessProfile(t.phone_number_id, t.meta_system_token);
+  return sendSuccess(res, profile, 'WhatsApp business profile fetched from Meta.');
+}));
+
+// ── PATCH /tenants/me/whatsapp-profile ──────────────────────────
+// Update WhatsApp Business Profile on Meta (Bio, Description, Address, Websites, Category)
+router.patch('/me/whatsapp-profile', catchAsync(async (req, res) => {
+  const tenantId = req.user.tenantId || req.query.tenantId;
+  if (!tenantId) throw new AppError('Tenant context required.', 400, 'ERR_VDAJ_TENANT_001');
+
+  const { rows: [t] } = await query(
+    `SELECT phone_number_id, meta_system_token, name FROM tenants WHERE id = $1 AND deleted_at IS NULL`,
+    [tenantId]
+  );
+  if (!t?.phone_number_id || !t?.meta_system_token) {
+    throw new AppError('WhatsApp credentials not configured for this workspace.', 400, 'ERR_META_006');
+  }
+
+  const { about, address, description, email, vertical, websites } = req.body;
+  await updateBusinessProfile(t.phone_number_id, t.meta_system_token, {
+    about, address, description, email, vertical, websites
+  });
+
+  // Audit trail entry
+  recordAudit({
+    tenantId,
+    userId: req.user.id,
+    action: 'WHATSAPP_PROFILE_UPDATED',
+    resourceType: 'tenant',
+    resourceId: tenantId,
+    status: 'SUCCESS',
+    meta: { tenantName: t.name, updatedFields: Object.keys(req.body) },
+    ipAddress: req.ip,
+    userAgent: req.headers['user-agent'],
+  }).catch(() => {});
+
+  return sendSuccess(res, { success: true }, 'WhatsApp Business Profile updated on Meta.');
+}));
+
+// ── POST /tenants/me/whatsapp-profile/picture ───────────────────
+// Stream logo directly to Meta CDN — 0 MB local storage used!
+router.post('/me/whatsapp-profile/picture', uploadMemory.single('file'), catchAsync(async (req, res) => {
+  const tenantId = req.user.tenantId || req.query.tenantId;
+  if (!tenantId) throw new AppError('Tenant context required.', 400, 'ERR_VDAJ_TENANT_001');
+
+  if (!req.file || !req.file.buffer) {
+    throw new AppError('Image file is required.', 400, 'ERR_VDAJ_VAL_001');
+  }
+
+  const { rows: [t] } = await query(
+    `SELECT phone_number_id, meta_system_token, name FROM tenants WHERE id = $1 AND deleted_at IS NULL`,
+    [tenantId]
+  );
+  if (!t?.phone_number_id || !t?.meta_system_token) {
+    throw new AppError('WhatsApp credentials not configured for this workspace.', 400, 'ERR_META_006');
+  }
+
+  await uploadBusinessProfilePicture(
+    t.phone_number_id,
+    t.meta_system_token,
+    req.file.buffer,
+    req.file.mimetype
+  );
+
+  // Audit trail entry
+  recordAudit({
+    tenantId,
+    userId: req.user.id,
+    action: 'WHATSAPP_AVATAR_UPDATED',
+    resourceType: 'tenant',
+    resourceId: tenantId,
+    status: 'SUCCESS',
+    meta: {
+      tenantName: t.name,
+      fileName: req.file.originalname,
+      fileSize: req.file.size,
+      mimeType: req.file.mimetype,
+      storageNote: 'Directly streamed to Meta CDN. Zero local disk storage consumed.',
+    },
+    ipAddress: req.ip,
+    userAgent: req.headers['user-agent'],
+  }).catch(() => {});
+
+  return sendSuccess(res, { success: true }, 'WhatsApp Profile Photo updated directly on Meta.');
 }));
 
 // ── GET /tenants — SuperAdmin: list all ────────────────────────

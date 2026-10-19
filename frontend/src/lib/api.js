@@ -158,6 +158,12 @@ export const templateApi = {
 export const tenantApi = {
   me: (config) => client.get('/tenants/me', config),
   wabaHealth: (config) => client.get('/tenants/me/waba-health', config),
+  wabaHealthSync: () => client.post('/tenants/me/waba-health/sync'),
+  getProfile: () => client.get('/tenants/me/whatsapp-profile'),
+  updateProfile: (data) => client.patch('/tenants/me/whatsapp-profile', data),
+  uploadAvatar: (formData) => client.post('/tenants/me/whatsapp-profile/picture', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }),
   updateAccount: (data) => client.patch('/tenants/me', data),
   team: () => client.get('/tenants/me/team'),
   invite: (data) => client.post('/tenants/me/invite', data),

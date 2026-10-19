@@ -511,7 +511,7 @@ const getWABAHealth = async (phoneNumberId, accessToken) => {
 
   const responseBody = await callMetaApi({
     method: 'GET',
-    path:   `${phoneNumberId}?fields=quality_rating,messaging_limit_tier,display_phone_number,verified_name,name_status`,
+    path:   `${phoneNumberId}?fields=quality_rating,messaging_limit_tier,display_phone_number,verified_name,name_status,status,code_verification_status`,
     accessToken,
   });
 
@@ -520,9 +520,103 @@ const getWABAHealth = async (phoneNumberId, accessToken) => {
     quality_rating:       responseBody?.quality_rating,
     messaging_limit_tier: responseBody?.messaging_limit_tier,
     name_status:          responseBody?.name_status,
+    status:               responseBody?.status,
   });
 
   return responseBody;
+};
+
+/**
+ * Fetch WhatsApp Business Profile details (Bio, Logo, Website, Address, Category).
+ */
+const getBusinessProfile = async (phoneNumberId, accessToken) => {
+  const token = getEffectiveToken(accessToken);
+  if (!phoneNumberId || !token) {
+    throw new AppError('phoneNumberId and accessToken are required.', 400, 'ERR_META_006');
+  }
+
+  const result = await callMetaApi({
+    method: 'GET',
+    path:   `${phoneNumberId}/whatsapp_business_profile?fields=about,address,description,email,profile_picture_url,websites,vertical`,
+    accessToken: token,
+  });
+
+  return result?.data?.[0] || {};
+};
+
+/**
+ * Update WhatsApp Business Profile details directly on Meta Cloud API.
+ */
+const updateBusinessProfile = async (phoneNumberId, accessToken, profileData = {}) => {
+  const token = getEffectiveToken(accessToken);
+  if (!phoneNumberId || !token) {
+    throw new AppError('phoneNumberId and accessToken are required.', 400, 'ERR_META_006');
+  }
+
+  const body = { messaging_product: 'whatsapp' };
+  if (profileData.about !== undefined)       body.about       = profileData.about;
+  if (profileData.address !== undefined)     body.address     = profileData.address;
+  if (profileData.description !== undefined) body.description = profileData.description;
+  if (profileData.email !== undefined)       body.email       = profileData.email;
+  if (profileData.vertical !== undefined)    body.vertical    = profileData.vertical;
+  if (Array.isArray(profileData.websites))   body.websites    = profileData.websites;
+
+  return callMetaApi({
+    method: 'POST',
+    path:   `${phoneNumberId}/whatsapp_business_profile`,
+    accessToken: token,
+    body,
+  });
+};
+
+/**
+ * Direct photo upload to Meta Resumable Media API.
+ * Streams image buffer directly to Meta CDN, zero local storage consumed.
+ */
+const uploadBusinessProfilePicture = async (phoneNumberId, accessToken, fileBuffer, mimeType = 'image/jpeg') => {
+  const token = getEffectiveToken(accessToken);
+  if (!phoneNumberId || !token) {
+    throw new AppError('phoneNumberId and accessToken are required.', 400, 'ERR_META_006');
+  }
+
+  const appId = process.env.META_APP_ID || '1447754957201480';
+
+  // 1. Initiate upload session
+  const initRes = await fetch(
+    `${META_API_BASE}/${API_VERSION}/${appId}/uploads?file_length=${fileBuffer.length}&file_type=${encodeURIComponent(mimeType)}&access_token=${token}`,
+    { method: 'POST' }
+  );
+  const initData = await initRes.json().catch(() => ({}));
+  if (!initRes.ok || !initData?.id) {
+    logger.error('Meta upload session init failed', initData);
+    throw new AppError(initData?.error?.message || 'Failed to initiate upload with Meta.', initRes.status || 500, 'ERR_META_005');
+  }
+
+  // 2. Transfer file chunk directly to Meta
+  const uploadRes = await fetch(`${META_API_BASE}/${API_VERSION}/${initData.id}`, {
+    method: 'POST',
+    headers: {
+      Authorization: `OAuth ${token}`,
+      file_offset:   '0',
+    },
+    body: fileBuffer,
+  });
+  const uploadData = await uploadRes.json().catch(() => ({}));
+  if (!uploadRes.ok || !uploadData?.h) {
+    logger.error('Meta upload transfer failed', uploadData);
+    throw new AppError(uploadData?.error?.message || 'Failed to stream profile picture to Meta.', uploadRes.status || 500, 'ERR_META_005');
+  }
+
+  // 3. Attach handle to WhatsApp Business Profile
+  return callMetaApi({
+    method: 'POST',
+    path:   `${phoneNumberId}/whatsapp_business_profile`,
+    accessToken: token,
+    body: {
+      messaging_product:      'whatsapp',
+      profile_picture_handle: uploadData.h,
+    },
+  });
 };
 
 // ─────────────────────────────────────────────────────────────────
@@ -566,5 +660,8 @@ module.exports = {
   fetchMetaTemplates,
   exchangeEmbeddedSignupToken,
   getWABAHealth,
+  getBusinessProfile,
+  updateBusinessProfile,
+  uploadBusinessProfilePicture,
   getEffectiveToken,      // exported for use in webhookRoutes + tests
 };
