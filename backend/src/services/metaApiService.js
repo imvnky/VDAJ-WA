@@ -415,6 +415,27 @@ const syncMetaTemplateStatus = async (wabaId, accessToken, metaTemplateId) => {
 };
 
 // ─────────────────────────────────────────────────────────────────
+// fetchMetaTemplates — Fetch all message templates from Meta WABA
+// ─────────────────────────────────────────────────────────────────
+
+/**
+ * Fetch all message templates for a WABA from Meta Graph API.
+ * @param {string} wabaId
+ * @param {string} accessToken
+ * @returns {Promise<Array<object>>}
+ */
+const fetchMetaTemplates = async (wabaId, accessToken) => {
+  const fields = 'id,name,status,category,language,components,rejected_reason';
+  const responseBody = await callMetaApi({
+    method:      'GET',
+    path:        `${wabaId}/message_templates?fields=${fields}&limit=250`,
+    accessToken,
+  });
+
+  return responseBody?.data || [];
+};
+
+// ─────────────────────────────────────────────────────────────────
 // exchangeEmbeddedSignupToken — Short-lived code → system-user token
 // ─────────────────────────────────────────────────────────────────
 
@@ -542,6 +563,7 @@ module.exports = {
   resolveMediaUrl,
   createMetaTemplate,
   syncMetaTemplateStatus,
+  fetchMetaTemplates,
   exchangeEmbeddedSignupToken,
   getWABAHealth,
   getEffectiveToken,      // exported for use in webhookRoutes + tests

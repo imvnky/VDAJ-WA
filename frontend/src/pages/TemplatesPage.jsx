@@ -968,11 +968,11 @@ export default function TemplatesPage() {
   const handleSyncAll = async () => {
     setSyncAllLoading(true);
     try {
-      await Promise.all(
-        templates.filter((t) => (t.status || '').toLowerCase() !== 'approved').map((t) => templateApi.sync(t.id).catch(() => {}))
-      );
-      showSuccess('Meta sync complete for all templates.');
+      const res = await templateApi.syncAll();
+      showSuccess(res.data?.message || 'Meta sync complete. Templates pulled from Meta.');
       loadTemplates();
+    } catch (err) {
+      showError(err.message || 'Failed to sync templates with Meta.');
     } finally {
       setSyncAllLoading(false);
     }

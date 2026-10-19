@@ -186,7 +186,8 @@ function TemplatePicker({ templates, activeContact, onSend, onClose }) {
   const handleSelectTemplate = (t) => {
     setSelected(t);
     const initialVars = {};
-    if (contactName) {
+    const vars = extractVars(t?.body_text || '');
+    if (vars.length > 0 && contactName) {
       initialVars['1'] = contactName;
     }
     setVariables(initialVars);
@@ -196,12 +197,14 @@ function TemplatePicker({ templates, activeContact, onSend, onClose }) {
     if (!selected) return;
     setSending(true);
     try {
-      const safeVars = { ...variables };
-      varKeys.forEach((k, idx) => {
-        if (!safeVars[k] || safeVars[k].trim() === '') {
-          safeVars[k] = idx === 0 ? (contactName || 'Customer') : '-';
-        }
-      });
+      const safeVars = {};
+      if (varKeys.length > 0) {
+        varKeys.forEach((k, idx) => {
+          safeVars[k] = (variables[k] && variables[k].trim() !== '')
+            ? variables[k].trim()
+            : (idx === 0 ? (contactName || 'Customer') : '-');
+        });
+      }
       await onSend(selected, buildBody(safeVars), safeVars);
       onClose();
     } catch {} finally {
