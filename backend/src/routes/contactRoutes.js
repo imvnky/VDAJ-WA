@@ -448,6 +448,71 @@ router.post('/lists', catchAsync(async (req, res) => {
   return sendCreated(res, list, 'Contact list created.');
 }));
 
+// ── POST /contacts/bulk-tags — Assign or remove tags from multiple contacts ──
+router.post('/bulk-tags', catchAsync(async (req, res) => {
+  const { contactIds, tags, action = 'add' } = req.body;
+  if (!Array.isArray(contactIds) || contactIds.length === 0) {
+    throw new AppError('contactIds must be a non-empty array of IDs.', 400, 'ERR_VDAJ_VAL_001');
+  }
+  if (!Array.isArray(tags) || tags.length === 0) {
+    throw new AppError('tags must be a non-empty array of strings.', 400, 'ERR_VDAJ_VAL_001');
+  }
+
+  const tenantId = req.user.tenantId || req.tenant?.id;
+  const isSuperAdmin = req.user.role === 'super_admin';
+
+  // Sanitise tags
+  const cleanTags = [...new Set(
+    tags.map((t) => String(t).toLowerCase().trim().replace(/[^a-z0-9_-]/g, '').slice(0, 30))
+        .filter(Boolean)
+  )];
+
+  if (cleanTags.length === 0) {
+    throw new AppError('No valid tag strings provided.', 400, 'ERR_VDAJ_VAL_001');
+  }
+
+  let updateQuery = '';
+  let params = [];
+
+  if (action === 'replace') {
+    updateQuery = `
+      UPDATE contacts
+      SET tags = $1::text[], updated_at = NOW()
+      WHERE id = ANY($2::uuid[])
+        AND (tenant_id = $3 OR $4 = TRUE)
+      RETURNING id
+    `;
+    params = [cleanTags, contactIds, tenantId, isSuperAdmin];
+  } else if (action === 'remove') {
+    updateQuery = `
+      UPDATE contacts
+      SET tags = ARRAY(
+        SELECT t FROM UNNEST(COALESCE(tags, '{}'::text[])) AS t WHERE NOT (t = ANY($1::text[]))
+      ), updated_at = NOW()
+      WHERE id = ANY($2::uuid[])
+        AND (tenant_id = $3 OR $4 = TRUE)
+      RETURNING id
+    `;
+    params = [cleanTags, contactIds, tenantId, isSuperAdmin];
+  } else {
+    // Default: 'add'
+    updateQuery = `
+      UPDATE contacts
+      SET tags = ARRAY(
+        SELECT DISTINCT t FROM UNNEST(COALESCE(tags, '{}'::text[]) || $1::text[]) AS t
+      ), updated_at = NOW()
+      WHERE id = ANY($2::uuid[])
+        AND (tenant_id = $3 OR $4 = TRUE)
+      RETURNING id
+    `;
+    params = [cleanTags, contactIds, tenantId, isSuperAdmin];
+  }
+
+  const { rows } = await query(updateQuery, params);
+
+  return sendSuccess(res, { updatedCount: rows.length }, `Tags updated for ${rows.length} contacts.`);
+}));
+
 // ── GET /contacts/:id — Full contact detail ────────────────────
 router.get('/:id', uuidParamValidator('id'), validate, catchAsync(async (req, res) => {
   const tenantId   = req.user.tenantId;

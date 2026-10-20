@@ -343,16 +343,20 @@ router.post('/me/whatsapp-profile/picture', uploadMemory.single('file'), catchAs
   }
 
   const { rows: [t] } = await query(
-    `SELECT phone_number_id, meta_system_token, name FROM tenants WHERE id = $1 AND deleted_at IS NULL`,
+    `SELECT phone_number_id, meta_system_token, whatsapp_access_token, name FROM tenants WHERE id = $1 AND deleted_at IS NULL`,
     [tenantId]
   );
-  if (!t?.phone_number_id || !t?.meta_system_token) {
+
+  const token = t?.meta_system_token || t?.whatsapp_access_token || process.env.META_ACCESS_TOKEN;
+  const phoneNumberId = t?.phone_number_id || process.env.META_PHONE_NUMBER_ID;
+
+  if (!phoneNumberId || !token) {
     throw new AppError('WhatsApp credentials not configured for this workspace.', 400, 'ERR_META_006');
   }
 
   await uploadBusinessProfilePicture(
-    t.phone_number_id,
-    t.meta_system_token,
+    phoneNumberId,
+    token,
     req.file.buffer,
     req.file.mimetype
   );

@@ -579,17 +579,46 @@ const uploadBusinessProfilePicture = async (phoneNumberId, accessToken, fileBuff
     throw new AppError('phoneNumberId and accessToken are required.', 400, 'ERR_META_006');
   }
 
-  const appId = process.env.META_APP_ID || '1447754957201480';
+  let appId = process.env.META_APP_ID;
+  if (!appId || appId === 'your_meta_app_id' || appId === '1447754957201480') {
+    try {
+      const appRes = await fetch(`${META_API_BASE}/${API_VERSION}/app?access_token=${token}`);
+      const appData = await appRes.json().catch(() => ({}));
+      if (appData?.id) {
+        appId = appData.id;
+      }
+    } catch (err) {
+      logger.warn('Failed to auto-fetch App ID from token:', err.message);
+    }
+  }
+  if (!appId) appId = '1447754957201480';
 
   // 1. Initiate upload session
-  const initRes = await fetch(
+  let initRes = await fetch(
     `${META_API_BASE}/${API_VERSION}/${appId}/uploads?file_length=${fileBuffer.length}&file_type=${encodeURIComponent(mimeType)}&access_token=${token}`,
     { method: 'POST' }
   );
-  const initData = await initRes.json().catch(() => ({}));
+  let initData = await initRes.json().catch(() => ({}));
+
   if (!initRes.ok || !initData?.id) {
-    logger.error('Meta upload session init failed', initData);
-    throw new AppError(initData?.error?.message || 'Failed to initiate upload with Meta.', initRes.status || 500, 'ERR_META_005');
+    try {
+      const appRes = await fetch(`${META_API_BASE}/${API_VERSION}/app?access_token=${token}`);
+      const appData = await appRes.json().catch(() => ({}));
+      if (appData?.id && appData.id !== appId) {
+        appId = appData.id;
+        initRes = await fetch(
+          `${META_API_BASE}/${API_VERSION}/${appId}/uploads?file_length=${fileBuffer.length}&file_type=${encodeURIComponent(mimeType)}&access_token=${token}`,
+          { method: 'POST' }
+        );
+        initData = await initRes.json().catch(() => ({}));
+      }
+    } catch (e) {}
+  }
+
+  if (!initRes.ok || !initData?.id) {
+    logger.error('Meta upload session init failed', { initData, status: initRes.status });
+    const metaMsg = initData?.error?.message || initData?.error?.error_user_msg || 'Failed to initiate upload with Meta.';
+    throw new AppError(`Meta Upload Error: ${metaMsg}`, initRes.status || 500, 'ERR_META_005');
   }
 
   // 2. Transfer file chunk directly to Meta
@@ -604,7 +633,8 @@ const uploadBusinessProfilePicture = async (phoneNumberId, accessToken, fileBuff
   const uploadData = await uploadRes.json().catch(() => ({}));
   if (!uploadRes.ok || !uploadData?.h) {
     logger.error('Meta upload transfer failed', uploadData);
-    throw new AppError(uploadData?.error?.message || 'Failed to stream profile picture to Meta.', uploadRes.status || 500, 'ERR_META_005');
+    const metaMsg = uploadData?.error?.message || uploadData?.error?.error_user_msg || 'Failed to stream profile picture to Meta.';
+    throw new AppError(`Meta Transfer Error: ${metaMsg}`, uploadRes.status || 500, 'ERR_META_005');
   }
 
   // 3. Attach handle to WhatsApp Business Profile

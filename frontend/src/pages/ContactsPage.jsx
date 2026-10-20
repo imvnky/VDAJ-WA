@@ -19,6 +19,7 @@ import CsvContactUploader from '../components/organisms/CsvContactUploader.jsx';
 import AddContactModal from '../components/organisms/AddContactModal.jsx';
 import EditContactModal from '../components/organisms/EditContactModal.jsx';
 import CreateGroupModal from '../components/organisms/CreateGroupModal.jsx';
+import BulkTagModal from '../components/organisms/BulkTagModal.jsx';
 
 // ── Tag color palette (deterministic from tag string) ──────────
 const TAG_PALETTE = [
@@ -187,19 +188,24 @@ function StatusToggle({ contact, onToggle }) {
 // ── Skeleton row ───────────────────────────────────────────────
 function SkeletonRow() {
   return (
-    <div className="grid grid-cols-12 gap-3 px-5 py-4 items-center animate-pulse">
-      <div className="col-span-3 flex items-center gap-3">
-        <div className="w-8 h-8 rounded-full" style={{ background: 'var(--bg-elevated)' }} />
-        <div className="h-3 w-24 rounded" style={{ background: 'var(--bg-elevated)' }} />
+    <div className="flex items-center px-5 py-4 animate-pulse">
+      <div className="w-8 shrink-0">
+        <div className="w-4 h-4 rounded bg-[#E2E8F0]" />
       </div>
-      <div className="col-span-2 h-3 w-28 rounded" style={{ background: 'var(--bg-elevated)' }} />
-      <div className="col-span-2 h-5 w-20 rounded-full" style={{ background: 'var(--bg-elevated)' }} />
-      <div className="col-span-3 flex gap-1">
-        <div className="h-5 w-12 rounded-full" style={{ background: 'var(--bg-elevated)' }} />
-        <div className="h-5 w-16 rounded-full" style={{ background: 'var(--bg-elevated)' }} />
-      </div>
-      <div className="col-span-2 flex justify-end gap-2">
-        <div className="h-5 w-9 rounded-full" style={{ background: 'var(--bg-elevated)' }} />
+      <div className="flex-1 grid grid-cols-12 gap-3 items-center">
+        <div className="col-span-3 flex items-center gap-3">
+          <div className="w-8 h-8 rounded-full" style={{ background: 'var(--bg-elevated)' }} />
+          <div className="h-3 w-24 rounded" style={{ background: 'var(--bg-elevated)' }} />
+        </div>
+        <div className="col-span-2 h-3 w-28 rounded" style={{ background: 'var(--bg-elevated)' }} />
+        <div className="col-span-2 h-5 w-20 rounded-full" style={{ background: 'var(--bg-elevated)' }} />
+        <div className="col-span-3 flex gap-1">
+          <div className="h-5 w-12 rounded-full" style={{ background: 'var(--bg-elevated)' }} />
+          <div className="h-5 w-16 rounded-full" style={{ background: 'var(--bg-elevated)' }} />
+        </div>
+        <div className="col-span-2 flex justify-end gap-2">
+          <div className="h-5 w-9 rounded-full" style={{ background: 'var(--bg-elevated)' }} />
+        </div>
       </div>
     </div>
   );
@@ -226,6 +232,10 @@ export default function ContactsPage() {
   const [deleteConfirm, setDeleteConfirm]   = useState(null);
   const [deleting, setDeleting]             = useState(false);
   const [exporting, setExporting]           = useState(false);
+
+  // Multi-selection & Bulk Actions
+  const [selectedIds, setSelectedIds]       = useState(new Set());
+  const [bulkTagOpen, setBulkTagOpen]       = useState(false);
 
   const LIMIT = 20;
 
@@ -335,6 +345,34 @@ export default function ContactsPage() {
   const handleContactUpdated = (updated) => {
     setContacts((cs) => cs.map((c) => (c.id === updated.id ? { ...c, ...updated } : c)));
     refreshTags();
+  };
+
+  // ── Multi-selection & Bulk Tag Handlers ───────────────────────
+  const handleSelectAll = (e) => {
+    if (e.target.checked) {
+      setSelectedIds(new Set(contacts.map((c) => c.id)));
+    } else {
+      setSelectedIds(new Set());
+    }
+  };
+
+  const handleToggleSelect = (id) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleDeselectAll = () => {
+    setSelectedIds(new Set());
+  };
+
+  const handleBulkTagSuccess = () => {
+    load(page, search, tagFilter, selectedGroup);
+    refreshTags();
+    setSelectedIds(new Set());
   };
 
   // ── Delete Contact ───────────────────────────────────────────
@@ -654,24 +692,37 @@ export default function ContactsPage() {
       >
         {/* Column header */}
         <div
-          className="grid grid-cols-12 gap-3 px-5 py-3 border-b items-center"
+          className="flex items-center px-5 py-3 border-b"
           style={{ borderColor: 'var(--bg-border)', background: 'var(--bg-elevated)' }}
         >
-          {[
-            { label: 'Contact', span: 'col-span-3' },
-            { label: 'Phone',   span: 'col-span-2' },
-            { label: 'Opt-In',  span: 'col-span-2' },
-            { label: 'Tags',    span: 'col-span-3' },
-            { label: 'Actions', span: 'col-span-2 text-right' },
-          ].map(({ label, span }) => (
-            <span
-              key={label}
-              className={clsx('text-2xs font-bold uppercase tracking-wider', span)}
-              style={{ color: 'var(--text-muted)' }}
-            >
-              {label}
-            </span>
-          ))}
+          {/* Select all checkbox */}
+          <div className="w-8 shrink-0 flex items-center">
+            <input
+              type="checkbox"
+              checked={contacts.length > 0 && contacts.every((c) => selectedIds.has(c.id))}
+              onChange={handleSelectAll}
+              aria-label="Select all contacts on this page"
+              className="w-4 h-4 rounded text-[#534AB7] border-[#CBD5E1] focus:ring-[#534AB7] cursor-pointer"
+            />
+          </div>
+
+          <div className="flex-1 grid grid-cols-12 gap-3 items-center">
+            {[
+              { label: 'Contact', span: 'col-span-3' },
+              { label: 'Phone',   span: 'col-span-2' },
+              { label: 'Opt-In',  span: 'col-span-2' },
+              { label: 'Tags',    span: 'col-span-3' },
+              { label: 'Actions', span: 'col-span-2 text-right' },
+            ].map(({ label, span }) => (
+              <span
+                key={label}
+                className={clsx('text-2xs font-bold uppercase tracking-wider', span)}
+                style={{ color: 'var(--text-muted)' }}
+              >
+                {label}
+              </span>
+            ))}
+          </div>
         </div>
 
         {/* Rows */}
@@ -716,22 +767,37 @@ export default function ContactsPage() {
             contacts.map((c) => (
               <div
                 key={c.id}
-                className="grid grid-cols-12 gap-3 px-5 py-4 items-center transition-colors group hover:bg-[#F8FAFC]"
+                className={clsx(
+                  'flex items-center px-5 py-4 transition-colors group',
+                  selectedIds.has(c.id) ? 'bg-[#F3F2FD]/50' : 'hover:bg-[#F8FAFC]'
+                )}
                 style={{ borderColor: 'var(--bg-border)' }}
               >
-                {/* Name + avatar (clickable) */}
-                <div className="col-span-3 flex items-center gap-3 min-w-0">
-                  <Link to={`/contacts/${c.id}`} className="shrink-0">
-                    <Avatar contact={c} />
-                  </Link>
-                  <Link
-                    to={`/contacts/${c.id}`}
-                    className="text-sm font-medium truncate hover:text-[#534AB7] transition-colors"
-                    style={{ color: 'var(--text-primary)' }}
-                  >
-                    {c.display_name || [c.first_name, c.last_name].filter(Boolean).join(' ') || '—'}
-                  </Link>
+                {/* Row Checkbox */}
+                <div className="w-8 shrink-0 flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.has(c.id)}
+                    onChange={() => handleToggleSelect(c.id)}
+                    aria-label={`Select ${c.display_name || c.phone_e164}`}
+                    className="w-4 h-4 rounded text-[#534AB7] border-[#CBD5E1] focus:ring-[#534AB7] cursor-pointer"
+                  />
                 </div>
+
+                <div className="flex-1 grid grid-cols-12 gap-3 items-center min-w-0">
+                  {/* Name + avatar (clickable) */}
+                  <div className="col-span-3 flex items-center gap-3 min-w-0">
+                    <Link to={`/contacts/${c.id}`} className="shrink-0">
+                      <Avatar contact={c} />
+                    </Link>
+                    <Link
+                      to={`/contacts/${c.id}`}
+                      className="text-sm font-medium truncate hover:text-[#534AB7] transition-colors"
+                      style={{ color: 'var(--text-primary)' }}
+                    >
+                      {c.display_name || [c.first_name, c.last_name].filter(Boolean).join(' ') || '—'}
+                    </Link>
+                  </div>
 
                 {/* Phone */}
                 <div className="col-span-2">
@@ -808,6 +874,7 @@ export default function ContactsPage() {
                   </div>
                 </div>
               </div>
+            </div>
             ))
           )}
         </div>
@@ -929,6 +996,49 @@ export default function ContactsPage() {
           </div>
         </div>
       )}
+
+      {/* ── Floating Bulk Action Bar ──────────────────────────── */}
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-[#0F172A] text-white px-5 py-3 rounded-2xl shadow-2xl border border-slate-700 flex items-center gap-4 animate-scale-in">
+          <div className="flex items-center gap-2">
+            <span className="w-5 h-5 rounded-full bg-[#534AB7] text-white flex items-center justify-center text-2xs font-bold">
+              ✓
+            </span>
+            <span className="text-xs font-semibold text-slate-200">
+              <strong className="text-white font-bold">{selectedIds.size}</strong>{' '}
+              {selectedIds.size === 1 ? 'contact' : 'contacts'} selected
+            </span>
+          </div>
+
+          <div className="h-4 w-px bg-slate-700" />
+
+          <button
+            type="button"
+            onClick={() => setBulkTagOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#534AB7] hover:bg-[#4339A6] text-xs font-bold text-white transition-all shadow-sm cursor-pointer"
+          >
+            <span>🏷️</span> Assign Tags
+          </button>
+
+          <button
+            type="button"
+            onClick={handleDeselectAll}
+            className="text-xs text-slate-400 hover:text-white transition-colors cursor-pointer"
+          >
+            Deselect All
+          </button>
+        </div>
+      )}
+
+      {/* ── Bulk Tag Modal ────────────────────────────────────── */}
+      <BulkTagModal
+        isOpen={bulkTagOpen}
+        selectedCount={selectedIds.size}
+        selectedIds={Array.from(selectedIds)}
+        existingTags={allTags}
+        onClose={() => setBulkTagOpen(false)}
+        onSuccess={handleBulkTagSuccess}
+      />
     </div>
   );
 }

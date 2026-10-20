@@ -143,6 +143,8 @@ export const contactApi = {
   tags: (config = {}) => client.get('/contacts/tags', config),
   lists: (config = {}) => client.get('/contacts/lists', config),
   createList: (data) => client.post('/contacts/lists', data),
+  bulkAssignTags: (contactIds, tags, action = 'add') =>
+    client.post('/contacts/bulk-tags', { contactIds, tags, action }),
 };
 
 // ---- TEMPLATES ----
@@ -161,9 +163,7 @@ export const tenantApi = {
   wabaHealthSync: () => client.post('/tenants/me/waba-health/sync'),
   getProfile: () => client.get('/tenants/me/whatsapp-profile'),
   updateProfile: (data) => client.patch('/tenants/me/whatsapp-profile', data),
-  uploadAvatar: (formData) => client.post('/tenants/me/whatsapp-profile/picture', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  }),
+  uploadAvatar: (formData) => client.post('/tenants/me/whatsapp-profile/picture', formData),
   updateAccount: (data) => client.patch('/tenants/me', data),
   team: () => client.get('/tenants/me/team'),
   invite: (data) => client.post('/tenants/me/invite', data),
