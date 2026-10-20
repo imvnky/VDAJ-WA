@@ -414,7 +414,8 @@ export default function SettingsPage() {
   const handleAvatarFile = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!['image/jpeg', 'image/png'].includes(file.type)) {
+    const fileType = (file.type || '').toLowerCase();
+    if (!['image/jpeg', 'image/png', 'image/jpg', 'image/webp'].includes(fileType)) {
       showError('Please select a JPG or PNG image.');
       return;
     }

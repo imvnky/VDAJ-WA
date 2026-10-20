@@ -42,6 +42,10 @@ const client = axios.create({
 
 client.interceptors.request.use((cfg) => {
   cfg.headers['X-Request-ID'] = crypto.randomUUID();
+  // Allow browser/Axios to set multipart boundary for FormData uploads
+  if (cfg.data instanceof FormData) {
+    delete cfg.headers['Content-Type'];
+  }
   // Attach Bearer token when cookies are blocked (cross-origin)
   const token = sessionStorage.getItem('vdaj_token');
   if (token && !cfg.headers.Authorization) {
@@ -145,6 +149,7 @@ export const contactApi = {
   createList: (data) => client.post('/contacts/lists', data),
   bulkAssignTags: (contactIds, tags, action = 'add') =>
     client.post('/contacts/bulk-tags', { contactIds, tags, action }),
+  resetAll: (tenantId) => client.post('/contacts/reset-all', { tenantId }),
 };
 
 // ---- TEMPLATES ----

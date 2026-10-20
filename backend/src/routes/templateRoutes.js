@@ -283,6 +283,27 @@ router.post('/sync', catchAsync(async (req, res) => {
     syncedCount++;
   }
 
+  // Soft-delete local templates that were removed/deleted on Meta
+  const activeMetaNames = metaTemplates.map((m) => m.name.toLowerCase().trim());
+  if (activeMetaNames.length > 0) {
+    await query(
+      `UPDATE message_templates
+       SET deleted_at = NOW()
+       WHERE tenant_id = $1
+         AND deleted_at IS NULL
+         AND LOWER(name) != ALL($2::text[])`,
+      [targetTenantId, activeMetaNames]
+    );
+  } else {
+    await query(
+      `UPDATE message_templates
+       SET deleted_at = NOW()
+       WHERE tenant_id = $1
+         AND deleted_at IS NULL`,
+      [targetTenantId]
+    );
+  }
+
   const { rows } = await query(
     `SELECT * FROM message_templates WHERE tenant_id = $1 AND deleted_at IS NULL ORDER BY created_at DESC`,
     [targetTenantId]

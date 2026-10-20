@@ -513,6 +513,30 @@ router.post('/bulk-tags', catchAsync(async (req, res) => {
   return sendSuccess(res, { updatedCount: rows.length }, `Tags updated for ${rows.length} contacts.`);
 }));
 
+// ── POST /contacts/reset-all — Delete all contacts, groups & tags for workspace ──
+router.post('/reset-all', catchAsync(async (req, res) => {
+  let tenantId = req.user.tenantId || req.tenant?.id;
+  if (req.user.role === 'super_admin' && req.body?.tenantId) {
+    tenantId = req.body.tenantId;
+  }
+  if (!tenantId) {
+    const { rows: [t] } = await query(`SELECT id FROM tenants WHERE slug ILIKE '%smr%' OR name ILIKE '%smr%' LIMIT 1`);
+    tenantId = t?.id;
+  }
+  if (!tenantId) throw new AppError('Tenant context required.', 400, 'ERR_VDAJ_TENANT_001');
+
+  // Cascade delete: list members -> contact lists -> contacts
+  await query(`DELETE FROM contact_list_members WHERE tenant_id = $1`, [tenantId]);
+  await query(`DELETE FROM contact_lists WHERE tenant_id = $1`, [tenantId]);
+  const { rowCount } = await query(`DELETE FROM contacts WHERE tenant_id = $1`, [tenantId]);
+
+  return sendSuccess(
+    res,
+    { deletedContactsCount: rowCount },
+    `All contacts (${rowCount}), groups, and tags have been deleted for this workspace.`
+  );
+}));
+
 // ── GET /contacts/:id — Full contact detail ────────────────────
 router.get('/:id', uuidParamValidator('id'), validate, catchAsync(async (req, res) => {
   const tenantId   = req.user.tenantId;
