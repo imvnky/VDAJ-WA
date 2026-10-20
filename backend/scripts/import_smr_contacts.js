@@ -17,25 +17,25 @@ const { query, pool, withTransaction } = require('../src/config/database');
 
 // Raw parsed contacts data extracted directly from "Comittee & members.xlsx"
 const RAW_COMMITTEE = [
-  { sr: "1", name: "श्री लक्ष्मीरमनजी लाहोटी", phone: "9420933333" },
-  { sr: "2", name: "श्री शैलेशकुमारजी लाहोटी", phone: "9881955555" },
-  { sr: "3", name: "श्री राजेंद्रकुमारजी  मालपाणी", phone: "9423076701" },
-  { sr: "4", name: "श्री आशिषजी बाजपाई", phone: "7888013050" },
-  { sr: "5", name: "श्री कमलकिशोरजी  अग्रवाल", phone: "9422470222" },
-  { sr: "6", name: "श्री हुकूमचंदजी कलंत्री", phone: "9823025258" },
-  { sr: "7", name: "श्री आशिषजी  अग्रवाल", phone: "8888888525" },
-  { sr: "8", name: "श्री चैत्यन्यजी  भार्गव", phone: "9822602737" },
-  { sr: "9", name: "श्री आशिषजी बाहेती", phone: "9850022500" },
-  { sr: "10", name: "श्री संजयजी  गायकवाड", phone: "9422071374" },
-  { sr: "11", name: "श्री धनराजजी  जोशी", phone: "9422071855" },
-  { sr: "12", name: "श्री अभयजी  शाह", phone: "9822295627" },
-  { sr: "13", name: "श्री गणेशजी हेड्डा", phone: "9823177446" },
-  { sr: "14", name: "श्री निखिलजी राठी", phone: "9049338338" },
-  { sr: "15", name: "श्री मनीषजी राठी", phone: "9325345298" },
-  { sr: "16", name: "श्री आशिषजी सोमाणी", phone: "9850047778" },
-  { sr: "17", name: "श्री आनंदजी लखोटिया", phone: "9850153322" },
-  { sr: "18", name: "श्री अजयजी मंत्री", phone: "9422070183" },
-  { sr: "19", name: "श्री दीपकजी  बाहेती", phone: "9422070500" }
+  { sr: "1", name: "Laxmiraman Lahoti", phone: "9420933333" },
+  { sr: "2", name: "Shaileshkumar Lahoti", phone: "9881955555" },
+  { sr: "3", name: "Rajendrakumar Malpani", phone: "9423076701" },
+  { sr: "4", name: "Ashish Bajpai", phone: "7888013050" },
+  { sr: "5", name: "Kamalkishor Agrawal", phone: "9422470222" },
+  { sr: "6", name: "Hukumchand Kalantri", phone: "9823025258" },
+  { sr: "7", name: "Ashish Agrawal", phone: "8888888525" },
+  { sr: "8", name: "Chaitanya Bhargav", phone: "9822602737" },
+  { sr: "9", name: "Ashish Baheti", phone: "9850022500" },
+  { sr: "10", name: "Sanjay Gaikwad", phone: "9422071374" },
+  { sr: "11", name: "Dhanraj Joshi", phone: "9422071855" },
+  { sr: "12", name: "Abhay Shah", phone: "9822295627" },
+  { sr: "13", name: "Ganesh Hedda", phone: "9823177446" },
+  { sr: "14", name: "Nikhil Rathi", phone: "9049338338" },
+  { sr: "15", name: "Manish Rathi", phone: "9325345298" },
+  { sr: "16", name: "Ashish Somani", phone: "9850047778" },
+  { sr: "17", name: "Anand Lakhotia", phone: "9850153322" },
+  { sr: "18", name: "Ajay Mantri", phone: "9422070183" },
+  { sr: "19", name: "Deepak Baheti", phone: "9422070500" }
 ];
 
 const RAW_MEMBERS = require('./smr_members_data.json');
@@ -105,10 +105,14 @@ async function importSmrContacts() {
     const p10 = rawDigits.slice(-10);
     const phoneE164 = `+91${p10}`;
 
+    const nameParts = c.name.trim().split(/\s+/);
+    const firstName = nameParts[0] || c.name.trim();
+    const lastName = nameParts.slice(1).join(' ') || null;
+
     contactsMap.set(phoneE164, {
       phone: phoneE164,
-      firstName: c.name.trim(),
-      lastName: null,
+      firstName: firstName,
+      lastName: lastName,
       tags: ['committee'],
       lists: [committeeListId],
       customVars: {
@@ -142,10 +146,15 @@ async function importSmrContacts() {
       existing.customVars.membership_type = membershipType;
       existing.customVars.member_name = m.name ? m.name.trim() : existing.customVars.member_name;
     } else {
+      const memName = (m.name || '').trim();
+      const memParts = memName.split(/\s+/);
+      const firstName = memParts[0] || (memName || `Member ${m.id_no || ''}`).trim();
+      const lastName = memParts.length > 1 ? memParts.slice(1).join(' ') : null;
+
       contactsMap.set(phoneE164, {
         phone: phoneE164,
-        firstName: m.name ? m.name.trim() : `Member ${m.id_no || ''}`.trim(),
-        lastName: null,
+        firstName: firstName,
+        lastName: lastName,
         tags: ['member', membershipType.toLowerCase() + '-membership'],
         lists: [membersListId],
         customVars: {
@@ -181,7 +190,8 @@ async function importSmrContacts() {
          ($1, $2, $3, $4, $5::jsonb, $6::text[], 'active', NOW(), 'member_directory', 'SMR Swimming Pool & Health Club Official Directory 2026')
        ON CONFLICT (tenant_id, phone_e164) DO UPDATE
        SET 
-         first_name  = COALESCE(EXCLUDED.first_name, contacts.first_name),
+         first_name  = EXCLUDED.first_name,
+         last_name   = EXCLUDED.last_name,
          custom_vars = contacts.custom_vars || EXCLUDED.custom_vars,
          tags        = ARRAY(SELECT DISTINCT UNNEST(COALESCE(contacts.tags, '{}') || EXCLUDED.tags)),
          status      = 'active',
