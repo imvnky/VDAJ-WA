@@ -8,7 +8,11 @@
 
 'use strict';
 
+const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
+require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
 require('dotenv').config();
+
 const { query, pool, withTransaction } = require('../src/config/database');
 
 // Raw parsed contacts data extracted directly from "Comittee & members.xlsx"
