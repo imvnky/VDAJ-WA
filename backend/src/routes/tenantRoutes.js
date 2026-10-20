@@ -522,7 +522,7 @@ router.patch('/me', catchAsync(async (req, res) => {
   const tenantId = req.user.tenantId || req.body.tenantId;
   if (!tenantId) throw new AppError('Not associated with a tenant.', 400, 'ERR_VDAJ_TENANT_003');
 
-  const { name, timezone, country_code, waba_id, phone_number_id, display_phone_number, verified_name } = req.body;
+  const { name, timezone, country_code, waba_id, phone_number_id, display_phone_number, verified_name, meta_system_token } = req.body;
 
   const updates = [];
   const params = [tenantId];
@@ -535,6 +535,10 @@ router.patch('/me', catchAsync(async (req, res) => {
   if (phone_number_id !== undefined) { updates.push(`phone_number_id = $${pidx++}`); params.push(phone_number_id ? phone_number_id.trim() : null); }
   if (display_phone_number !== undefined) { updates.push(`display_phone_number = $${pidx++}`); params.push(display_phone_number ? display_phone_number.trim() : null); }
   if (verified_name !== undefined) { updates.push(`verified_name = $${pidx++}`); params.push(verified_name ? verified_name.trim() : null); }
+  if (meta_system_token !== undefined && meta_system_token.trim() !== '') {
+    updates.push(`meta_system_token = $${pidx++}`);
+    params.push(meta_system_token.trim());
+  }
 
   if (updates.length === 0) {
     return sendSuccess(res, null, 'No changes provided.');

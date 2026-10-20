@@ -88,8 +88,8 @@ router.post('/', catchAsync(async (req, res) => {
   );
 
   // Attempt Meta submission — non-fatal if credentials missing
-  const effectiveWabaId = req.tenant?.wabaId || process.env.META_WABA_ID;
-  const effectiveToken = req.tenant?.metaSystemToken || process.env.META_ACCESS_TOKEN;
+  const effectiveWabaId = req.tenant?.waba_id || req.tenant?.wabaId || process.env.META_WABA_ID;
+  const effectiveToken  = req.tenant?.meta_system_token || req.tenant?.metaSystemToken || req.tenant?.whatsapp_access_token || process.env.META_ACCESS_TOKEN;
 
   if (effectiveWabaId && effectiveToken) {
     try {
@@ -102,7 +102,7 @@ router.post('/', catchAsync(async (req, res) => {
       // Update local record with Meta's ID + status
       const { rows: [updated] } = await query(
         `UPDATE message_templates
-         SET meta_template_id = $1, status = $2, updated_at = NOW()
+         SET meta_template_id = $1, status = $2, rejection_reason = NULL, updated_at = NOW()
          WHERE id = $3
          RETURNING *`,
         [metaTemplateId, metaStatus, template.id]
@@ -114,10 +114,32 @@ router.post('/', catchAsync(async (req, res) => {
         `Template submitted to Meta. Status: ${metaStatus}.`
       );
     } catch (metaErr) {
-      // Log Meta error but don't fail the request — template is saved locally
-      // The tenant can retry submission via POST /templates/:id/sync
-      req.metaError = metaErr.message;
+      const reason = metaErr.message || 'Meta submission failed.';
+      await query(
+        `UPDATE message_templates
+         SET status = 'rejected', rejection_reason = $1, updated_at = NOW()
+         WHERE id = $2`,
+        [`Meta submission rejected: ${reason}`, template.id]
+      );
+
+      throw new AppError(
+        `Template saved, but Meta rejected submission: ${reason}`,
+        metaErr.statusCode || 400,
+        metaErr.errorCode || 'ERR_META_SUBMISSION_FAILED'
+      );
     }
+  } else {
+    await query(
+      `UPDATE message_templates
+       SET status = 'rejected', rejection_reason = 'WhatsApp credentials not configured for this workspace.', updated_at = NOW()
+       WHERE id = $1`,
+      [template.id]
+    );
+    throw new AppError(
+      'WhatsApp credentials not configured for this workspace. Please configure WABA ID and Access Token in Settings.',
+      400,
+      'ERR_META_006'
+    );
   }
 
   recordAudit({
@@ -157,22 +179,16 @@ router.post('/sync', catchAsync(async (req, res) => {
   const isSuperAdmin = req.user.role === 'super_admin';
 
   let tenant = req.tenant;
-  if (!tenant?.wabaId && tenantId) {
+  if ((!tenant?.waba_id && !tenant?.wabaId) && tenantId) {
     const { rows: [t] } = await query(
       `SELECT waba_id, meta_system_token, phone_number_id FROM tenants WHERE id = $1`,
       [tenantId]
     );
-    if (t) {
-      tenant = {
-        wabaId: t.waba_id,
-        metaSystemToken: t.meta_system_token,
-        phoneNumberId: t.phone_number_id,
-      };
-    }
+    if (t) tenant = t;
   }
 
-  const effectiveWabaId = tenant?.wabaId || process.env.META_WABA_ID;
-  const effectiveToken = tenant?.metaSystemToken || process.env.META_ACCESS_TOKEN;
+  const effectiveWabaId = tenant?.waba_id || tenant?.wabaId || process.env.META_WABA_ID;
+  const effectiveToken  = tenant?.meta_system_token || tenant?.metaSystemToken || tenant?.whatsapp_access_token || process.env.META_ACCESS_TOKEN;
 
   if (!effectiveWabaId || !effectiveToken) {
     throw new AppError(
@@ -298,26 +314,20 @@ router.post('/:id/sync', catchAsync(async (req, res) => {
 
   // Resolve tenant credentials (handles both tenant users and super_admin)
   let tenant = req.tenant;
-  if (!tenant?.wabaId && template.tenant_id) {
+  if ((!tenant?.waba_id && !tenant?.wabaId) && template.tenant_id) {
     const { rows: [t] } = await query(
       `SELECT waba_id, meta_system_token, phone_number_id FROM tenants WHERE id = $1`,
       [template.tenant_id]
     );
-    if (t) {
-      tenant = {
-        wabaId: t.waba_id,
-        metaSystemToken: t.meta_system_token,
-        phoneNumberId: t.phone_number_id,
-      };
-    }
+    if (t) tenant = t;
   }
 
-  const effectiveWabaId = tenant?.wabaId || process.env.META_WABA_ID;
-  const effectiveToken = tenant?.metaSystemToken || process.env.META_ACCESS_TOKEN;
+  const effectiveWabaId = tenant?.waba_id || tenant?.wabaId || process.env.META_WABA_ID;
+  const effectiveToken  = tenant?.meta_system_token || tenant?.metaSystemToken || tenant?.whatsapp_access_token || process.env.META_ACCESS_TOKEN;
 
   if (!effectiveWabaId || !effectiveToken) {
     throw new AppError(
-      'WhatsApp credentials not configured for this template\'s tenant. Connect at /whatsapp-setup first.',
+      'WhatsApp credentials not configured for this template\'s tenant. Connect in Settings first.',
       400,
       'ERR_META_006'
     );
@@ -325,20 +335,31 @@ router.post('/:id/sync', catchAsync(async (req, res) => {
 
   if (!template.meta_template_id) {
     // Not yet submitted — attempt initial submission now
-    const { metaTemplateId, status: metaStatus } = await createMetaTemplate(
-      { wabaId: effectiveWabaId, accessToken: effectiveToken },
-      template
-    );
+    try {
+      const { metaTemplateId, status: metaStatus } = await createMetaTemplate(
+        { wabaId: effectiveWabaId, accessToken: effectiveToken },
+        template
+      );
 
-    const { rows: [updated] } = await query(
-      `UPDATE message_templates
-       SET meta_template_id = $1, status = $2, updated_at = NOW()
-       WHERE id = $3
-       RETURNING *`,
-      [metaTemplateId, metaStatus, template.id]
-    );
+      const { rows: [updated] } = await query(
+        `UPDATE message_templates
+         SET meta_template_id = $1, status = $2, rejection_reason = NULL, updated_at = NOW()
+         WHERE id = $3
+         RETURNING *`,
+        [metaTemplateId, metaStatus, template.id]
+      );
 
-    return sendSuccess(res, updated, `Template submitted to Meta. Status: ${metaStatus}.`);
+      return sendSuccess(res, updated, `Template submitted to Meta successfully! Status: ${metaStatus}.`);
+    } catch (metaErr) {
+      const reason = metaErr.message || 'Meta submission failed.';
+      await query(
+        `UPDATE message_templates
+         SET status = 'rejected', rejection_reason = $1, updated_at = NOW()
+         WHERE id = $2`,
+        [`Submission failed: ${reason}`, template.id]
+      );
+      throw metaErr;
+    }
   }
 
   // Already submitted — poll Meta for current approval status

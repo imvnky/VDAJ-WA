@@ -249,6 +249,23 @@ function EditWabaModal({ initialData, onClose, onUpdated }) {
               style={inputStyle}
             />
           </div>
+
+          <div>
+            <label className="block font-semibold mb-1" style={{ color: 'var(--text-secondary)' }}>
+              Meta System User Access Token (Permanent Token)
+            </label>
+            <input
+              type="password"
+              value={form.meta_system_token || ''}
+              onChange={(e) => setForm((p) => ({ ...p, meta_system_token: e.target.value }))}
+              placeholder="Paste permanent token (leave blank to keep current)"
+              className={inputClass}
+              style={inputStyle}
+            />
+            <p className="text-[10px] text-[#94A3B8] mt-1 leading-normal">
+              To prevent session expiry, generate a permanent System User Token in Meta Business Suite &rarr; Users &rarr; System Users with permissions: <strong>whatsapp_business_messaging</strong>, <strong>whatsapp_business_management</strong>.
+            </p>
+          </div>
         </div>
 
         <div className="flex items-center justify-end gap-3 px-6 py-4 border-t"

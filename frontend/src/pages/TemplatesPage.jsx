@@ -843,21 +843,40 @@ function EnterpriseTemplateCard({ template, onSync, onResubmit }) {
           </div>
 
           {/* Status Badge */}
-          <span
-            className={clsx(
-              'px-3 py-1 rounded-full text-xs font-bold border shrink-0 flex items-center gap-1.5 shadow-sm',
-              isApproved && 'bg-[#E8F9F4] text-[#148059] border-[#A3E4D0]',
-              isRejected && 'bg-red-50 text-red-700 border-red-200',
-              !isApproved && !isRejected && 'bg-amber-50 text-amber-700 border-amber-200'
-            )}
-          >
-            <span className="w-2 h-2 rounded-full bg-current"></span>
-            {isApproved ? 'Approved' : isRejected ? 'Rejected' : 'In Review'}
-          </span>
+          {template.meta_template_id ? (
+            <span
+              className={clsx(
+                'px-3 py-1 rounded-full text-xs font-bold border shrink-0 flex items-center gap-1.5 shadow-sm',
+                isApproved && 'bg-[#E8F9F4] text-[#148059] border-[#A3E4D0]',
+                isRejected && 'bg-red-50 text-red-700 border-red-200',
+                !isApproved && !isRejected && 'bg-amber-50 text-amber-700 border-amber-200'
+              )}
+            >
+              <span className="w-2 h-2 rounded-full bg-current"></span>
+              {isApproved ? 'Approved' : isRejected ? 'Rejected by Meta' : 'In Meta Review'}
+            </span>
+          ) : (
+            <span className="px-3 py-1 rounded-full text-xs font-bold border shrink-0 flex items-center gap-1.5 shadow-sm bg-rose-50 text-rose-700 border-rose-200">
+              <span className="w-2 h-2 rounded-full bg-rose-500"></span>
+              Not Submitted to Meta
+            </span>
+          )}
         </div>
 
-        {/* Rejection alert if applicable */}
-        {isRejected && (
+        {/* Not submitted alert or rejection alert */}
+        {!template.meta_template_id && (
+          <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 space-y-1">
+            <p className="font-bold flex items-center gap-1.5">
+              <span>⚠️</span>
+              <span>Not Present in Meta</span>
+            </p>
+            <p className="text-[11px] text-amber-800 leading-relaxed">
+              {template.rejection_reason || 'This template was not received by Meta (e.g. invalid or expired system token). Check Settings &rarr; Edit Credentials or click "Submit to Meta" below.'}
+            </p>
+          </div>
+        )}
+
+        {template.meta_template_id && isRejected && (
           <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-800 space-y-1">
             <p className="font-bold">❌ Rejected by Meta Review</p>
             <p className="text-[11px] text-red-700 leading-relaxed">
@@ -925,9 +944,14 @@ function EnterpriseTemplateCard({ template, onSync, onResubmit }) {
             <button
               onClick={handleSync}
               disabled={syncing}
-              className="px-2.5 py-1 text-xs font-semibold text-[#534AB7] bg-[#F3F2FD] hover:bg-[#E6E4F5] rounded-lg transition-colors disabled:opacity-50"
+              className={clsx(
+                "px-3 py-1 text-xs font-bold rounded-lg transition-colors shadow-xs disabled:opacity-50",
+                !template.meta_template_id
+                  ? "bg-[#534AB7] hover:bg-[#4339A6] text-white"
+                  : "text-[#534AB7] bg-[#F3F2FD] hover:bg-[#E6E4F5]"
+              )}
             >
-              {syncing ? 'Syncing…' : '🔄 Sync Meta'}
+              {syncing ? 'Connecting…' : (!template.meta_template_id ? '🚀 Submit to Meta' : '🔄 Sync Meta')}
             </button>
           )}
         </div>
@@ -990,8 +1014,8 @@ export default function TemplatesPage() {
 
   // Metrics
   const approvedCount = templates.filter((t) => (t.status || '').toLowerCase() === 'approved').length;
-  const pendingCount = templates.filter((t) => (t.status || '').toLowerCase() === 'pending').length;
-  const rejectedCount = templates.filter((t) => (t.status || '').toLowerCase() === 'rejected').length;
+  const inMetaReviewCount = templates.filter((t) => (t.status || '').toLowerCase() === 'pending' && Boolean(t.meta_template_id)).length;
+  const unsubmittedOrRejectedCount = templates.filter((t) => !t.meta_template_id || (t.status || '').toLowerCase() === 'rejected').length;
 
   // Filtered list
   const filteredTemplates = useMemo(() => {
@@ -1080,7 +1104,7 @@ export default function TemplatesPage() {
         <div className="bg-[#FFFFFF] border border-[#E2E8F0] p-4 rounded-2xl shadow-sm flex items-center justify-between">
           <div>
             <p className="text-xs font-semibold text-[#64748B] uppercase tracking-wider">In Meta Review</p>
-            <h3 className="text-2xl font-black text-amber-700 mt-1">{pendingCount}</h3>
+            <h3 className="text-2xl font-black text-amber-700 mt-1">{inMetaReviewCount}</h3>
             <p className="text-[11px] text-amber-600 mt-0.5">Est. time: ~15 mins</p>
           </div>
           <div className="w-11 h-11 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-xl font-bold">
@@ -1091,8 +1115,8 @@ export default function TemplatesPage() {
         <div className="bg-[#FFFFFF] border border-[#E2E8F0] p-4 rounded-2xl shadow-sm flex items-center justify-between">
           <div>
             <p className="text-xs font-semibold text-[#64748B] uppercase tracking-wider">Needs Attention</p>
-            <h3 className="text-2xl font-black text-red-600 mt-1">{rejectedCount}</h3>
-            <p className="text-[11px] text-red-500 mt-0.5">Rejected by Meta</p>
+            <h3 className="text-2xl font-black text-red-600 mt-1">{unsubmittedOrRejectedCount}</h3>
+            <p className="text-[11px] text-red-500 mt-0.5">Not submitted or rejected</p>
           </div>
           <div className="w-11 h-11 rounded-xl bg-red-50 text-red-600 flex items-center justify-center text-xl font-bold">
             ⚠️
