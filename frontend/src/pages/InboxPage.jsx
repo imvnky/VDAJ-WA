@@ -508,7 +508,8 @@ const STATUS_TABS = [
 ];
 
 export default function InboxPage() {
-  const { user }           = useAuthStore();
+  const { user, tenant, isImpersonating, impersonatedTenant } = useAuthStore();
+  const effectiveTenantId = (isImpersonating && impersonatedTenant?.id) || tenant?.id || user?.tenantId;
   const location           = useLocation();
   const [conversations,     setConversations]     = useState([]);
   const [activeConv,        setActiveConv]        = useState(null);
@@ -545,8 +546,8 @@ export default function InboxPage() {
   const [convError,         setConvError]         = useState(null);
 
   // ── Load conversations ────────────────────────────────────
-  const loadConversations = useCallback(async () => {
-    setLoading(true);
+  const loadConversations = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const params = {
         filter: filterTab,
@@ -611,10 +612,35 @@ export default function InboxPage() {
       }
     } catch (err) {
       setConvError(parseApiError(err));
-    } finally { setLoading(false); }
+    } finally {
+      if (!silent) setLoading(false);
+    }
   }, [filterTab, statusTab, searchText, location.search, location.state]);
 
   useEffect(() => { loadConversations(); }, [loadConversations]);
+
+  // ── Auto-polling safety net (keeps chats fresh even if WS drops) ──
+  useEffect(() => {
+    const pollTimer = setInterval(() => {
+      loadConversations(true);
+      if (activeConvRef.current?.id) {
+        inboxApi.messages(activeConvRef.current.id, { limit: 50 }, { silent: true })
+          .then((r) => {
+            if (Array.isArray(r?.data)) {
+              setMessages((prev) => {
+                if (r.data.length !== prev.length || (r.data[r.data.length - 1]?.id !== prev[prev.length - 1]?.id)) {
+                  return r.data;
+                }
+                return prev;
+              });
+            }
+          })
+          .catch(() => {});
+      }
+    }, 4000);
+
+    return () => clearInterval(pollTimer);
+  }, [loadConversations]);
 
   useEffect(() => {
     templateApi.list({ silent: true }).then((r) => setTemplates(r?.data || [])).catch(() => {});
@@ -628,7 +654,7 @@ export default function InboxPage() {
 
   // ── WebSocket ─────────────────────────────────────────────
   useEffect(() => {
-    if (!user?.tenantId && user?.role !== 'super_admin') return;
+    if (!effectiveTenantId && user?.role !== 'super_admin') return;
     let ws = null;
     let retryTimeout = null;
     let isDisposed = false;
@@ -636,14 +662,14 @@ export default function InboxPage() {
     const connect = () => {
       if (isDisposed) return;
       try {
-        const tenantQuery = user?.tenantId ? `tenantId=${user.tenantId}` : 'tenantId=all';
+        const tenantQuery = effectiveTenantId ? `tenantId=${effectiveTenantId}` : 'tenantId=all';
         ws = new WebSocket(`${WS_BASE}/ws/inbox?${tenantQuery}`);
         wsRef.current = ws;
         ws.onopen  = () => { if (!isDisposed) setWsStatus('connected'); };
         ws.onclose = () => {
           if (!isDisposed) {
             setWsStatus('disconnected');
-            retryTimeout = setTimeout(connect, 5000);
+            retryTimeout = setTimeout(connect, 4000);
           }
         };
         ws.onerror = () => { if (!isDisposed) setWsStatus('error'); };
@@ -676,19 +702,47 @@ export default function InboxPage() {
                 inboxApi.markRead(msg.conversation_id).catch(() => {});
               }
 
-              setConversations((prev) =>
-                prev.map((c) =>
-                  c.id === msg.conversation_id
-                    ? {
-                        ...c,
-                        last_message_preview: msg.body?.slice(0, 100),
-                        last_message_at: msg.created_at,
-                        unread_count: isCurrentOpen ? 0 : (c.unread_count || 0) + 1,
-                        ...(msg.direction === 'inbound' ? { last_inbound_at: msg.created_at } : {}),
-                      }
-                    : c
-                )
-              );
+              setConversations((prev) => {
+                const exists = prev.some((c) => c.id === msg.conversation_id);
+                if (exists) {
+                  return prev
+                    .map((c) =>
+                      c.id === msg.conversation_id
+                        ? {
+                            ...c,
+                            last_message_preview: msg.body?.slice(0, 100) || `[${msg.type || 'message'}]`,
+                            last_message_at: msg.created_at,
+                            unread_count: isCurrentOpen ? 0 : (c.unread_count || 0) + 1,
+                            ...(msg.direction === 'inbound' ? { last_inbound_at: msg.created_at } : {}),
+                          }
+                        : c
+                    )
+                    .sort((a, b) => new Date(b.last_message_at || 0) - new Date(a.last_message_at || 0));
+                }
+
+                // Brand new conversation — prepend immediately to left sidebar!
+                if (msg.conversation) {
+                  const newConv = {
+                    ...msg.conversation,
+                    last_message_preview: msg.body?.slice(0, 100) || `[${msg.type || 'message'}]`,
+                    last_message_at: msg.created_at,
+                    unread_count: isCurrentOpen ? 0 : 1,
+                  };
+                  return [newConv, ...prev];
+                }
+
+                loadConversations(true);
+                return prev;
+              });
+
+              // Auto-select if no conversation is currently active on desktop
+              if (!activeConvRef.current && window.innerWidth >= 1024) {
+                if (msg.conversation) {
+                  setActiveConv(msg.conversation);
+                } else {
+                  loadConversations(true);
+                }
+              }
             }
 
             // Phase 2: real-time assignment updates
@@ -737,7 +791,7 @@ export default function InboxPage() {
         ws.close();
       }
     };
-  }, [user?.tenantId]);
+  }, [user?.role, user?.tenantId, effectiveTenantId, loadConversations]);
 
   // ── Load messages whenever active conversation changes ─────
   useEffect(() => {

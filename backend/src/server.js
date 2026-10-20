@@ -333,9 +333,11 @@ wss.on('connection', (ws, req) => {
  */
 const broadcastToTenant = (tenantId, payload) => {
   const clients = tenantRooms.get(tenantId);
-  if (!clients?.size) return;
+  const allClients = tenantRooms.get('all');
+  const targets = new Set([...(clients || []), ...(allClients || [])]);
+  if (!targets.size) return;
   const msg = JSON.stringify(payload);
-  clients.forEach((ws) => { if (ws.readyState === 1) ws.send(msg); });
+  targets.forEach((ws) => { if (ws.readyState === 1) ws.send(msg); });
 };
 
 // Expose via app.get() so any route/worker can call it
