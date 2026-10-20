@@ -28,8 +28,8 @@ const fetch = (...args) => import('node-fetch').then(({ default: f }) => f(...ar
 const META_API_BASE = process.env.META_GRAPH_API_URL || 'https://graph.facebook.com';
 const API_VERSION   = process.env.META_API_VERSION   || 'v21.0';
 
-// ── GET /webhooks/whatsapp — Meta verification challenge ────────
-router.get('/whatsapp', (req, res) => {
+// ── GET /webhooks or /webhooks/whatsapp — Meta verification challenge ────────
+router.get(['/', '/whatsapp'], (req, res) => {
   const mode      = req.query['hub.mode'];
   const token     = req.query['hub.verify_token'];
   const challenge = req.query['hub.challenge'];
@@ -42,8 +42,8 @@ router.get('/whatsapp', (req, res) => {
   return res.status(403).json({ success: false, message: 'Webhook verification failed.' });
 });
 
-// ── POST /webhooks/whatsapp — Main handler ──────────────────────
-router.post('/whatsapp', (req, res) => {
+// ── POST /webhooks or /webhooks/whatsapp — Main handler ──────────────────────
+router.post(['/', '/whatsapp'], (req, res) => {
 
   // Always ack Meta immediately with receipt header for App Review traceability
   res.set('X-VDAJ-Webhook-Received', new Date().toISOString());
@@ -175,15 +175,22 @@ async function handleInboundMessage(msg, value, broadcastToTenant) {
     return;
   }
 
-  const { rows: tenantRows } = await query(
+  let { rows: tenantRows } = await query(
     `SELECT id, meta_system_token FROM tenants
-     WHERE phone_number_id = $1 AND deleted_at IS NULL LIMIT 1`,
-    [phoneNumberId]
+     WHERE (TRIM(phone_number_id) = TRIM($1) OR display_phone_number = $2) AND deleted_at IS NULL LIMIT 1`,
+    [phoneNumberId, value.metadata?.display_phone_number]
   );
 
   if (!tenantRows.length) {
-    logger.warn('No tenant found for phone_number_id', { phoneNumberId });
-    return;
+    logger.warn('No tenant found for phone_number_id, attempting SMR workspace fallback', { phoneNumberId, metadata: value.metadata });
+    const { rows: fallbackRows } = await query(
+      `SELECT id, meta_system_token FROM tenants WHERE slug ILIKE '%smr%' OR name ILIKE '%smr%' LIMIT 1`
+    );
+    if (fallbackRows.length) {
+      tenantRows = fallbackRows;
+    } else {
+      return;
+    }
   }
 
   const tenantId        = tenantRows[0].id;
