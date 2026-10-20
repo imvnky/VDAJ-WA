@@ -22,7 +22,7 @@ async function subscribeWABA() {
   console.log('======================================================\n');
 
   const { rows: tenants } = await query(
-    `SELECT id, name, slug, waba_id, phone_number_id, meta_system_token, whatsapp_access_token
+    `SELECT id, name, slug, waba_id, phone_number_id, meta_system_token
      FROM tenants
      WHERE slug ILIKE '%smr%' OR name ILIKE '%smr%'
      LIMIT 1`
@@ -35,7 +35,7 @@ async function subscribeWABA() {
 
   const t = tenants[0];
   const wabaId = t.waba_id || process.env.META_WABA_ID || '1102225165878106';
-  const token = t.meta_system_token || t.whatsapp_access_token || process.env.META_ACCESS_TOKEN;
+  const token = t.meta_system_token || process.env.META_ACCESS_TOKEN;
 
   if (!token) {
     console.error('❌ Error: No Meta access token found.');
