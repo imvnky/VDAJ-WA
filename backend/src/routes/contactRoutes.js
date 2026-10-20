@@ -526,7 +526,7 @@ router.post('/reset-all', catchAsync(async (req, res) => {
   if (!tenantId) throw new AppError('Tenant context required.', 400, 'ERR_VDAJ_TENANT_001');
 
   // Cascade delete: list members -> contact lists -> contacts
-  await query(`DELETE FROM contact_list_members WHERE tenant_id = $1`, [tenantId]);
+  await query(`DELETE FROM contact_list_members WHERE contact_list_id IN (SELECT id FROM contact_lists WHERE tenant_id = $1)`, [tenantId]);
   await query(`DELETE FROM contact_lists WHERE tenant_id = $1`, [tenantId]);
   const { rowCount } = await query(`DELETE FROM contacts WHERE tenant_id = $1`, [tenantId]);
 

@@ -37,7 +37,7 @@ async function resetContacts() {
 
   // 2. Cascade delete
   const rMembers = await query(
-    `DELETE FROM contact_list_members WHERE tenant_id = $1`,
+    `DELETE FROM contact_list_members WHERE contact_list_id IN (SELECT id FROM contact_lists WHERE tenant_id = $1)`,
     [tenant.id]
   );
   console.log(`✔ Cleared ${rMembers.rowCount || 0} contact list members.`);
