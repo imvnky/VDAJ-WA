@@ -22,7 +22,6 @@ require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
 require('dotenv').config();
 
-const XLSX = require('xlsx');
 const { query, pool } = require('../src/config/database');
 
 const COMMITTEE_ENGLISH = [
@@ -66,26 +65,8 @@ async function importExcelGroups() {
   const tenant = tenants[0];
   console.log(`✔ Target Tenant: "${tenant.name}" (${tenant.id})\n`);
 
-  // 2. Locate Excel file
-  const candidatePaths = [
-    path.resolve(__dirname, '../../Comittee & members.xlsx'),
-    path.resolve(__dirname, '../Comittee & members.xlsx'),
-    'C:\\Users\\Venkatesh Joshi\\Downloads\\Comittee & members.xlsx',
-    '/var/www/VDAJ-WA/Comittee & members.xlsx',
-    path.resolve(process.cwd(), 'Comittee & members.xlsx')
-  ];
-
-  let excelPath = candidatePaths.find((p) => fs.existsSync(p));
-  if (!excelPath) {
-    // If running on VPS where Excel file isn't uploaded, we embed the parsed JSON payload
-    console.log('ℹ Excel file not found on local disk. Loading pre-parsed member dataset...');
-    excelPath = null;
-  } else {
-    console.log(`📖 Reading Excel file from: ${excelPath}`);
-  }
-
-  // 3. Setup the 3 Groups (Contact Lists)
-  console.log('\n📁 Creating/Verifying the 3 Audience Groups...');
+  // 2. Setup the 3 Groups (Contact Lists)
+  console.log('📁 Creating/Verifying the 3 Audience Groups...');
   const groupDefs = [
     { name: 'SMR Committee Members', desc: 'SMR Swimming Pool & Health Club Managing Committee Body' },
     { name: 'Individual Members',     desc: 'SMR Swimming Pool & Health Club Individual Membership (I- IDs)' },
@@ -105,55 +86,11 @@ async function importExcelGroups() {
     console.log(`  ✔ Group "${g.name}": ID ${list.id}`);
   }
 
-  // 4. Parse Members from Excel or fallback JSON
-  let committeeList = COMMITTEE_ENGLISH;
-  let individualList = [];
-  let familyList = [];
-
-  if (excelPath) {
-    const wb = XLSX.readFile(excelPath);
-    const s2Rows = XLSX.utils.sheet_to_json(wb.Sheets['Members contact'] || wb.Sheets[wb.SheetNames[1]], { header: 1 });
-    let currentSection = '';
-
-    for (const row of s2Rows) {
-      const line = row.map((c) => String(c || '').trim()).join(' ');
-      if (line.toLowerCase().includes('individual membership')) {
-        currentSection = 'Individual';
-        continue;
-      }
-      if (line.toLowerCase().includes('family membership')) {
-        currentSection = 'Family';
-        continue;
-      }
-
-      const idNo = String(row[0] || '').trim();
-      const name = String(row[1] || '').trim();
-      const phoneDigits = String(row[2] || '').replace(/[^0-9]/g, '');
-
-      if (phoneDigits.length >= 10 && idNo && idNo.toLowerCase() !== 'id no') {
-        const item = { idNo, name, phone: phoneDigits.slice(-10) };
-        if (currentSection === 'Individual' || idNo.startsWith('I-')) {
-          individualList.push(item);
-        } else if (currentSection === 'Family' || idNo.startsWith('F-')) {
-          familyList.push(item);
-        }
-      }
-    }
-  } else {
-    // Fallback using smr_members_data.json
-    const rawMembers = require('./smr_members_data.json');
-    for (const m of rawMembers) {
-      const pDigits = (m.phone || '').replace(/[^0-9]/g, '');
-      if (pDigits.length >= 10) {
-        const item = { idNo: m.id_no, name: m.name, phone: pDigits.slice(-10) };
-        if ((m.id_no || '').startsWith('F-')) {
-          familyList.push(item);
-        } else {
-          individualList.push(item);
-        }
-      }
-    }
-  }
+  // 3. Load Members from bundled verified dataset
+  const parsedData = require('./smr_parsed_excel_data.json');
+  const committeeList = COMMITTEE_ENGLISH;
+  const individualList = parsedData.individual || [];
+  const familyList = parsedData.family || [];
 
   console.log(`\nFound in dataset:`);
   console.log(`  - Committee:  ${committeeList.length} members`);
