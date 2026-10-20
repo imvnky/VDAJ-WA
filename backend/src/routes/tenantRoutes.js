@@ -348,11 +348,11 @@ router.post('/me/whatsapp-profile/picture', uploadMemory.single('file'), catchAs
   }
 
   const { rows: [t] } = await query(
-    `SELECT phone_number_id, meta_system_token, whatsapp_access_token, name FROM tenants WHERE id = $1 AND deleted_at IS NULL`,
+    `SELECT phone_number_id, meta_system_token, name FROM tenants WHERE id = $1 AND deleted_at IS NULL`,
     [tenantId]
   );
 
-  const token = t?.meta_system_token || t?.whatsapp_access_token || process.env.META_ACCESS_TOKEN;
+  const token = t?.meta_system_token || process.env.META_ACCESS_TOKEN;
   const phoneNumberId = t?.phone_number_id || process.env.META_PHONE_NUMBER_ID;
 
   if (!phoneNumberId || !token) {
