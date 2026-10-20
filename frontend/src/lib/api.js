@@ -147,6 +147,11 @@ export const contactApi = {
   tags: (config = {}) => client.get('/contacts/tags', config),
   lists: (config = {}) => client.get('/contacts/lists', config),
   createList: (data) => client.post('/contacts/lists', data),
+  updateList: (id, data) => client.put(`/contacts/lists/${id}`, data),
+  deleteList: (id, data = {}) => client.delete(`/contacts/lists/${id}`, { data }),
+  moveGroup: (contactIds, toListId, fromListId, mode = 'move') =>
+    client.post('/contacts/move-group', { contactIds, toListId, fromListId, mode }),
+  bulkDelete: (contactIds) => client.post('/contacts/bulk-delete', { contactIds }),
   bulkAssignTags: (contactIds, tags, action = 'add') =>
     client.post('/contacts/bulk-tags', { contactIds, tags, action }),
   resetAll: (tenantId) => client.post('/contacts/reset-all', { tenantId }),

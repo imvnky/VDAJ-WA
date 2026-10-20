@@ -19,6 +19,8 @@ import CsvContactUploader from '../components/organisms/CsvContactUploader.jsx';
 import AddContactModal from '../components/organisms/AddContactModal.jsx';
 import EditContactModal from '../components/organisms/EditContactModal.jsx';
 import CreateGroupModal from '../components/organisms/CreateGroupModal.jsx';
+import EditGroupModal from '../components/organisms/EditGroupModal.jsx';
+import MoveGroupModal from '../components/organisms/MoveGroupModal.jsx';
 import BulkTagModal from '../components/organisms/BulkTagModal.jsx';
 
 // ── Tag color palette (deterministic from tag string) ──────────
@@ -229,8 +231,12 @@ export default function ContactsPage() {
   const [editContact, setEditContact]       = useState(null);
   const [importOpen, setImportOpen]         = useState(false);
   const [createGroupOpen, setCreateGroupOpen] = useState(false);
+  const [editGroup, setEditGroup]           = useState(null);
+  const [moveGroupOpen, setMoveGroupOpen]   = useState(false);
   const [deleteConfirm, setDeleteConfirm]   = useState(null);
   const [deleting, setDeleting]             = useState(false);
+  const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false);
+  const [bulkDeleting, setBulkDeleting]     = useState(false);
   const [exporting, setExporting]           = useState(false);
 
   // Multi-selection & Bulk Actions
@@ -393,6 +399,32 @@ export default function ContactsPage() {
     }
   };
 
+  // ── Bulk Delete Contacts ─────────────────────────────────────
+  const handleBulkDeleteContacts = async () => {
+    if (selectedIds.size === 0) return;
+    setBulkDeleting(true);
+    try {
+      const idsArray = Array.from(selectedIds);
+      await contactApi.bulkDelete(idsArray);
+      showSuccess(`Deleted ${idsArray.length} contact(s) successfully.`);
+      setContacts((cs) => cs.filter((c) => !selectedIds.has(c.id)));
+      setTotal((t) => Math.max(0, t - idsArray.length));
+      setSelectedIds(new Set());
+      setBulkDeleteConfirm(false);
+      refreshLists();
+    } catch (err) {
+      showError(err.response?.data?.message || 'Failed to delete selected contacts.');
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
+
+  const handleMoveGroupSuccess = () => {
+    load(page, search, tagFilter, selectedGroup);
+    refreshLists();
+    setSelectedIds(new Set());
+  };
+
   // ── Export CSV ───────────────────────────────────────────────
   const handleExportCSV = async () => {
     setExporting(true);
@@ -533,28 +565,55 @@ export default function ContactsPage() {
         {lists.map((list) => {
           const isSelected = selectedGroup === list.id;
           return (
-            <button
-              key={list.id}
-              onClick={() => handleGroupChange(list.id)}
-              className={clsx(
-                'flex items-center gap-1.5 h-8 px-3 rounded-xl text-xs font-semibold transition-all shrink-0',
-                isSelected
-                  ? 'bg-[#534AB7] text-white shadow-sm'
-                  : 'bg-[#FFFFFF] text-[#64748B] hover:text-[#0F172A] border border-[#E2E8F0] hover:bg-[#F8FAFC]'
-              )}
-            >
-              <span>📁 {list.name}</span>
-              {list.contact_count !== undefined && (
-                <span className={clsx(
-                  'text-2xs px-1.5 py-0.2 rounded-full font-bold',
-                  isSelected ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
-                )}>
-                  {list.contact_count}
-                </span>
-              )}
-            </button>
+            <div key={list.id} className="relative flex items-center shrink-0">
+              <button
+                onClick={() => handleGroupChange(list.id)}
+                className={clsx(
+                  'flex items-center gap-1.5 h-8 px-3 rounded-xl text-xs font-semibold transition-all',
+                  isSelected
+                    ? 'bg-[#534AB7] text-white shadow-sm'
+                    : 'bg-[#FFFFFF] text-[#64748B] hover:text-[#0F172A] border border-[#E2E8F0] hover:bg-[#F8FAFC]'
+                )}
+              >
+                <span>📁 {list.name}</span>
+                {list.contact_count !== undefined && (
+                  <span className={clsx(
+                    'text-2xs px-1.5 py-0.2 rounded-full font-bold',
+                    isSelected ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
+                  )}>
+                    {list.contact_count}
+                  </span>
+                )}
+                {isSelected && (
+                  <span
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditGroup(list);
+                    }}
+                    className="ml-1 text-white/80 hover:text-white p-0.5 hover:bg-white/20 rounded cursor-pointer transition-colors"
+                    title={`Edit or delete "${list.name}"`}
+                  >
+                    ✏️
+                  </span>
+                )}
+              </button>
+            </div>
           );
         })}
+
+        {/* Edit Selected Group button */}
+        {selectedGroup && (
+          <button
+            onClick={() => {
+              const currentG = lists.find((l) => l.id === selectedGroup);
+              if (currentG) setEditGroup(currentG);
+            }}
+            className="flex items-center gap-1 h-8 px-2.5 rounded-xl text-xs font-bold text-[#475569] bg-[#F1F5F9] hover:bg-[#E2E8F0] border border-[#CBD5E1] transition-all shrink-0"
+            title="Edit group name or delete group"
+          >
+            <span>⚙️ Edit Group</span>
+          </button>
+        )}
 
         <button
           onClick={() => setCreateGroupOpen(true)}
@@ -790,13 +849,32 @@ export default function ContactsPage() {
                     <Link to={`/contacts/${c.id}`} className="shrink-0">
                       <Avatar contact={c} />
                     </Link>
-                    <Link
-                      to={`/contacts/${c.id}`}
-                      className="text-sm font-medium truncate hover:text-[#534AB7] transition-colors"
-                      style={{ color: 'var(--text-primary)' }}
-                    >
-                      {c.display_name || [c.first_name, c.last_name].filter(Boolean).join(' ') || '—'}
-                    </Link>
+                    <div className="min-w-0">
+                      <Link
+                        to={`/contacts/${c.id}`}
+                        className="text-sm font-medium truncate block hover:text-[#534AB7] transition-colors"
+                        style={{ color: 'var(--text-primary)' }}
+                      >
+                        {c.display_name || [c.first_name, c.last_name].filter(Boolean).join(' ') || '—'}
+                      </Link>
+                      {(c.groups || []).length > 0 && (
+                        <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+                          {c.groups.map((g) => (
+                            <span
+                              key={g.id}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                handleGroupChange(g.id);
+                              }}
+                              className="inline-flex items-center text-[10px] font-semibold px-1.5 py-0.2 rounded-md bg-[#F3F2FD] text-[#534AB7] hover:bg-[#E8E6FA] cursor-pointer"
+                              title={`Filter by group: ${g.name}`}
+                            >
+                              📁 {g.name}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                 {/* Phone */}
@@ -932,6 +1010,7 @@ export default function ContactsPage() {
         onClose={() => setEditContact(null)}
         onUpdated={handleContactUpdated}
         existingTags={allTags}
+        lists={lists}
       />
 
       {/* ── Create Group Modal ────────────────────────────────── */}
@@ -941,6 +1020,35 @@ export default function ContactsPage() {
         onCreated={() => {
           refreshLists();
         }}
+      />
+
+      {/* ── Edit Group Modal ──────────────────────────────────── */}
+      <EditGroupModal
+        isOpen={Boolean(editGroup)}
+        group={editGroup}
+        onClose={() => setEditGroup(null)}
+        onUpdated={() => {
+          refreshLists();
+          load(page, search, tagFilter, selectedGroup);
+        }}
+        onDeleted={(deletedId) => {
+          if (selectedGroup === deletedId) {
+            setSelectedGroup('');
+            load(1, search, tagFilter, '');
+          }
+          refreshLists();
+        }}
+      />
+
+      {/* ── Move / Assign Group Modal ─────────────────────────── */}
+      <MoveGroupModal
+        isOpen={moveGroupOpen}
+        selectedCount={selectedIds.size}
+        selectedIds={Array.from(selectedIds)}
+        lists={lists}
+        currentGroupId={selectedGroup}
+        onClose={() => setMoveGroupOpen(false)}
+        onSuccess={handleMoveGroupSuccess}
       />
 
       {/* ── CSV Uploader Modal ────────────────────────────────── */}
@@ -997,10 +1105,48 @@ export default function ContactsPage() {
         </div>
       )}
 
+      {/* ── Bulk Delete Confirmation Dialog ───────────────────── */}
+      {bulkDeleteConfirm && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in"
+          onClick={() => { if (!bulkDeleting) setBulkDeleteConfirm(false); }}
+        >
+          <div className="w-full max-w-sm bg-white rounded-3xl p-6 shadow-2xl border border-slate-200 space-y-4">
+            <div className="w-12 h-12 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center text-xl font-bold">
+              🗑️
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-slate-900">Delete {selectedIds.size} Contacts?</h3>
+              <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                Are you sure you want to permanently delete these <strong>{selectedIds.size}</strong> contacts? They will be removed from all audience groups, campaigns, and contact lists.
+              </p>
+            </div>
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                disabled={bulkDeleting}
+                onClick={() => setBulkDeleteConfirm(false)}
+                className="h-9 px-4 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={bulkDeleting}
+                onClick={handleBulkDeleteContacts}
+                className="h-9 px-4 rounded-xl text-xs font-bold text-white bg-red-600 hover:bg-red-700 transition-all shadow-sm"
+              >
+                {bulkDeleting ? 'Deleting...' : `Delete ${selectedIds.size} Contacts`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Floating Bulk Action Bar ──────────────────────────── */}
       {selectedIds.size > 0 && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-[#0F172A] text-white px-5 py-3 rounded-2xl shadow-2xl border border-slate-700 flex items-center gap-4 animate-scale-in">
-          <div className="flex items-center gap-2">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-[#0F172A] text-white px-5 py-3 rounded-2xl shadow-2xl border border-slate-700 flex items-center gap-3 animate-scale-in flex-wrap sm:flex-nowrap">
+          <div className="flex items-center gap-2 shrink-0">
             <span className="w-5 h-5 rounded-full bg-[#534AB7] text-white flex items-center justify-center text-2xs font-bold">
               ✓
             </span>
@@ -1010,20 +1156,39 @@ export default function ContactsPage() {
             </span>
           </div>
 
-          <div className="h-4 w-px bg-slate-700" />
+          <div className="h-4 w-px bg-slate-700 hidden sm:block" />
 
+          {/* Move or Assign Group */}
+          <button
+            type="button"
+            onClick={() => setMoveGroupOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#1D9E75] hover:bg-[#158059] text-xs font-bold text-white transition-all shadow-sm cursor-pointer shrink-0"
+          >
+            <span>📁</span> Move / Assign Group
+          </button>
+
+          {/* Assign Tags */}
           <button
             type="button"
             onClick={() => setBulkTagOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#534AB7] hover:bg-[#4339A6] text-xs font-bold text-white transition-all shadow-sm cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#534AB7] hover:bg-[#4339A6] text-xs font-bold text-white transition-all shadow-sm cursor-pointer shrink-0"
           >
             <span>🏷️</span> Assign Tags
+          </button>
+
+          {/* Bulk Delete Contacts */}
+          <button
+            type="button"
+            onClick={() => setBulkDeleteConfirm(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-xs font-bold text-white transition-all shadow-sm cursor-pointer shrink-0"
+          >
+            <span>🗑️</span> Delete ({selectedIds.size})
           </button>
 
           <button
             type="button"
             onClick={handleDeselectAll}
-            className="text-xs text-slate-400 hover:text-white transition-colors cursor-pointer"
+            className="text-xs text-slate-400 hover:text-white transition-colors cursor-pointer shrink-0 ml-1"
           >
             Deselect All
           </button>

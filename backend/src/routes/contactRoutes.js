@@ -49,7 +49,15 @@ router.get('/', catchAsync(async (req, res) => {
   }
 
   const { rows } = await query(
-    `SELECT c.*, COUNT(*) OVER() AS total_count
+    `SELECT c.*,
+            COALESCE(
+              (SELECT json_agg(json_build_object('id', cl.id, 'name', cl.name))
+               FROM contact_list_members clm
+               JOIN contact_lists cl ON cl.id = clm.contact_list_id
+               WHERE clm.contact_id = c.id AND cl.deleted_at IS NULL),
+              '[]'::json
+            ) AS groups,
+            COUNT(*) OVER() AS total_count
      FROM contacts c
      ${whereClause}
      ORDER BY c.created_at DESC
@@ -448,6 +456,127 @@ router.post('/lists', catchAsync(async (req, res) => {
   return sendCreated(res, list, 'Contact list created.');
 }));
 
+// ── PUT /contacts/lists/:id — Edit group name & description ────
+router.put('/lists/:id', uuidParamValidator('id'), validate, catchAsync(async (req, res) => {
+  const { name, description } = req.body;
+  if (!name?.trim()) throw new AppError('List name is required.', 400, 'ERR_VDAJ_VAL_005');
+  const tenantId = req.user.tenantId || req.tenant?.id;
+
+  const { rows: [list] } = await query(
+    `UPDATE contact_lists
+     SET name = $1, description = $2, updated_at = NOW()
+     WHERE id = $3 AND (tenant_id = $4 OR $5 = TRUE) AND deleted_at IS NULL
+     RETURNING *`,
+    [name.trim(), description !== undefined ? description?.trim() || null : null, req.params.id, tenantId, req.user.role === 'super_admin']
+  );
+
+  if (!list) throw new AppError('Contact list not found.', 404, 'ERR_VDAJ_CONT_002');
+  return sendSuccess(res, list, 'Contact list updated.');
+}));
+
+// ── DELETE /contacts/lists/:id — Delete group ──────────────────
+router.delete('/lists/:id', uuidParamValidator('id'), validate, catchAsync(async (req, res) => {
+  const tenantId = req.user.tenantId || req.tenant?.id;
+  const listId = req.params.id;
+  const { deleteContacts = false } = req.body || {};
+
+  await withTransaction(async (client) => {
+    const { rows: [list] } = await client.query(
+      `SELECT id, name FROM contact_lists WHERE id = $1 AND (tenant_id = $2 OR $3 = TRUE) AND deleted_at IS NULL`,
+      [listId, tenantId, req.user.role === 'super_admin']
+    );
+    if (!list) throw new AppError('Contact list not found.', 404, 'ERR_VDAJ_CONT_002');
+
+    if (deleteContacts) {
+      // Find contacts that belong ONLY to this list
+      await client.query(
+        `DELETE FROM contacts WHERE id IN (
+           SELECT clm.contact_id FROM contact_list_members clm WHERE clm.contact_list_id = $1
+         ) AND (tenant_id = $2 OR $3 = TRUE)`,
+        [listId, tenantId, req.user.role === 'super_admin']
+      );
+    }
+
+    // Remove members from list
+    await client.query(`DELETE FROM contact_list_members WHERE contact_list_id = $1`, [listId]);
+
+    // Soft delete the list
+    await client.query(
+      `UPDATE contact_lists SET deleted_at = NOW(), updated_at = NOW() WHERE id = $1`,
+      [listId]
+    );
+  });
+
+  return sendSuccess(res, { id: listId }, 'Contact list deleted successfully.');
+}));
+
+// ── POST /contacts/move-group — Move or reassign contacts between groups ────
+router.post('/move-group', catchAsync(async (req, res) => {
+  const { contactIds, fromListId, toListId, mode = 'move' } = req.body;
+
+  if (!Array.isArray(contactIds) || contactIds.length === 0) {
+    throw new AppError('contactIds must be a non-empty array of contact IDs.', 400, 'ERR_VDAJ_VAL_001');
+  }
+  if (!toListId) {
+    throw new AppError('Target group (toListId) is required.', 400, 'ERR_VDAJ_VAL_001');
+  }
+
+  const tenantId = req.user.tenantId || req.tenant?.id;
+  const isSuperAdmin = req.user.role === 'super_admin';
+
+  await withTransaction(async (client) => {
+    // 1. Verify target list belongs to tenant
+    const { rows: [targetList] } = await client.query(
+      `SELECT id, name FROM contact_lists WHERE id = $1 AND (tenant_id = $2 OR $3 = TRUE) AND deleted_at IS NULL`,
+      [toListId, tenantId, isSuperAdmin]
+    );
+    if (!targetList) throw new AppError('Target group not found.', 404, 'ERR_VDAJ_CONT_002');
+
+    // 2. If mode === 'move' and fromListId is specified, remove from source list
+    if (mode === 'move' && fromListId) {
+      await client.query(
+        `DELETE FROM contact_list_members
+         WHERE contact_list_id = $1 AND contact_id = ANY($2::uuid[])`,
+        [fromListId, contactIds]
+      );
+    }
+
+    // 3. Add to target list
+    await client.query(
+      `INSERT INTO contact_list_members (contact_list_id, contact_id)
+       SELECT $1, UNNEST($2::uuid[])
+       ON CONFLICT (contact_list_id, contact_id) DO NOTHING`,
+      [toListId, contactIds]
+    );
+  });
+
+  return sendSuccess(
+    res,
+    { affectedCount: contactIds.length, targetListId: toListId },
+    `Contacts successfully ${mode === 'move' ? 'moved to' : 'added to'} group.`
+  );
+}));
+
+// ── POST /contacts/bulk-delete — Bulk delete contacts ───────────
+router.post('/bulk-delete', catchAsync(async (req, res) => {
+  const { contactIds } = req.body;
+  if (!Array.isArray(contactIds) || contactIds.length === 0) {
+    throw new AppError('contactIds must be a non-empty array of contact IDs.', 400, 'ERR_VDAJ_VAL_001');
+  }
+
+  const tenantId = req.user.tenantId || req.tenant?.id;
+  const isSuperAdmin = req.user.role === 'super_admin';
+
+  const { rows } = await query(
+    `DELETE FROM contacts
+     WHERE id = ANY($1::uuid[]) AND (tenant_id = $2 OR $3 = TRUE)
+     RETURNING id, phone_e164`,
+    [contactIds, tenantId, isSuperAdmin]
+  );
+
+  return sendSuccess(res, { deletedCount: rows.length }, `Successfully deleted ${rows.length} contact(s).`);
+}));
+
 // ── POST /contacts/bulk-tags — Assign or remove tags from multiple contacts ──
 router.post('/bulk-tags', catchAsync(async (req, res) => {
   const { contactIds, tags, action = 'add' } = req.body;
@@ -710,7 +839,7 @@ router.patch('/:id/opt-out', uuidParamValidator('id'), validate, catchAsync(asyn
 
 // ── PUT /contacts/:id — Update single contact ─────────────────
 router.put('/:id', uuidParamValidator('id'), validate, catchAsync(async (req, res) => {
-  const { firstName, lastName, email, customVars, tags, listId } = req.body;
+  const { firstName, lastName, email, customVars, tags, listId, listIds } = req.body;
   const tenantId = req.user.tenantId || req.tenant?.id;
 
   let cleanTags = undefined;
@@ -746,7 +875,23 @@ router.put('/:id', uuidParamValidator('id'), validate, catchAsync(async (req, re
 
     if (!contact) throw new AppError('Contact not found.', 404, 'ERR_VDAJ_CONT_001');
 
-    if (listId) {
+    if (Array.isArray(listIds)) {
+      // Sync groups for this contact
+      await client.query(
+        `DELETE FROM contact_list_members
+         WHERE contact_id = $1
+           AND contact_list_id IN (SELECT id FROM contact_lists WHERE tenant_id = $2 OR $3 = TRUE)`,
+        [contact.id, tenantId, req.user.role === 'super_admin']
+      );
+      if (listIds.length > 0) {
+        await client.query(
+          `INSERT INTO contact_list_members (contact_list_id, contact_id)
+           SELECT UNNEST($1::uuid[]), $2
+           ON CONFLICT DO NOTHING`,
+          [listIds, contact.id]
+        );
+      }
+    } else if (listId) {
       await client.query(
         `INSERT INTO contact_list_members (contact_list_id, contact_id)
          VALUES ($1, $2)
@@ -755,6 +900,15 @@ router.put('/:id', uuidParamValidator('id'), validate, catchAsync(async (req, re
       );
     }
 
+    // Fetch updated groups
+    const { rows: groupRows } = await client.query(
+      `SELECT cl.id, cl.name
+       FROM contact_list_members clm
+       JOIN contact_lists cl ON cl.id = clm.contact_list_id
+       WHERE clm.contact_id = $1 AND cl.deleted_at IS NULL`,
+      [contact.id]
+    );
+    contact.groups = groupRows;
     updatedContact = contact;
   });
 

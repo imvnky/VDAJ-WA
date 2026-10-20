@@ -15,12 +15,14 @@ export default function EditContactModal({
   onClose,
   onUpdated,
   existingTags = [],
+  lists = [],
 }) {
   const [firstName, setFirstName]   = useState('');
   const [lastName, setLastName]     = useState('');
   const [email, setEmail]           = useState('');
   const [tags, setTags]             = useState([]);
   const [tagInput, setTagInput]     = useState('');
+  const [selectedGroupIds, setSelectedGroupIds] = useState([]);
   const [loading, setLoading]       = useState(false);
   const [errorMsg, setErrorMsg]     = useState('');
 
@@ -31,6 +33,8 @@ export default function EditContactModal({
       setEmail(contact.email || '');
       setTags(Array.isArray(contact.tags) ? [...contact.tags] : []);
       setTagInput('');
+      const initialGroups = (contact.groups || []).map((g) => g.id);
+      setSelectedGroupIds(initialGroups);
       setErrorMsg('');
     }
   }, [contact, isOpen]);
@@ -69,6 +73,7 @@ export default function EditContactModal({
         lastName:  lastName.trim() || null,
         email:     email.trim() || null,
         tags:      tags,
+        listIds:   selectedGroupIds,
       };
 
       const res = await contactApi.update(contact.id, payload);
@@ -209,6 +214,50 @@ export default function EditContactModal({
               </div>
             )}
           </div>
+
+          {/* Groups / List Memberships */}
+          {lists.length > 0 && (
+            <div>
+              <label className="block text-xs font-bold text-[#334155] mb-1.5">
+                Audience Groups
+              </label>
+              <div className="space-y-1.5 max-h-36 overflow-y-auto p-2 bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl">
+                {lists.map((list) => {
+                  const isChecked = selectedGroupIds.includes(list.id);
+                  return (
+                    <label
+                      key={list.id}
+                      className={clsx(
+                        'flex items-center justify-between p-2 rounded-lg cursor-pointer text-xs transition-all',
+                        isChecked
+                          ? 'bg-[#F3F2FD] border border-[#534AB7]/30 text-[#534AB7] font-semibold'
+                          : 'hover:bg-white text-[#334155]'
+                      )}
+                    >
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedGroupIds([...selectedGroupIds, list.id]);
+                            } else {
+                              setSelectedGroupIds(selectedGroupIds.filter((id) => id !== list.id));
+                            }
+                          }}
+                          className="rounded text-[#534AB7] focus:ring-[#534AB7]"
+                        />
+                        <span>📁 {list.name}</span>
+                      </div>
+                      <span className="text-2xs text-[#64748B]">
+                        {list.contact_count || 0} contacts
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </form>
 
         {/* Footer */}
