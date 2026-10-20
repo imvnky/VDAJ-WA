@@ -121,10 +121,10 @@ const globalErrorHandler = (err, req, res, next) => { // eslint-disable-line no-
     });
   }
 
-  // Never leak stack traces to client in production
-  const clientMessage = isOperational
-    ? (ERROR_CODES[errorCode] || error.message)
-    : ERROR_CODES['ERR_VDAJ_SRV_001'];
+  // Return descriptive operational message if available, fallback to registry
+  const clientMessage = (isOperational && error.message)
+    ? error.message
+    : (ERROR_CODES[errorCode] || error.message || ERROR_CODES['ERR_VDAJ_SRV_001']);
 
   return sendError(res, statusCode, errorCode, clientMessage, error.details);
 };

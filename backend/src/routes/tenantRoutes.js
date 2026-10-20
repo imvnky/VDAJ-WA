@@ -359,12 +359,24 @@ router.post('/me/whatsapp-profile/picture', uploadMemory.single('file'), catchAs
     throw new AppError('WhatsApp credentials not configured for this workspace.', 400, 'ERR_META_006');
   }
 
-  await uploadBusinessProfilePicture(
-    phoneNumberId,
-    token,
-    req.file.buffer,
-    req.file.mimetype
-  );
+  try {
+    await uploadBusinessProfilePicture(
+      phoneNumberId,
+      token,
+      req.file.buffer,
+      req.file.mimetype
+    );
+  } catch (err) {
+    logger.error('WhatsApp profile picture upload error:', {
+      message: err.message,
+      stack: err.stack,
+    });
+    throw new AppError(
+      err.message || 'Failed to upload profile picture to Meta.',
+      err.statusCode || 400,
+      err.errorCode || 'ERR_META_005'
+    );
+  }
 
   // Audit trail entry
   recordAudit({

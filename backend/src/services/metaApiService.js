@@ -625,8 +625,10 @@ const uploadBusinessProfilePicture = async (phoneNumberId, accessToken, fileBuff
   const uploadRes = await fetch(`${META_API_BASE}/${API_VERSION}/${initData.id}`, {
     method: 'POST',
     headers: {
-      Authorization: `OAuth ${token}`,
-      file_offset:   '0',
+      Authorization:    `OAuth ${token}`,
+      file_offset:      '0',
+      'Content-Type':   'application/octet-stream',
+      'Content-Length': String(fileBuffer.length),
     },
     body: fileBuffer,
   });
