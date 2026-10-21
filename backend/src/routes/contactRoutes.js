@@ -274,12 +274,28 @@ router.post('/bulk', catchAsync(async (req, res) => {
     return sendSuccess(res, { inserted: 0, updated: 0, invalidCount: invalid.length }, 'No valid contacts to import.', 200);
   }
 
+  // ── Deduplicate within the batch by phone_e164 ─────────────
+  // Prevents PostgreSQL "ON CONFLICT DO UPDATE command cannot affect row a second time" error
+  const uniqueContactsMap = new Map();
+  for (const c of valid) {
+    if (uniqueContactsMap.has(c.phone)) {
+      const existing = uniqueContactsMap.get(c.phone);
+      existing.firstName = c.firstName || existing.firstName;
+      existing.lastName  = c.lastName  || existing.lastName;
+      existing.email     = c.email     || existing.email;
+      existing.customVars = { ...(existing.customVars || {}), ...(c.customVars || {}) };
+    } else {
+      uniqueContactsMap.set(c.phone, c);
+    }
+  }
+  const deduplicatedValid = Array.from(uniqueContactsMap.values());
+
   // ── Build parallel arrays for UNNEST bulk insert ───────────
-  const phones      = valid.map((c) => c.phone);
-  const firstNames  = valid.map((c) => c.firstName);
-  const lastNames   = valid.map((c) => c.lastName);
-  const emails      = valid.map((c) => c.email);
-  const customVarsArr = valid.map((c) => JSON.stringify(c.customVars));
+  const phones        = deduplicatedValid.map((c) => c.phone);
+  const firstNames    = deduplicatedValid.map((c) => c.firstName);
+  const lastNames     = deduplicatedValid.map((c) => c.lastName);
+  const emails        = deduplicatedValid.map((c) => c.email);
+  const customVarsArr = deduplicatedValid.map((c) => JSON.stringify(c.customVars));
 
   let inserted = 0;
   let updated  = 0;
@@ -316,7 +332,7 @@ router.post('/bulk', catchAsync(async (req, res) => {
     const { rows: upserted } = await client.query(
       `INSERT INTO contacts
          (tenant_id, phone_e164, first_name, last_name, email, custom_vars, tags)
-       SELECT
+       SELECT DISTINCT ON (phone)
          $1,
          phone, first_name, last_name, email,
          custom_vars::jsonb,
