@@ -775,8 +775,119 @@ function CreateTemplateModal({ onClose, onCreated, prefill = null }) {
   );
 }
 
+// ── Template Preview Modal ─────────────────────────────────────
+function TemplatePreviewModal({ template, onClose }) {
+  if (!template) return null;
+  const form = {
+    bodyText: template.body_text,
+    headerType: template.header_type || (template.header_text ? 'TEXT' : 'NONE'),
+    headerText: template.header_text,
+    headerSampleUrl: template.header_sample_url,
+    footerText: template.footer_text,
+    buttons: Array.isArray(template.buttons)
+      ? template.buttons
+      : (typeof template.buttons === 'string' ? JSON.parse(template.buttons || '[]') : []),
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="bg-[#FFFFFF] rounded-3xl border border-[#E2E8F0] shadow-2xl p-6 max-w-md w-full animate-scale-in">
+        <div className="flex items-center justify-between pb-3 border-b border-[#E2E8F0] mb-4">
+          <div className="min-w-0 pr-2">
+            <h3 className="text-sm font-bold text-[#0F172A] font-mono truncate">{template.name}</h3>
+            <p className="text-xs text-[#64748B]">WhatsApp Mobile Message Preview</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-[#F1F5F9] text-[#64748B] hover:text-[#0F172A] transition-colors"
+          >
+            ✕
+          </button>
+        </div>
+        <div className="flex justify-center">
+          <WhatsAppLivePreview form={form} />
+        </div>
+        <div className="mt-4 pt-3 border-t border-[#E2E8F0] flex justify-end">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-xs font-bold text-[#475569] hover:text-[#0F172A] bg-[#F1F5F9] hover:bg-[#E2E8F0] rounded-xl transition-all"
+          >
+            Close Preview
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Delete Template Modal ──────────────────────────────────────
+function DeleteTemplateModal({ template, onClose, onConfirm, deleting }) {
+  if (!template) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in"
+      onClick={(e) => { if (e.target === e.currentTarget && !deleting) onClose(); }}
+    >
+      <div className="bg-[#FFFFFF] rounded-3xl border border-[#E2E8F0] shadow-2xl p-6 max-w-md w-full animate-scale-in space-y-4">
+        <div className="w-12 h-12 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center text-2xl mx-auto shadow-sm">
+          🗑️
+        </div>
+        <div className="text-center">
+          <h3 className="text-base font-bold text-[#0F172A]">Delete WhatsApp Template?</h3>
+          <p className="text-xs text-[#64748B] mt-1.5 leading-relaxed">
+            Are you sure you want to delete <strong className="text-[#0F172A] font-mono">{template.name}</strong>?
+          </p>
+          {template.meta_template_id && (
+            <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-xl text-left text-xs text-amber-900 space-y-1">
+              <p className="font-bold flex items-center gap-1">
+                <span>⚠️</span>
+                <span>Meta Graph API Sync</span>
+              </p>
+              <p className="text-[11px] text-amber-800 leading-relaxed">
+                This template is registered on Meta with ID <code className="font-mono font-bold">{template.meta_template_id}</code>. Deleting it will remove it from Meta Graph API as well as your local workspace.
+              </p>
+            </div>
+          )}
+        </div>
+        <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-[#E2E8F0]">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={deleting}
+            className="px-4 py-2 text-xs font-bold text-[#64748B] hover:text-[#0F172A] hover:bg-[#F1F5F9] rounded-xl transition-colors disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={() => onConfirm(template)}
+            disabled={deleting}
+            className="px-4 py-2 text-xs font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-all shadow-sm flex items-center gap-1.5 disabled:opacity-50"
+          >
+            {deleting ? (
+              <>
+                <svg className="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                </svg>
+                <span>Deleting...</span>
+              </>
+            ) : (
+              <span>Delete Template</span>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Enterprise Template Card ───────────────────────────────────
-function EnterpriseTemplateCard({ template, onSync, onResubmit }) {
+function EnterpriseTemplateCard({ template, onSync, onResubmit, onPreview, onDuplicate, onDelete }) {
   const [syncing, setSyncing] = useState(false);
   const isApproved = (template.status || '').toLowerCase() === 'approved';
   const isRejected = (template.status || '').toLowerCase() === 'rejected';
@@ -871,7 +982,7 @@ function EnterpriseTemplateCard({ template, onSync, onResubmit }) {
               <span>Not Present in Meta</span>
             </p>
             <p className="text-[11px] text-amber-800 leading-relaxed">
-              {template.rejection_reason || 'This template was not received by Meta (e.g. invalid or expired system token). Check Settings &rarr; Edit Credentials or click "Submit to Meta" below.'}
+              {template.rejection_reason || 'This template was not received by Meta (e.g. invalid or expired system token). Check Settings → Edit Credentials or click "Submit to Meta" below.'}
             </p>
           </div>
         )}
@@ -923,12 +1034,31 @@ function EnterpriseTemplateCard({ template, onSync, onResubmit }) {
           })}
         </span>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <button
+            onClick={() => onPreview?.(template)}
+            title="Preview WhatsApp live message"
+            className="px-2.5 py-1 text-xs font-semibold text-[#475569] hover:text-[#0F172A] bg-[#F1F5F9] hover:bg-[#E2E8F0] rounded-lg transition-colors flex items-center gap-1"
+          >
+            <span>👁️</span>
+            <span className="hidden sm:inline">Preview</span>
+          </button>
+
           <button
             onClick={copyBody}
+            title="Copy template message body"
             className="px-2.5 py-1 text-xs font-semibold text-[#475569] hover:text-[#0F172A] bg-[#F1F5F9] hover:bg-[#E2E8F0] rounded-lg transition-colors"
           >
-            Copy Text
+            Copy
+          </button>
+
+          <button
+            onClick={() => onDuplicate?.(template)}
+            title="Clone/duplicate this template"
+            className="px-2.5 py-1 text-xs font-semibold text-[#475569] hover:text-[#0F172A] bg-[#F1F5F9] hover:bg-[#E2E8F0] rounded-lg transition-colors flex items-center gap-1"
+          >
+            <span>📑</span>
+            <span className="hidden sm:inline">Clone</span>
           </button>
 
           {isRejected && (
@@ -936,7 +1066,7 @@ function EnterpriseTemplateCard({ template, onSync, onResubmit }) {
               onClick={() => onResubmit(template)}
               className="px-2.5 py-1 text-xs font-bold text-white bg-[#534AB7] hover:bg-[#4339A6] rounded-lg transition-colors shadow-sm"
             >
-              ✏️ Edit & Resubmit
+              ✏️ Edit
             </button>
           )}
 
@@ -945,15 +1075,25 @@ function EnterpriseTemplateCard({ template, onSync, onResubmit }) {
               onClick={handleSync}
               disabled={syncing}
               className={clsx(
-                "px-3 py-1 text-xs font-bold rounded-lg transition-colors shadow-xs disabled:opacity-50",
+                "px-2.5 py-1 text-xs font-bold rounded-lg transition-colors shadow-xs disabled:opacity-50",
                 !template.meta_template_id
                   ? "bg-[#534AB7] hover:bg-[#4339A6] text-white"
                   : "text-[#534AB7] bg-[#F3F2FD] hover:bg-[#E6E4F5]"
               )}
             >
-              {syncing ? 'Connecting…' : (!template.meta_template_id ? '🚀 Submit to Meta' : '🔄 Sync Meta')}
+              {syncing ? 'Connecting…' : (!template.meta_template_id ? '🚀 Submit' : '🔄 Sync')}
             </button>
           )}
+
+          <button
+            onClick={() => onDelete?.(template)}
+            title="Delete template from Meta & workspace"
+            className="p-1.5 text-xs font-semibold text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors border border-transparent hover:border-red-200"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+          </button>
         </div>
       </div>
     </div>
@@ -971,6 +1111,9 @@ export default function TemplatesPage() {
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [syncAllLoading, setSyncAllLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [previewTemplate, setPreviewTemplate] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   const loadTemplates = () => {
     setLoading(true);
@@ -1005,6 +1148,31 @@ export default function TemplatesPage() {
   const openResubmit = (template) => {
     setPrefill(template);
     setCreating(true);
+  };
+
+  const handleDuplicate = (template) => {
+    const cleanCopyName = `${template.name}_copy`.toLowerCase().replace(/[^a-z0-9_]/g, '_').slice(0, 50);
+    setPrefill({
+      ...template,
+      name: cleanCopyName,
+      displayName: cleanCopyName.replace(/_/g, ' '),
+      meta_template_id: null,
+    });
+    setCreating(true);
+  };
+
+  const handleDelete = async (template) => {
+    setDeleting(true);
+    try {
+      const res = await templateApi.delete(template.id);
+      showSuccess(res.data?.message || `Template "${template.name}" deleted.`);
+      setTemplates((prev) => prev.filter((t) => t.id !== template.id));
+      setDeleteTarget(null);
+    } catch (err) {
+      showError(err.message || 'Failed to delete template.');
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const closeModal = () => {
@@ -1206,6 +1374,9 @@ export default function TemplatesPage() {
               template={t}
               onSync={loadTemplates}
               onResubmit={openResubmit}
+              onPreview={(tmpl) => setPreviewTemplate(tmpl)}
+              onDuplicate={handleDuplicate}
+              onDelete={(tmpl) => setDeleteTarget(tmpl)}
             />
           ))}
         </div>
@@ -1217,6 +1388,24 @@ export default function TemplatesPage() {
           onClose={closeModal}
           prefill={prefill}
           onCreated={() => { loadTemplates(); closeModal(); }}
+        />
+      )}
+
+      {/* ── LIVE PREVIEW MODAL ── */}
+      {previewTemplate && (
+        <TemplatePreviewModal
+          template={previewTemplate}
+          onClose={() => setPreviewTemplate(null)}
+        />
+      )}
+
+      {/* ── DELETE CONFIRMATION MODAL ── */}
+      {deleteTarget && (
+        <DeleteTemplateModal
+          template={deleteTarget}
+          deleting={deleting}
+          onClose={() => setDeleteTarget(null)}
+          onConfirm={handleDelete}
         />
       )}
     </div>

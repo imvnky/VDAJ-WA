@@ -509,22 +509,23 @@ export default function ContactsPage() {
             <span>{exporting ? 'Exporting...' : 'Export'}</span>
           </button>
 
-          {/* Import CSV */}
-          <button
-            onClick={() => setImportOpen(true)}
-            className="flex items-center gap-2 h-10 px-3.5 rounded-xl text-xs font-bold transition-all hover:bg-slate-100"
-            style={{
-              background: '#FFFFFF',
-              border: '1px solid #CBD5E1',
-              color: '#334155',
-            }}
-          >
-            <svg className="w-4 h-4 text-[#534AB7]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round"
-                d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
-            </svg>
-            Import CSV
-          </button>
+            {/* Import Excel / CSV */}
+            <button
+              onClick={() => setImportOpen(true)}
+              className="flex items-center gap-2 h-10 px-3.5 rounded-xl text-xs font-bold transition-all hover:bg-slate-100"
+              style={{
+                background: '#FFFFFF',
+                border: '1px solid #CBD5E1',
+                color: '#334155',
+              }}
+              title="Import contacts from Excel (.xlsx, .xls) or CSV (.csv)"
+            >
+              <svg className="w-4 h-4 text-[#534AB7]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round"
+                  d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
+              </svg>
+              Import Excel / CSV
+            </button>
 
           {/* Add Contact (Primary) */}
           <button
@@ -817,7 +818,7 @@ export default function ContactsPage() {
                     onClick={() => setImportOpen(true)}
                     className="text-xs font-bold text-[#534AB7] underline underline-offset-2"
                   >
-                    Import CSV →
+                    Import Excel / CSV →
                   </button>
                 </div>
               )}

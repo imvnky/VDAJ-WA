@@ -1,22 +1,27 @@
 /**
- * VDAJ Services — Enterprise CSV Contact Uploader
+ * VDAJ Services — Enterprise Excel & CSV Contact Uploader
  * ────────────────────────────────────────────────────────────
- * High-performance contact importer with automatic column detection,
- * sample CSV template generator, audience grouping, multi-tagging,
- * and Meta BSP compliance consent logging.
+ * High-performance contact importer supporting Microsoft Excel (.xlsx, .xls)
+ * and CSV (.csv) formats with:
+ *  - Two-sheet Excel template generator (Sheet 1: Instructions, Sheet 2: Samples)
+ *  - Automatic multi-sheet detection & sheet selector
+ *  - Automatic column detection & E.164 phone sanitization (auto +91 prefixing)
+ *  - Tag extraction & audience list grouping
+ *  - Meta BSP compliance consent logging
  */
 
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { clsx } from 'clsx';
+import * as XLSX from 'xlsx';
 import { contactApi } from '../../lib/api';
 import { showSuccess, showError, showWarning } from '../atoms/Toast/Toast.jsx';
 
 // ── E.164 Sanitiser ───────────────────────────────────────────
 function sanitizeE164(raw) {
-  if (!raw) return null;
+  if (raw === undefined || raw === null) return null;
   let p = String(raw).trim();
 
-  // Strip leading/trailing single quotes, double quotes, and tabs (Excel text formatting)
+  // Strip leading/trailing single quotes, double quotes, and tabs
   p = p.replace(/^['"\t]+|['"\t]+$/g, '');
 
   // Handle Excel scientific notation if exported (e.g. 9.19876E+11)
@@ -45,18 +50,92 @@ function detectColumns(headers) {
     headers.findIndex((h) => keywords.some((kw) => h.includes(kw)));
 
   return {
-    phoneIdx:     find(['phone', 'mobile', 'number', 'tel', 'whatsapp']),
-    firstNameIdx: find(['first', 'fname']),
-    lastNameIdx:  find(['last', 'lname', 'surname']),
-    nameIdx:      find(['name']),
+    phoneIdx:     find(['phone', 'mobile', 'number', 'tel', 'whatsapp', 'contact']),
+    firstNameIdx: find(['first', 'fname', 'first_name']),
+    lastNameIdx:  find(['last', 'lname', 'last_name', 'surname']),
+    nameIdx:      find(['name', 'full_name', 'fullname']),
     emailIdx:     find(['email', 'mail']),
+    tagsIdx:      find(['tag', 'tags', 'group', 'segment']),
   };
+}
+
+// ── Shared Row Processor ──────────────────────────────────────
+function processRows(rawHeaders, rawRows) {
+  const headers = rawHeaders.map((h) =>
+    String(h || '').toLowerCase().trim().replace(/[^a-z0-9_]/g, '')
+  );
+  const col = detectColumns(headers);
+
+  const valid = [];
+  const invalid = [];
+
+  rawRows.forEach((rowCols, rowIdx) => {
+    if (!rowCols || !Array.isArray(rowCols) || rowCols.every((c) => String(c || '').trim() === '')) {
+      return;
+    }
+
+    const rawPhone =
+      col.phoneIdx >= 0 ? rowCols[col.phoneIdx] :
+      col.nameIdx >= 0 ? rowCols[0] : '';
+
+    const phone = sanitizeE164(rawPhone);
+
+    let firstName = col.firstNameIdx >= 0 ? String(rowCols[col.firstNameIdx] || '') : '';
+    let lastName  = col.lastNameIdx  >= 0 ? String(rowCols[col.lastNameIdx]  || '') : '';
+
+    if (!firstName && col.nameIdx >= 0) {
+      const parts = String(rowCols[col.nameIdx] || '').trim().split(/\s+/);
+      firstName = parts[0] || '';
+      lastName = parts.slice(1).join(' ') || '';
+    }
+
+    const email = col.emailIdx >= 0 ? String(rowCols[col.emailIdx] || '') : '';
+
+    // Extract row-level tags if present (comma-separated)
+    let rowTags = [];
+    if (col.tagsIdx >= 0 && rowCols[col.tagsIdx]) {
+      rowTags = String(rowCols[col.tagsIdx])
+        .split(',')
+        .map((t) => t.trim())
+        .filter(Boolean);
+    }
+
+    const reservedIdx = new Set([
+      col.phoneIdx, col.firstNameIdx, col.lastNameIdx, col.nameIdx, col.emailIdx, col.tagsIdx,
+    ].filter((i) => i >= 0));
+
+    const customVars = {};
+    headers.forEach((h, idx) => {
+      if (!reservedIdx.has(idx) && rowCols[idx] !== undefined && String(rowCols[idx]).trim() !== '') {
+        customVars[h] = String(rowCols[idx]).trim();
+      }
+    });
+
+    const entry = {
+      phoneE164:  phone,
+      rawPhone:   String(rawPhone || ''),
+      firstName:  firstName.trim(),
+      lastName:   lastName.trim(),
+      email:      email.trim() || null,
+      rowTags,
+      customVars: Object.keys(customVars).length ? customVars : undefined,
+      lineNumber: rowIdx + 2,
+    };
+
+    if (phone) {
+      valid.push(entry);
+    } else {
+      invalid.push({ ...entry, reason: 'invalid_e164' });
+    }
+  });
+
+  return { valid, invalid, headers };
 }
 
 // ── PapaParse-style CSV parser ────────────────────────────────
 function parseCSVText(text) {
   const lines = text.trim().split(/\r?\n/);
-  if (lines.length < 1) return [];
+  if (lines.length < 1) return { headers: [], rows: [] };
 
   const parseRow = (line) => {
     const result = [];
@@ -77,74 +156,78 @@ function parseCSVText(text) {
     return result;
   };
 
-  const headers = parseRow(lines[0]).map((h) => h.toLowerCase().replace(/[^a-z0-9_]/g, ''));
-  const rows = [];
+  const rawHeaders = parseRow(lines[0]);
+  const rawRows = [];
 
   for (let i = 1; i < lines.length; i++) {
     if (!lines[i].trim()) continue;
-    const cols = parseRow(lines[i]);
-    const obj = {};
-    headers.forEach((h, idx) => { obj[h] = cols[idx] || ''; });
-    obj.__lineNumber = i + 1;
-    obj.__rawCols = cols;
-    rows.push(obj);
+    rawRows.push(parseRow(lines[i]));
   }
 
-  return { headers, rows };
+  return { headers: rawHeaders, rows: rawRows };
 }
 
-// ── Process CSV text → {valid, invalid, headers} ──────────────
 function processCSV(text) {
   const { headers, rows } = parseCSVText(text);
-  const col = detectColumns(headers);
+  return processRows(headers, rows);
+}
 
-  const valid = [];
-  const invalid = [];
-
-  for (const row of rows) {
-    const rawPhone =
-      col.phoneIdx >= 0   ? row.__rawCols[col.phoneIdx]   :
-      col.nameIdx  >= 0   ? row.__rawCols[0] : '';
-
-    const phone = sanitizeE164(rawPhone);
-
-    let firstName = col.firstNameIdx >= 0 ? row.__rawCols[col.firstNameIdx] : '';
-    let lastName  = col.lastNameIdx  >= 0 ? row.__rawCols[col.lastNameIdx]  : '';
-
-    if (!firstName && col.nameIdx >= 0) {
-      const parts = (row.__rawCols[col.nameIdx] || '').split(' ');
-      firstName = parts[0] || '';
-      lastName  = parts.slice(1).join(' ') || '';
-    }
-
-    const email = col.emailIdx >= 0 ? row.__rawCols[col.emailIdx] : '';
-
-    const reservedIdx = new Set([
-      col.phoneIdx, col.firstNameIdx, col.lastNameIdx, col.nameIdx, col.emailIdx,
-    ].filter((i) => i >= 0));
-
-    const customVars = {};
-    headers.forEach((h, idx) => {
-      if (!reservedIdx.has(idx) && row.__rawCols[idx]) {
-        customVars[h] = row.__rawCols[idx];
-      }
-    });
-
-    const entry = {
-      phoneE164:  phone,
-      rawPhone,
-      firstName:  firstName.trim(),
-      lastName:   lastName.trim(),
-      email:      email.trim() || null,
-      customVars: Object.keys(customVars).length ? customVars : undefined,
-      lineNumber: row.__lineNumber,
-    };
-
-    if (phone) { valid.push(entry); }
-    else        { invalid.push({ ...entry, reason: 'invalid_e164' }); }
+// ── Excel Workbook Processor ──────────────────────────────────
+function parseExcelWorkbook(workbook, targetSheetName = null) {
+  const sheetNames = workbook.SheetNames || [];
+  if (sheetNames.length === 0) {
+    throw new Error('Workbook contains no sheets.');
   }
 
-  return { valid, invalid, headers };
+  let activeSheet = targetSheetName;
+  if (!activeSheet || !sheetNames.includes(activeSheet)) {
+    // If a sheet is explicitly named contact, data, sample, member, list
+    const candidate = sheetNames.find((s) => /contact|data|sample|member|list/i.test(s));
+    if (candidate) {
+      activeSheet = candidate;
+    } else if (
+      sheetNames.length > 1 &&
+      /instruction|guide|readme|help|info/i.test(sheetNames[0])
+    ) {
+      // Default to second sheet if Sheet 1 is instructions
+      activeSheet = sheetNames[1];
+    } else {
+      activeSheet = sheetNames[0];
+    }
+  }
+
+  const worksheet = workbook.Sheets[activeSheet];
+  if (!worksheet) {
+    throw new Error(`Sheet "${activeSheet}" could not be opened.`);
+  }
+
+  const aoa = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false, defval: '' });
+  if (!aoa || aoa.length === 0) {
+    return { valid: [], invalid: [], headers: [], sheetNames, activeSheet };
+  }
+
+  // Scan first 10 rows for header row containing phone/contact/name
+  let headerRowIndex = 0;
+  for (let r = 0; r < Math.min(10, aoa.length); r++) {
+    const rowStr = (aoa[r] || []).map((c) => String(c).toLowerCase()).join(' ');
+    if (rowStr.includes('phone') || rowStr.includes('mobile') || rowStr.includes('contact') || rowStr.includes('number')) {
+      headerRowIndex = r;
+      break;
+    }
+  }
+
+  const rawHeaders = aoa[headerRowIndex] || [];
+  const rawRows = aoa.slice(headerRowIndex + 1);
+
+  const { valid, invalid, headers } = processRows(rawHeaders, rawRows);
+
+  return {
+    valid,
+    invalid,
+    headers,
+    sheetNames,
+    activeSheet,
+  };
 }
 
 function Pill({ ok, children }) {
@@ -177,11 +260,11 @@ function UploadIcon({ active }) {
 }
 
 const OPT_IN_SOURCES = [
-  { value: 'manual',          label: 'Offline / verbal consent (store visit, call)' },
-  { value: 'web_form',        label: 'Website opt-in / contact form' },
-  { value: 'transactional',   label: 'Purchased product/service (transactional)' },
-  { value: 'inbound_message', label: 'Inbound WhatsApp message from them' },
-  { value: 'import',          label: 'General client database (explicit consent obtained)' },
+  { value: 'manual',          label: 'Offline / verbal consent (store visit, in-person, call)' },
+  { value: 'web_form',        label: 'Website opt-in / contact form / portal' },
+  { value: 'transactional',   label: 'Purchased product/service (transactional order)' },
+  { value: 'inbound_message', label: 'Inbound WhatsApp message from customer' },
+  { value: 'import',          label: 'General client database (verified explicit consent)' },
 ];
 
 export default function CsvContactUploader({ isOpen, onClose, onImported, lists = [] }) {
@@ -190,6 +273,10 @@ export default function CsvContactUploader({ isOpen, onClose, onImported, lists 
   const [filename, setFilename]         = useState('');
   const [valid, setValid]               = useState([]);
   const [invalid, setInvalid]           = useState([]);
+  const [detectedHeaders, setDetectedHeaders] = useState([]);
+  const [availableSheets, setAvailableSheets] = useState([]);
+  const [activeSheet, setActiveSheet]   = useState('');
+  const [cachedWorkbook, setCachedWorkbook] = useState(null);
   const [listOption, setListOption]     = useState('existing'); // 'existing' | 'new' | 'none'
   const [selectedList, setSelectedList] = useState('');
   const [newListName, setNewListName]   = useState('');
@@ -199,7 +286,7 @@ export default function CsvContactUploader({ isOpen, onClose, onImported, lists 
   const [result, setResult]             = useState(null);
   const inputRef = useRef();
 
-  // Reset when opened/closed
+  // Reset state when opened/closed
   useEffect(() => {
     if (!isOpen) {
       setStep('drop');
@@ -207,6 +294,10 @@ export default function CsvContactUploader({ isOpen, onClose, onImported, lists 
       setFilename('');
       setValid([]);
       setInvalid([]);
+      setDetectedHeaders([]);
+      setAvailableSheets([]);
+      setActiveSheet('');
+      setCachedWorkbook(null);
       setResult(null);
       setImporting(false);
       setListOption(lists.length > 0 ? 'existing' : 'new');
@@ -221,58 +312,190 @@ export default function CsvContactUploader({ isOpen, onClose, onImported, lists 
     }
   }, [isOpen, lists]);
 
-  // Lock body scroll
+  // Lock body scroll while modal is active
   useEffect(() => {
     if (isOpen) document.body.style.overflow = 'hidden';
     return () => { document.body.style.overflow = ''; };
   }, [isOpen]);
 
-  // ── Download Sample CSV Template ────────────────────────────
-  const handleDownloadTemplate = () => {
-    const headers = 'phone,first_name,last_name,email,var1,var2';
-    const sample1 = '+919876543210,Rajesh,Sharma,rajesh@example.com,VIP,Special Offer';
-    const sample2 = '+919864008174,Priya,Patel,priya@example.com,Customer,20% Discount';
+  // ── Download Two-Sheet Excel Template ───────────────────────
+  const handleDownloadExcelTemplate = () => {
+    // Sheet 1: Comprehensive Instructions
+    const instructionsData = [
+      ["VDAJ Services — Enterprise WhatsApp Platform", ""],
+      ["Official Contact Upload Template & Field Guidelines", ""],
+      ["", ""],
+      ["FIELD SPECIFICATIONS", ""],
+      ["Column Name", "Required?", "Format / Example", "Description & Best Practices"],
+      ["Phone", "YES (Mandatory)", "+919876543210 or 9876543210", "Recipient mobile number. Must include country code. Indian 10-digit mobile numbers are automatically prefixed with +91."],
+      ["First Name", "Optional", "Rajesh", "Recipient's first name. Automatically mapped to {{1}} in WhatsApp message templates."],
+      ["Last Name", "Optional", "Sharma", "Recipient's surname or family name."],
+      ["Email", "Optional", "rajesh.sharma@example.com", "Contact email address for omnichannel communications."],
+      ["Tags", "Optional", "VIP, Member, Committee", "Comma-separated tags for segmentation, campaigns, and group filtering."],
+      ["Custom Variables", "Optional", "City, Membership_No, Due_Date, etc.", "Any extra columns in Sheet 2 are automatically stored as custom variables and usable as template variables ({{2}}, {{3}}, etc.)."],
+      ["", ""],
+      ["WHATSAPP BUSINESS COMPLIANCE & OPT-IN RULES (CRITICAL)", ""],
+      ["1. Opt-In Consent", "MANDATORY", "Explicit user consent", "Every recipient must have opted-in to receive WhatsApp messages from your business (via website, in-store, or inbound chat)."],
+      ["2. No Cold Lists", "PROHIBITED", "Never scrape/buy numbers", "Sending unsolicited messages leads to user blocks, quality score drops, and Meta account suspension."],
+      ["3. Marketing Opt-Out", "MANDATORY", "Reply STOP to unsubscribe", "All marketing campaigns must provide a simple opt-out mechanism."],
+      ["", ""],
+      ["STEP-BY-STEP UPLOAD INSTRUCTIONS", ""],
+      ["Step 1", "Switch to the 'Contacts_Data' tab below."],
+      ["Step 2", "Replace the sample rows with your real contacts or append new rows."],
+      ["Step 3", "Save this file (.xlsx) and drag & drop it into the VDAJ Contact Uploader."],
+      ["Step 4", "Review the auto-detected columns and click 'Import Contacts'."],
+    ];
+
+    const wsInstructions = XLSX.utils.aoa_to_sheet(instructionsData);
+    wsInstructions['!cols'] = [
+      { wch: 22 },
+      { wch: 18 },
+      { wch: 32 },
+      { wch: 65 },
+    ];
+
+    // Sheet 2: Clean Contacts Data with realistic sample values
+    const contactsData = [
+      ["Phone", "First Name", "Last Name", "Email", "Tags", "City", "Membership_No", "Notes"],
+      ["+919876543210", "Rajesh", "Sharma", "rajesh.sharma@example.com", "VIP, Member", "Bengaluru", "MEM-1001", "Life Member"],
+      ["+919864008174", "Priya", "Patel", "priya.patel@example.com", "Customer, Lead", "Mumbai", "MEM-1002", "Annual Conference"],
+      ["+919820012345", "Amit", "Verma", "amit.v@example.com", "Committee", "Pune", "MEM-1003", "Governing Body"],
+      ["+919811098765", "Sunita", "Rao", "sunita.rao@example.com", "Member", "Hyderabad", "MEM-1004", "Active Subscriber"],
+      ["+919741234567", "Vikram", "Joshi", "vikram.j@example.com", "VIP, Executive", "Delhi", "MEM-1005", "Delegate"],
+    ];
+
+    const wsContacts = XLSX.utils.aoa_to_sheet(contactsData);
+    wsContacts['!cols'] = [
+      { wch: 18 },
+      { wch: 15 },
+      { wch: 15 },
+      { wch: 28 },
+      { wch: 20 },
+      { wch: 16 },
+      { wch: 16 },
+      { wch: 24 },
+    ];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, wsInstructions, "Instructions");
+    XLSX.utils.book_append_sheet(wb, wsContacts, "Contacts_Data");
+    XLSX.writeFile(wb, "VDAJ_Contacts_Upload_Template.xlsx");
+
+    showSuccess("Downloaded 2-Sheet Excel template (Sheet 1: Instructions · Sheet 2: Sample Contacts).");
+  };
+
+  // ── Download CSV Template (Alternative) ──────────────────────
+  const handleDownloadCsvTemplate = () => {
+    const headers = 'phone,first_name,last_name,email,tags,city,membership_no';
+    const sample1 = '+919876543210,Rajesh,Sharma,rajesh.sharma@example.com,"VIP, Member",Bengaluru,MEM-1001';
+    const sample2 = '+919864008174,Priya,Patel,priya.patel@example.com,"Customer, Lead",Mumbai,MEM-1002';
     const csvContent = `${headers}\n${sample1}\n${sample2}\n`;
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', 'vdaj_contacts_template.csv');
+    link.setAttribute('download', 'VDAJ_Contacts_Template.csv');
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     showSuccess('Sample contacts template downloaded (.csv)');
   };
 
+  // ── File handler for Excel (.xlsx, .xls) and CSV (.csv) ─────
   const handleFile = useCallback((file) => {
     if (!file) return;
-    if (!file.name.toLowerCase().endsWith('.csv')) {
-      showError('Please upload a .csv file.');
-      return;
-    }
-    if (file.size > 10 * 1024 * 1024) {
-      showError('CSV file must be under 10 MB.');
+
+    const lowerName = file.name.toLowerCase();
+    const isCsv = lowerName.endsWith('.csv');
+    const isExcel = lowerName.endsWith('.xlsx') || lowerName.endsWith('.xls');
+
+    if (!isCsv && !isExcel) {
+      showError('Please upload an Excel file (.xlsx, .xls) or CSV file (.csv).');
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const { valid: v, invalid: inv } = processCSV(e.target.result);
-      setFilename(file.name);
+    if (file.size > 20 * 1024 * 1024) {
+      showError('File size must be under 20 MB.');
+      return;
+    }
+
+    setFilename(file.name);
+
+    if (isExcel) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const buffer = new Uint8Array(e.target.result);
+          const workbook = XLSX.read(buffer, { type: 'array' });
+          setCachedWorkbook(workbook);
+
+          const { valid: v, invalid: inv, headers, sheetNames, activeSheet: sheet } = parseExcelWorkbook(workbook);
+          setAvailableSheets(sheetNames);
+          setActiveSheet(sheet);
+          setDetectedHeaders(headers);
+          setValid(v);
+          setInvalid(inv);
+          setStep('preview');
+
+          if (inv.length > 0) {
+            showWarning(`${inv.length} row${inv.length !== 1 ? 's' : ''} had invalid phone numbers and will be skipped.`);
+          }
+          if (v.length === 0) {
+            showError(`No valid phone numbers found in sheet "${sheet}". Please select another sheet or check phone column.`);
+          }
+        } catch (err) {
+          showError(`Failed to parse Excel file: ${err.message}`);
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    } else {
+      // CSV
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const { valid: v, invalid: inv, headers } = processCSV(e.target.result);
+          setAvailableSheets([]);
+          setActiveSheet('');
+          setCachedWorkbook(null);
+          setDetectedHeaders(headers);
+          setValid(v);
+          setInvalid(inv);
+          setStep('preview');
+
+          if (inv.length > 0) {
+            showWarning(`${inv.length} row${inv.length !== 1 ? 's' : ''} had invalid phone numbers and will be skipped.`);
+          }
+          if (v.length === 0) {
+            showError('No valid phone numbers found in this CSV file.');
+            setStep('drop');
+          }
+        } catch (err) {
+          showError(`Failed to parse CSV file: ${err.message}`);
+        }
+      };
+      reader.readAsText(file);
+    }
+  }, []);
+
+  // Handle switching active Excel sheet
+  const handleSheetChange = (sheetName) => {
+    if (!cachedWorkbook) return;
+    try {
+      const { valid: v, invalid: inv, headers, activeSheet: sheet } = parseExcelWorkbook(cachedWorkbook, sheetName);
+      setActiveSheet(sheet);
+      setDetectedHeaders(headers);
       setValid(v);
       setInvalid(inv);
-      setStep('preview');
-      if (inv.length > 0) {
-        showWarning(`${inv.length} row${inv.length !== 1 ? 's' : ''} had invalid phone numbers and will be skipped.`);
-      }
       if (v.length === 0) {
-        showError('No valid phone numbers found in this file.');
-        setStep('drop');
+        showWarning(`No contacts detected in sheet "${sheetName}".`);
+      } else {
+        showSuccess(`Loaded ${v.length} contacts from sheet "${sheetName}".`);
       }
-    };
-    reader.readAsText(file);
-  }, []);
+    } catch (err) {
+      showError(`Error reading sheet: ${err.message}`);
+    }
+  };
 
   const handleDrop = useCallback((e) => {
     e.preventDefault();
@@ -280,6 +503,7 @@ export default function CsvContactUploader({ isOpen, onClose, onImported, lists 
     handleFile(e.dataTransfer.files[0]);
   }, [handleFile]);
 
+  // ── Import Action ───────────────────────────────────────────
   const handleImport = async () => {
     if (!valid.length) return;
     if (!optInSource) {
@@ -289,17 +513,26 @@ export default function CsvContactUploader({ isOpen, onClose, onImported, lists 
 
     setImporting(true);
     try {
-      const proofText = `CSV import · source: ${optInSource} · file: ${filename}`;
+      const proofText = `Import · source: ${optInSource} · file: ${filename}${activeSheet ? ` [sheet: ${activeSheet}]` : ''}`;
       const targetListId = listOption === 'existing' ? selectedList || undefined : undefined;
       const targetNewList = listOption === 'new' ? newListName.trim() || undefined : undefined;
-      const tagsArray = tagsInput.split(',').map((t) => t.trim()).filter(Boolean);
+      const globalTags = tagsInput.split(',').map((t) => t.trim()).filter(Boolean);
+
+      // Merge global tags with any row-level tags from the Excel/CSV sheet
+      const preparedContacts = valid.map((c) => {
+        const mergedTags = Array.from(new Set([...globalTags, ...(c.rowTags || [])]));
+        return {
+          ...c,
+          tags: mergedTags.length > 0 ? mergedTags : undefined,
+        };
+      });
 
       const res = await contactApi.bulkImport(
-        valid,
+        preparedContacts,
         targetListId,
         optInSource,
         proofText,
-        tagsArray,
+        globalTags,
         targetNewList
       );
 
@@ -325,9 +558,14 @@ export default function CsvContactUploader({ isOpen, onClose, onImported, lists 
         {/* ── Header ─────────────────────────────────────────── */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-[#E2E8F0] bg-[#FFFFFF] shrink-0">
           <div>
-            <h2 className="text-base font-bold text-[#0F172A] tracking-tight">
-              Import Contacts from CSV
-            </h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-base font-bold text-[#0F172A] tracking-tight">
+                Import Contacts from Excel / CSV
+              </h2>
+              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#E8F9F4] text-[#148059] border border-[#A3E4D0]">
+                .xlsx · .xls · .csv
+              </span>
+            </div>
             <p className="text-xs text-[#64748B] mt-0.5">
               Max 5,000 contacts per upload · E.164 phone numbers with country code
             </p>
@@ -348,25 +586,44 @@ export default function CsvContactUploader({ isOpen, onClose, onImported, lists 
           {step === 'drop' && (
             <>
               {/* Download Sample Template Banner */}
-              <div className="p-3.5 bg-[#F8FAFC] border border-[#E2E8F0] rounded-2xl flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-[#E8F9F4] text-[#148059] flex items-center justify-center text-base shrink-0">
-                    📥
+              <div className="p-4 bg-gradient-to-r from-[#F8FAFC] to-[#F1F5F9] border border-[#CBD5E1] rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center justify-center text-lg shrink-0">
+                    📊
                   </div>
                   <div>
-                    <p className="text-xs font-bold text-[#0F172A]">Need a pre-formatted template?</p>
-                    <p className="text-[11px] text-[#64748B]">
-                      Download our sample CSV with proper phone and variable columns.
+                    <div className="flex items-center gap-2">
+                      <p className="text-xs font-bold text-[#0F172A]">Need our official Excel template?</p>
+                      <span className="px-1.5 py-0.2 rounded text-[9px] font-extrabold bg-[#534AB7] text-white">
+                        2 SHEETS
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-[#64748B] mt-0.5 leading-relaxed">
+                      <strong>Sheet 1:</strong> Full instructions, opt-in rules &amp; field guide.<br/>
+                      <strong>Sheet 2:</strong> Sample contact rows showing phone, tags, &amp; custom fields.
                     </p>
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleDownloadTemplate}
-                  className="px-3 py-1.5 text-xs font-bold text-[#534AB7] bg-[#FFFFFF] hover:bg-[#F3F2FD] border border-[#CBD5E1] rounded-xl transition-all shrink-0 shadow-sm"
-                >
-                  Download Template (.csv)
-                </button>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={handleDownloadExcelTemplate}
+                    className="px-3.5 py-2 text-xs font-bold text-white bg-emerald-700 hover:bg-emerald-800 rounded-xl transition-all shadow-sm flex items-center gap-1.5"
+                  >
+                    <span>📥</span>
+                    <span>Download Excel (.xlsx)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleDownloadCsvTemplate}
+                    title="Download plain CSV format"
+                    className="px-2.5 py-2 text-xs font-semibold text-[#475569] bg-white hover:bg-slate-100 border border-[#CBD5E1] rounded-xl transition-all"
+                  >
+                    .CSV
+                  </button>
+                </div>
               </div>
 
               {/* Drag and drop area */}
@@ -376,7 +633,7 @@ export default function CsvContactUploader({ isOpen, onClose, onImported, lists 
                 onDrop={handleDrop}
                 onClick={() => inputRef.current?.click()}
                 className={clsx(
-                  'relative border-2 border-dashed rounded-2xl p-10 text-center cursor-pointer transition-all duration-200',
+                  'relative border-2 border-dashed rounded-2xl p-9 text-center cursor-pointer transition-all duration-200',
                   dragging
                     ? 'border-[#534AB7] bg-[#F3F2FD]/50 scale-[1.01]'
                     : 'border-[#CBD5E1] bg-[#F8FAFC] hover:border-[#534AB7]/50 hover:bg-[#F1F5F9]'
@@ -385,26 +642,26 @@ export default function CsvContactUploader({ isOpen, onClose, onImported, lists 
                 <input
                   ref={inputRef}
                   type="file"
-                  accept=".csv"
+                  accept=".xlsx, .xls, .csv"
                   className="hidden"
                   onChange={(e) => handleFile(e.target.files[0])}
                 />
                 <UploadIcon active={dragging} />
                 <p className="text-sm font-bold text-[#0F172A]">
-                  {dragging ? 'Drop your CSV file here!' : 'Drag & drop your CSV file here'}
+                  {dragging ? 'Drop your Excel or CSV file here!' : 'Drag & drop your Excel or CSV file here'}
                 </p>
                 <p className="text-xs text-[#64748B] mt-1">
-                  or click to browse from your computer · .csv format only
+                  Supports <strong>.xlsx</strong>, <strong>.xls</strong>, or <strong>.csv</strong> up to 20 MB
                 </p>
               </div>
 
               {/* Column guide */}
               <div className="bg-[#FFFFFF] border border-[#E2E8F0] rounded-2xl p-4 space-y-2">
                 <p className="text-xs font-bold text-[#0F172A]">
-                  Expected Column Headers (Auto-detected):
+                  Auto-Detected Columns in Sheet:
                 </p>
                 <div className="flex flex-wrap gap-2">
-                  {['phone *', 'first_name', 'last_name', 'email', 'var1', 'var2'].map((c) => (
+                  {['phone *', 'first_name', 'last_name', 'email', 'tags', 'city', 'custom_vars...'].map((c) => (
                     <span
                       key={c}
                       className={clsx(
@@ -419,7 +676,7 @@ export default function CsvContactUploader({ isOpen, onClose, onImported, lists 
                   ))}
                 </div>
                 <p className="text-[11px] text-[#64748B] leading-relaxed">
-                  Phone numbers must include country code (e.g. <code className="font-mono text-[#534AB7]">+919876543210</code>). Any extra columns map to template variables automatically.
+                  Phone numbers must include country code (e.g. <code className="font-mono text-[#534AB7]">+919876543210</code> or 10-digit Indian mobile number). Multi-sheet workbooks will automatically select the contact data sheet.
                 </p>
               </div>
             </>
@@ -429,8 +686,9 @@ export default function CsvContactUploader({ isOpen, onClose, onImported, lists 
           {step === 'preview' && (
             <>
               {/* Summary Bar */}
-              <div className="flex items-center justify-between gap-3 p-3 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl">
-                <div className="flex items-center gap-2 truncate">
+              <div className="flex items-center justify-between gap-3 p-3 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl flex-wrap">
+                <div className="flex items-center gap-2 truncate min-w-0">
+                  <span className="text-base shrink-0">📄</span>
                   <span className="text-xs font-bold text-[#0F172A] truncate">{filename}</span>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
@@ -439,21 +697,44 @@ export default function CsvContactUploader({ isOpen, onClose, onImported, lists 
                 </div>
               </div>
 
+              {/* Multi-Sheet Selector for Excel */}
+              {availableSheets.length > 1 && (
+                <div className="p-3 bg-[#F3F2FD] border border-[#E6E4F5] rounded-xl flex items-center justify-between gap-3 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-[#534AB7]">📑 Excel Sheet:</span>
+                    <span className="text-[11px] text-[#64748B]">Multiple sheets detected in file</span>
+                  </div>
+                  <select
+                    value={activeSheet}
+                    onChange={(e) => handleSheetChange(e.target.value)}
+                    className="px-3 py-1.5 text-xs font-bold bg-white border border-[#CBD5E1] rounded-lg text-[#0F172A] focus:border-[#534AB7] focus:outline-none"
+                  >
+                    {availableSheets.map((s) => (
+                      <option key={s} value={s}>
+                        {s} {s === activeSheet ? '(Active)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               {/* Table Preview */}
               <div className="border border-[#E2E8F0] rounded-xl overflow-hidden shadow-sm">
                 <div className="grid grid-cols-12 gap-2 px-3 py-2 bg-[#F1F5F9] border-b border-[#E2E8F0] text-[11px] font-bold text-[#475569] uppercase tracking-wider">
-                  <span className="col-span-5">Phone</span>
+                  <span className="col-span-4">Phone</span>
                   <span className="col-span-3">First Name</span>
-                  <span className="col-span-2">Last Name</span>
+                  <span className="col-span-3">Tags / Info</span>
                   <span className="col-span-2 text-right">Status</span>
                 </div>
 
                 <div className="max-h-40 overflow-y-auto divide-y divide-[#E2E8F0] text-xs">
                   {valid.slice(0, 5).map((r, i) => (
                     <div key={i} className="grid grid-cols-12 gap-2 px-3 py-2 items-center text-[#334155]">
-                      <span className="col-span-5 font-mono text-[#534AB7] font-semibold truncate">{r.phoneE164}</span>
-                      <span className="col-span-3 truncate">{r.firstName || '—'}</span>
-                      <span className="col-span-2 truncate">{r.lastName || '—'}</span>
+                      <span className="col-span-4 font-mono text-[#534AB7] font-semibold truncate">{r.phoneE164}</span>
+                      <span className="col-span-3 truncate">{r.firstName || '—'} {r.lastName || ''}</span>
+                      <span className="col-span-3 truncate text-[11px] text-[#64748B]">
+                        {r.rowTags?.length ? r.rowTags.join(', ') : (r.email || '—')}
+                      </span>
                       <div className="col-span-2 flex justify-end">
                         <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#E8F9F4] text-[#148059]">Valid</span>
                       </div>
@@ -461,11 +742,11 @@ export default function CsvContactUploader({ isOpen, onClose, onImported, lists 
                   ))}
                   {invalid.slice(0, 2).map((r, i) => (
                     <div key={`inv-${i}`} className="grid grid-cols-12 gap-2 px-3 py-2 items-center bg-red-50/50 text-[#64748B]">
-                      <span className="col-span-5 font-mono text-red-500 line-through truncate">{r.rawPhone}</span>
+                      <span className="col-span-4 font-mono text-red-500 line-through truncate">{r.rawPhone || '(empty)'}</span>
                       <span className="col-span-3 truncate">{r.firstName || '—'}</span>
-                      <span className="col-span-2 truncate">{r.lastName || '—'}</span>
+                      <span className="col-span-3 truncate text-[11px] text-red-600">Invalid phone format</span>
                       <div className="col-span-2 flex justify-end">
-                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-700">Invalid</span>
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-700">Skipped</span>
                       </div>
                     </div>
                   ))}
@@ -537,7 +818,7 @@ export default function CsvContactUploader({ isOpen, onClose, onImported, lists 
                 {listOption === 'new' && (
                   <input
                     type="text"
-                    placeholder="e.g. September 2026 Customer Blast"
+                    placeholder="e.g. VIP Customer Blast 2026"
                     value={newListName}
                     onChange={(e) => setNewListName(e.target.value)}
                     className="w-full px-3 py-2 text-xs bg-[#FFFFFF] border border-[#CBD5E1] rounded-xl text-[#0F172A] placeholder-[#94A3B8] focus:border-[#534AB7] focus:outline-none"
@@ -548,7 +829,7 @@ export default function CsvContactUploader({ isOpen, onClose, onImported, lists 
               {/* ── Tags / Segment Assignment ────────────────── */}
               <div className="space-y-1 pt-2 border-t border-[#E2E8F0]">
                 <label className="block text-xs font-bold text-[#0F172A]">
-                  Assign Tags (Optional)
+                  Assign Extra Tags (Optional)
                 </label>
                 <input
                   type="text"

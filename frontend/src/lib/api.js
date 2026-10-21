@@ -164,6 +164,7 @@ export const templateApi = {
   create: (data) => client.post('/templates', data),
   sync: (id) => client.post(`/templates/${id}/sync`),
   syncAll: () => client.post('/templates/sync'),
+  delete: (id) => client.delete(`/templates/${id}`),
 };
 
 // ---- TENANTS ----

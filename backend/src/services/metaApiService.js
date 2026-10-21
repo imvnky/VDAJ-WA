@@ -432,8 +432,39 @@ const fetchMetaTemplates = async (wabaId, accessToken) => {
     accessToken,
   });
 
-  return responseBody?.data || [];
+// ─────────────────────────────────────────────────────────────────
+// deleteMetaTemplate — Delete a template from Meta Graph API
+// ─────────────────────────────────────────────────────────────────
+
+/**
+ * Delete a message template from Meta WABA.
+ * Meta Endpoint: DELETE /{WABA_ID}/message_templates?name={template_name}&hsm_id={meta_template_id}
+ *
+ * @param {string} wabaId
+ * @param {string} accessToken
+ * @param {string} templateName
+ * @param {string} [metaTemplateId]
+ * @returns {Promise<{success: boolean}>}
+ */
+const deleteMetaTemplate = async (wabaId, accessToken, templateName, metaTemplateId) => {
+  let path = `${wabaId}/message_templates?name=${encodeURIComponent(templateName)}`;
+  if (metaTemplateId) {
+    path += `&hsm_id=${encodeURIComponent(metaTemplateId)}`;
+  }
+
+  logger.info('Deleting template from Meta', {
+    wabaId,
+    templateName,
+    metaTemplateId,
+  });
+
+  return await callMetaApi({
+    method:      'DELETE',
+    path,
+    accessToken,
+  });
 };
+
 
 // ─────────────────────────────────────────────────────────────────
 // exchangeEmbeddedSignupToken — Short-lived code → system-user token
@@ -688,6 +719,7 @@ module.exports = {
   sendFreeText,
   resolveMediaUrl,
   createMetaTemplate,
+  deleteMetaTemplate,
   syncMetaTemplateStatus,
   fetchMetaTemplates,
   exchangeEmbeddedSignupToken,

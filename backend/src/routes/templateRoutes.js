@@ -18,7 +18,8 @@ const { sendSuccess, sendCreated, catchAsync } = require('../middleware/response
 const { authenticate } = require('../middleware/authMiddleware');
 const { requireTenant } = require('../middleware/tenantMiddleware');
 const AppError = require('../utils/AppError');
-const { createMetaTemplate, syncMetaTemplateStatus, fetchMetaTemplates } = require('../services/metaApiService');
+const logger = require('../utils/logger');
+const { createMetaTemplate, deleteMetaTemplate, syncMetaTemplateStatus, fetchMetaTemplates } = require('../services/metaApiService');
 const { recordAudit } = require('../services/auditService');
 
 router.use(authenticate, requireTenant);
@@ -421,6 +422,95 @@ router.post('/:id/sync', catchAsync(async (req, res) => {
   }).catch(() => {});
 
   return sendSuccess(res, updated, `Template status synced: ${metaStatus}.`);
+}));
+
+// ── DELETE /templates/:id — Delete from Meta + soft-delete locally ─
+router.delete('/:id', catchAsync(async (req, res) => {
+  const isSuperAdmin = req.user.role === 'super_admin';
+  const { rows: [template] } = await query(
+    `SELECT * FROM message_templates
+     WHERE id = $1 AND (tenant_id = $2 OR $3 = TRUE) AND deleted_at IS NULL`,
+    [req.params.id, req.user.tenantId, isSuperAdmin]
+  );
+  if (!template) throw new AppError('Template not found.', 404, 'ERR_VDAJ_TMPL_001');
+
+  // Resolve tenant credentials
+  let tenant = req.tenant;
+  if ((!tenant?.waba_id && !tenant?.wabaId) && template.tenant_id) {
+    const { rows: [t] } = await query(
+      `SELECT waba_id, meta_system_token, phone_number_id FROM tenants WHERE id = $1`,
+      [template.tenant_id]
+    );
+    if (t) tenant = t;
+  }
+
+  const effectiveWabaId = tenant?.waba_id || tenant?.wabaId || process.env.META_WABA_ID;
+  const effectiveToken  = tenant?.meta_system_token || tenant?.metaSystemToken || tenant?.whatsapp_access_token || process.env.META_ACCESS_TOKEN;
+
+  let metaDeleted = false;
+  let metaWarning = null;
+
+  // If connected to Meta and template has name, attempt deletion on Meta Graph API
+  if (effectiveWabaId && effectiveToken && template.name && template.meta_template_id) {
+    try {
+      await deleteMetaTemplate(effectiveWabaId, effectiveToken, template.name, template.meta_template_id);
+      metaDeleted = true;
+    } catch (metaErr) {
+      logger.warn('Failed to delete template on Meta Graph API (continuing local deletion)', {
+        templateId: template.id,
+        templateName: template.name,
+        error: metaErr.message,
+      });
+      metaWarning = metaErr.message;
+    }
+  }
+
+  // Soft-delete locally in PostgreSQL
+  await query(
+    `UPDATE message_templates
+     SET deleted_at = NOW(), updated_at = NOW()
+     WHERE id = $1`,
+    [template.id]
+  );
+
+  recordAudit({
+    tenantId: template.tenant_id || req.user.tenantId,
+    userId: req.user.id,
+    action: 'TEMPLATE_DELETED',
+    resourceType: 'template',
+    resourceId: template.id,
+    status: 'SUCCESS',
+    meta: {
+      templateName: template.name,
+      metaDeleted,
+      metaWarning: metaWarning || null,
+    },
+    subTasks: [
+      ...(template.meta_template_id ? [{
+        name: 'Meta Graph API Deletion',
+        details: metaDeleted ? `Deleted template "${template.name}" from Meta WABA` : `Meta notice: ${metaWarning}`,
+        component: 'Meta Graph API',
+        status: metaDeleted ? 'SUCCESS' : 'WARNING',
+      }] : []),
+      {
+        name: 'Database Soft-Delete',
+        details: `Marked template ${template.id} deleted_at in PostgreSQL store`,
+        component: 'PostgreSQL Store',
+        status: 'SUCCESS',
+      },
+    ],
+    ipAddress: req.ip,
+  }).catch(() => {});
+
+  return sendSuccess(
+    res,
+    { id: template.id, metaDeleted, metaWarning },
+    metaDeleted
+      ? `Template "${template.name}" deleted from Meta and local workspace.`
+      : (metaWarning
+          ? `Template deleted locally. Meta notice: ${metaWarning}`
+          : `Template "${template.name}" deleted successfully.`)
+  );
 }));
 
 module.exports = router;
