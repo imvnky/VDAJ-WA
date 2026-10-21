@@ -12,6 +12,7 @@ const { sendSuccess, sendCreated, catchAsync } = require('../middleware/response
 const { authenticate } = require('../middleware/authMiddleware');
 const { contactValidators, uuidParamValidator, validate } = require('../middleware/validationMiddleware');
 const AppError = require('../utils/AppError');
+const logger = require('../utils/logger');
 const { recordAudit } = require('../services/auditService');
 
 router.use(authenticate);
@@ -223,10 +224,20 @@ router.post('/bulk', catchAsync(async (req, res) => {
     );
   }
 
-  // Parse tags array
-  const cleanTags = Array.isArray(tags)
-    ? tags.map((t) => String(t).trim()).filter(Boolean)
-    : String(tags || '').split(',').map((t) => t.trim()).filter(Boolean);
+  // Parse tags array from request-level and row-level tags
+  const rowTagsAll = [];
+  for (const raw of rawContacts) {
+    if (Array.isArray(raw.tags)) {
+      rowTagsAll.push(...raw.tags);
+    } else if (raw.tags) {
+      rowTagsAll.push(...String(raw.tags).split(','));
+    }
+  }
+
+  const cleanTags = Array.from(new Set([
+    ...(Array.isArray(tags) ? tags : String(tags || '').split(',')),
+    ...rowTagsAll
+  ])).map((t) => String(t).trim()).filter(Boolean);
 
   // ── Server-side E.164 validation + sanitization ───────────
   const E164_REGEX = /^\+[1-9]\d{7,14}$/;
@@ -273,14 +284,13 @@ router.post('/bulk', catchAsync(async (req, res) => {
   let inserted = 0;
   let updated  = 0;
   let newContactIds = [];
+  let targetListId = listId || null;
 
   await withTransaction(async (client) => {
     // ── Ensure contacts.tags column exists in DB (idempotent) ──
     await client.query(`ALTER TABLE contacts ADD COLUMN IF NOT EXISTS tags TEXT[] DEFAULT '{}'`);
 
     // ── Create or resolve target listId ───────────────────────
-    let targetListId = listId || null;
-
     if (!targetListId && newListName?.trim()) {
       const { rows: [createdList] } = await client.query(
         `INSERT INTO contact_lists (tenant_id, name, description, created_by)
@@ -374,19 +384,23 @@ router.post('/bulk', catchAsync(async (req, res) => {
       // Only log truly NEW rows (is_new = true) to avoid duplicate audit noise on updates.
       const newlyInsertedIds = upserted.filter(r => r.is_new).map(r => r.id);
       if (newlyInsertedIds.length > 0) {
-        await client.query(
-          `INSERT INTO opt_in_events (tenant_id, contact_id, phone_e164, source, proof, ip_address)
-           SELECT $1, c.id, c.phone_e164, $3, $4, $5
-           FROM contacts c
-           WHERE c.id = ANY($2::uuid[]) AND c.tenant_id = $1`,
-          [
-            tenantId,
-            newlyInsertedIds,
-            opt_in_source,
-            proof,
-            req.ip || null,
-          ]
-        );
+        try {
+          await client.query(
+            `INSERT INTO opt_in_events (tenant_id, contact_id, phone_e164, source, proof, ip_address)
+             SELECT $1, c.id, c.phone_e164, $3, $4, $5
+             FROM contacts c
+             WHERE c.id = ANY($2::uuid[]) AND c.tenant_id = $1`,
+            [
+              tenantId,
+              newlyInsertedIds,
+              opt_in_source,
+              proof,
+              req.ip || null,
+            ]
+          );
+        } catch (optInErr) {
+          logger.warn(`[BulkImport] Non-fatal opt_in_events logging notice: ${optInErr.message}`);
+        }
       }
     }
   });
