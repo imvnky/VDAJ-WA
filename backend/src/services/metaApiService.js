@@ -432,6 +432,9 @@ const fetchMetaTemplates = async (wabaId, accessToken) => {
     accessToken,
   });
 
+  return responseBody?.data || [];
+};
+
 // ─────────────────────────────────────────────────────────────────
 // deleteMetaTemplate — Delete a template from Meta Graph API
 // ─────────────────────────────────────────────────────────────────
