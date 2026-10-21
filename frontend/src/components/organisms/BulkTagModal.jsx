@@ -35,12 +35,19 @@ export default function BulkTagModal({
   if (!isOpen) return null;
 
   const handleAddTag = (raw) => {
-    const clean = String(raw || inputTag)
+    const text = String(raw || inputTag)
       .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9_-]/g, '')
+      .replace(/[^a-zA-Z0-9_\- ]/g, '')
       .slice(0, 30);
-    if (!clean || tags.includes(clean)) {
+    if (!text) {
+      setInputTag('');
+      return;
+    }
+    // Match against existing tags case-insensitively to preserve canonical casing
+    const matched = existingTags?.find((t) => t.toLowerCase() === text.toLowerCase());
+    const clean = matched || text;
+
+    if (tags.some((t) => t.toLowerCase() === clean.toLowerCase())) {
       setInputTag('');
       return;
     }

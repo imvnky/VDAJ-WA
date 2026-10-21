@@ -36,9 +36,9 @@ router.get('/', catchAsync(async (req, res) => {
     params.push(status);
     idx++;
   }
-  // Tag filter — uses GIN index for efficiency
+  // Tag filter — case-insensitive match
   if (tag) {
-    whereClause += ` AND $${idx} = ANY(c.tags)`;
+    whereClause += ` AND EXISTS (SELECT 1 FROM UNNEST(c.tags) t WHERE LOWER(TRIM(t)) = LOWER(TRIM($${idx})))`;
     params.push(tag);
     idx++;
   }
@@ -87,6 +87,91 @@ router.get('/tags', catchAsync(async (req, res) => {
   return sendSuccess(res, rows.map((r) => r.tag).filter(Boolean), 'Tags fetched.');
 }));
 
+// ── GET /contacts/tags/stats — Tags with contact counts ─────────
+router.get('/tags/stats', catchAsync(async (req, res) => {
+  const tenantId = req.user.tenantId || req.tenant?.id;
+  const { rows } = await query(
+    `SELECT tag, COUNT(*)::int AS count
+     FROM (
+       SELECT UNNEST(tags) AS tag
+       FROM contacts
+       WHERE (tenant_id = $1 OR $2 = TRUE) AND tags IS NOT NULL AND array_length(tags, 1) > 0
+     ) s
+     WHERE tag IS NOT NULL AND TRIM(tag) <> ''
+     GROUP BY tag
+     ORDER BY count DESC, tag ASC`,
+    [tenantId, req.user.role === 'super_admin']
+  );
+  return sendSuccess(res, rows, 'Tags stats fetched.');
+}));
+
+// ── PUT /contacts/tags/rename — Rename or merge a tag across workspace ────
+router.put('/tags/rename', catchAsync(async (req, res) => {
+  const { oldTag, newTag } = req.body;
+  if (!oldTag?.trim()) throw new AppError('oldTag is required.', 400, 'ERR_VDAJ_VAL_001');
+  if (!newTag?.trim()) throw new AppError('newTag is required.', 400, 'ERR_VDAJ_VAL_001');
+
+  const sourceTag = oldTag.trim();
+  const targetTag = newTag.trim().replace(/[^a-zA-Z0-9_\- ]/g, '').slice(0, 30);
+
+  if (!targetTag) {
+    throw new AppError('Valid new tag name is required.', 400, 'ERR_VDAJ_VAL_001');
+  }
+
+  const tenantId = req.user.tenantId || req.tenant?.id;
+  const isSuperAdmin = req.user.role === 'super_admin';
+
+  // Update contacts having oldTag: replace oldTag with targetTag and deduplicate array
+  const { rows } = await query(
+    `UPDATE contacts
+     SET tags = ARRAY(
+       SELECT DISTINCT CASE WHEN t = $1 THEN $2 ELSE t END
+       FROM UNNEST(tags) AS t
+       WHERE t IS NOT NULL AND TRIM(t) <> ''
+     ), updated_at = NOW()
+     WHERE (tenant_id = $3 OR $4 = TRUE)
+       AND tags IS NOT NULL
+       AND $1 = ANY(tags)
+     RETURNING id`,
+    [sourceTag, targetTag, tenantId, isSuperAdmin]
+  );
+
+  return sendSuccess(
+    res,
+    { affectedCount: rows.length, oldTag: sourceTag, newTag: targetTag },
+    `Tag "${sourceTag}" renamed to "${targetTag}" across ${rows.length} contact(s).`
+  );
+}));
+
+// ── DELETE /contacts/tags — Delete a tag across all contacts in workspace ────
+router.delete('/tags', catchAsync(async (req, res) => {
+  const tag = req.body?.tag || req.query?.tag;
+  if (!tag?.trim()) throw new AppError('tag is required.', 400, 'ERR_VDAJ_VAL_001');
+
+  const targetTag = tag.trim();
+  const tenantId = req.user.tenantId || req.tenant?.id;
+  const isSuperAdmin = req.user.role === 'super_admin';
+
+  const { rows } = await query(
+    `UPDATE contacts
+     SET tags = ARRAY(
+       SELECT t FROM UNNEST(tags) AS t
+       WHERE t <> $1 AND t IS NOT NULL AND TRIM(t) <> ''
+     ), updated_at = NOW()
+     WHERE (tenant_id = $2 OR $3 = TRUE)
+       AND tags IS NOT NULL
+       AND $1 = ANY(tags)
+     RETURNING id`,
+    [targetTag, tenantId, isSuperAdmin]
+  );
+
+  return sendSuccess(
+    res,
+    { affectedCount: rows.length, tag: targetTag },
+    `Tag "${targetTag}" removed from ${rows.length} contact(s).`
+  );
+}));
+
 // ── POST /contacts — Single contact ───────────────────────────
 router.post('/', contactValidators, validate, catchAsync(async (req, res) => {
   const {
@@ -112,10 +197,10 @@ router.post('/', contactValidators, validate, catchAsync(async (req, res) => {
     throw new AppError('Tenant workspace could not be identified.', 400, 'ERR_VDAJ_TENANT_001');
   }
 
-  // Parse tags array
+  // Parse tags array — preserve casing
   const cleanTags = Array.isArray(tags)
-    ? tags.map((t) => String(t).trim().toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 30)).filter(Boolean)
-    : String(tags || '').split(',').map((t) => t.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 30)).filter(Boolean);
+    ? tags.map((t) => String(t).trim().replace(/[^a-zA-Z0-9_\- ]/g, '').slice(0, 30)).filter(Boolean)
+    : String(tags || '').split(',').map((t) => t.trim().replace(/[^a-zA-Z0-9_\- ]/g, '').slice(0, 30)).filter(Boolean);
 
   const proof = opt_in_proof?.trim() || `Manual entry by user ${req.user.id || req.user.email || 'portal'} on ${new Date().toISOString().slice(0, 10)}`;
 
@@ -674,9 +759,9 @@ router.post('/bulk-tags', catchAsync(async (req, res) => {
   const tenantId = req.user.tenantId || req.tenant?.id;
   const isSuperAdmin = req.user.role === 'super_admin';
 
-  // Sanitise tags
+  // Sanitise tags — preserve casing
   const cleanTags = [...new Set(
-    tags.map((t) => String(t).toLowerCase().trim().replace(/[^a-z0-9_-]/g, '').slice(0, 30))
+    tags.map((t) => String(t).trim().replace(/[^a-zA-Z0-9_\- ]/g, '').slice(0, 30))
         .filter(Boolean)
   )];
 
@@ -861,9 +946,9 @@ router.patch('/:id/tags', uuidParamValidator('id'), validate, catchAsync(async (
   const { tags } = req.body;
   if (!Array.isArray(tags)) throw new AppError('tags must be an array of strings.', 400, 'ERR_VDAJ_VAL_001');
 
-  // Sanitise: lowercase, alphanumeric + dash/underscore, max 30 chars, max 20 tags
+  // Sanitise: alphanumeric + dash/underscore/space, max 30 chars, max 20 tags — preserve casing
   const clean = [...new Set(
-    tags.map((t) => String(t).toLowerCase().trim().replace(/[^a-z0-9_-]/g, '').slice(0, 30))
+    tags.map((t) => String(t).trim().replace(/[^a-zA-Z0-9_\- ]/g, '').slice(0, 30))
         .filter(Boolean)
   )].slice(0, 20);
 

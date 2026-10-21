@@ -85,8 +85,11 @@ function EditableTags({ contactId, initialTags, onSaved }) {
   const inputRef = useRef();
 
   const addTag = () => {
-    const clean = input.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 30);
-    if (!clean || tags.includes(clean)) { setInput(''); return; }
+    const clean = input.trim().replace(/[^a-zA-Z0-9_\- ]/g, '').slice(0, 30);
+    if (!clean || tags.some((t) => t.toLowerCase() === clean.toLowerCase())) {
+      setInput('');
+      return;
+    }
     setTags((t) => [...t, clean]);
     setInput('');
   };

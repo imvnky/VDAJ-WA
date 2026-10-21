@@ -22,6 +22,7 @@ import CreateGroupModal from '../components/organisms/CreateGroupModal.jsx';
 import EditGroupModal from '../components/organisms/EditGroupModal.jsx';
 import MoveGroupModal from '../components/organisms/MoveGroupModal.jsx';
 import BulkTagModal from '../components/organisms/BulkTagModal.jsx';
+import ManageTagsModal from '../components/organisms/ManageTagsModal.jsx';
 
 // ── Tag color palette (deterministic from tag string) ──────────
 const TAG_PALETTE = [
@@ -242,6 +243,7 @@ export default function ContactsPage() {
   // Multi-selection & Bulk Actions
   const [selectedIds, setSelectedIds]       = useState(new Set());
   const [bulkTagOpen, setBulkTagOpen]       = useState(false);
+  const [manageTagsOpen, setManageTagsOpen] = useState(false);
 
   const LIMIT = 20;
 
@@ -261,7 +263,7 @@ export default function ContactsPage() {
       setContacts(rows);
       setTotal(res.meta?.total || 0);
 
-      // Collect tags from rows
+      // Collect tags from rows to keep allTags populated
       const seen = new Set();
       rows.forEach((c) => (c.tags || []).forEach((tag) => seen.add(tag)));
       if (seen.size > 0) {
@@ -290,8 +292,8 @@ export default function ContactsPage() {
   const refreshTags = useCallback(async () => {
     try {
       const res = await contactApi.tags({ silent: true });
-      if (Array.isArray(res.data) && res.data.length > 0) {
-        setAllTags((prev) => [...new Set([...prev, ...res.data])]);
+      if (Array.isArray(res.data)) {
+        setAllTags(res.data);
       }
     } catch {}
   }, []);
@@ -685,6 +687,16 @@ export default function ContactsPage() {
               onRemove={() => handleTagFilter('')}
             />
           ))}
+
+          {/* Manage Tags Button */}
+          <button
+            type="button"
+            onClick={() => setManageTagsOpen(true)}
+            className="inline-flex items-center gap-1 text-2xs font-bold px-2.5 py-0.5 rounded-full border border-dashed border-slate-300 text-slate-600 hover:text-[#534AB7] hover:border-[#534AB7] hover:bg-slate-50 transition-all cursor-pointer ml-1 shadow-2xs"
+            title="Manage, rename, merge or delete tags"
+          >
+            <span>🏷️</span> Manage Tags
+          </button>
         </div>
       </div>
 
@@ -1205,6 +1217,16 @@ export default function ContactsPage() {
         existingTags={allTags}
         onClose={() => setBulkTagOpen(false)}
         onSuccess={handleBulkTagSuccess}
+      />
+
+      {/* ── Manage Tags Modal (Rename, Merge, Delete) ─────────── */}
+      <ManageTagsModal
+        isOpen={manageTagsOpen}
+        onClose={() => setManageTagsOpen(false)}
+        onUpdated={() => {
+          refreshTags();
+          load(page, search, tagFilter, selectedGroup);
+        }}
       />
     </div>
   );
