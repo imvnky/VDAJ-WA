@@ -462,11 +462,65 @@ router.post('/lists', catchAsync(async (req, res) => {
   const { name, description } = req.body;
   if (!name?.trim()) throw new AppError('List name is required.', 400, 'ERR_VDAJ_VAL_005');
 
-  const { rows: [list] } = await query(
-    `INSERT INTO contact_lists (tenant_id, name, description, created_by)
-     VALUES ($1, $2, $3, $4) RETURNING *`,
-    [req.user.tenantId, name.trim(), description || null, req.user.id]
+  let tenantId = req.user.tenantId || req.tenant?.id;
+  if (!tenantId) {
+    const { rows: [firstTenant] } = await query(
+      `SELECT id FROM tenants WHERE deleted_at IS NULL ORDER BY created_at ASC LIMIT 1`
+    );
+    tenantId = firstTenant?.id;
+  }
+  if (!tenantId) {
+    throw new AppError('Tenant workspace could not be identified.', 400, 'ERR_VDAJ_TENANT_001');
+  }
+
+  const cleanName = name.trim();
+  const cleanDesc = description?.trim() || null;
+
+  // 1. Check if an active (non-deleted) list with this name already exists
+  const { rows: existingActive } = await query(
+    `SELECT id, name FROM contact_lists 
+     WHERE tenant_id = $1 AND LOWER(TRIM(name)) = LOWER(TRIM($2)) AND deleted_at IS NULL`,
+    [tenantId, cleanName]
   );
+  if (existingActive.length > 0) {
+    throw new AppError(
+      `An audience group named "${existingActive[0].name}" already exists in this workspace.`,
+      400,
+      'ERR_VDAJ_VAL_001'
+    );
+  }
+
+  // 2. Check if a soft-deleted list exists with this name (resurrect it)
+  const { rows: existingDeleted } = await query(
+    `SELECT id FROM contact_lists 
+     WHERE tenant_id = $1 AND LOWER(TRIM(name)) = LOWER(TRIM($2)) AND deleted_at IS NOT NULL
+     ORDER BY updated_at DESC LIMIT 1`,
+    [tenantId, cleanName]
+  );
+
+  let list;
+  if (existingDeleted.length > 0) {
+    const { rows } = await query(
+      `UPDATE contact_lists
+       SET name = $1, description = COALESCE($2, description), deleted_at = NULL, updated_at = NOW()
+       WHERE id = $3
+       RETURNING *`,
+      [cleanName, cleanDesc, existingDeleted[0].id]
+    );
+    list = rows[0];
+  } else {
+    // 3. Create brand new list
+    const { rows } = await query(
+      `INSERT INTO contact_lists (tenant_id, name, description, created_by)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (tenant_id, name) DO UPDATE
+       SET name = EXCLUDED.name, description = COALESCE(EXCLUDED.description, contact_lists.description), deleted_at = NULL, updated_at = NOW()
+       RETURNING *`,
+      [tenantId, cleanName, cleanDesc, req.user.id]
+    );
+    list = rows[0];
+  }
+
   return sendCreated(res, list, 'Contact list created.');
 }));
 
