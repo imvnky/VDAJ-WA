@@ -329,179 +329,165 @@ export default function CsvContactUploader({ isOpen, onClose, onImported, lists 
 
   // ── Download Two-Sheet Excel Template ───────────────────────
   const handleDownloadExcelTemplate = () => {
-    const defaultGroupName = lists[0]?.name || 'SMR Swimming Members';
+    const defaultGroupName = lists[0]?.name || 'SMR Body Member';
 
-    // ── Build Section 3 dynamically from actual Portal data ──
-    const portalGroupsRows = lists.length > 0
-      ? lists.map((l) => [
-          "  • Portal Group",
+    // ── Build Sheet 1 with Merges and Balanced Column Widths ──
+    const rows = [];
+    const merges = [];
+
+    const addTitle = (text) => {
+      const r = rows.length;
+      rows.push([text, '', '', '']);
+      merges.push({ s: { r, c: 0 }, e: { r, c: 3 } });
+    };
+
+    const addSection = (title) => {
+      const r = rows.length;
+      rows.push([title, '', '', '']);
+      merges.push({ s: { r, c: 0 }, e: { r, c: 3 } });
+    };
+
+    const addRow = (c0, c1, c2, c3) => {
+      rows.push([c0 || '', c1 || '', c2 || '', c3 || '']);
+    };
+
+    const addBlank = () => {
+      rows.push(['', '', '', '']);
+    };
+
+    // Header Title Block
+    addTitle('VDAJ SERVICES — ENTERPRISE WHATSAPP PLATFORM');
+    addTitle('Official Contact Upload & Multi-Sheet Excel Guide');
+    addTitle('Instructions: Read guidelines below, then click the "Contacts_Data" sheet tab at bottom to enter contacts.');
+    addBlank();
+
+    // Section 1: Phone Formatting
+    addSection('1. PHONE NUMBER FORMATTING (PLAIN & SIMPLE)');
+    addRow('Phone Type', 'How to Enter', 'Example', 'System Action');
+    addRow(
+      'Indian Mobile Numbers (Recommended)',
+      'Plain 10 digits only',
+      '9876543210',
+      'Do NOT type +91. Our platform automatically adds +91 for all 10-digit Indian numbers.'
+    );
+    addRow(
+      'International Numbers (Outside India)',
+      'Full number starting with +',
+      '+14155552671 (US) or +971501234567 (UAE)',
+      'For non-Indian numbers, prefix with + followed by country code and mobile number.'
+    );
+    addRow(
+      'Format Cleanliness',
+      'Digits only (no punctuation)',
+      '9876543210',
+      'Avoid dashes, brackets, or spaces (e.g. avoid 98765-43210 or (020) 123456).'
+    );
+    addBlank();
+
+    // Section 2: Groups & Tags
+    addSection('2. GROUPS & TAGS WORKFLOW (HOW THEY WORK IN PORTAL & EXCEL)');
+    addRow('Item', 'Recommended Workflow', 'How it Works', 'Best Practice');
+    addRow(
+      'Audience Groups',
+      'Create in Portal First',
+      'Organizes contacts for campaigns. When Group in Sheet 2 matches a portal group, contacts are placed into it.',
+      'Create groups in portal under "Contacts → Groups" first, then use that exact name.'
+    );
+    addRow(
+      'New Groups on Upload',
+      'Create on the fly',
+      'If you type a new group name during upload, the platform creates it automatically.',
+      'Useful for one-off campaign blasts or new events.'
+    );
+    addRow(
+      'Tags',
+      'Enter in Sheet or Portal',
+      'Allows multi-segment filtering. Comma-separated tags (e.g. "VIP, Member") can be entered directly in Sheet 2.',
+      'Any new tags entered are automatically saved and registered in your portal upon upload.'
+    );
+    addBlank();
+
+    // Section 3: Live Portal Sync
+    addSection('3. YOUR ACTIVE PORTAL GROUPS & TAGS (LIVE SYNCED FROM YOUR ACCOUNT)');
+    addRow('Item Type', 'Name in Your Portal', 'Current Status', 'How to Use in Sheet 2');
+    if (lists.length > 0) {
+      lists.forEach((l) => {
+        addRow(
+          'Portal Group',
           l.name,
           `${l.contact_count || 0} existing contacts`,
-          `Use exact name "${l.name}" in the 'Group' column of Sheet 2`,
-        ])
-      : [
-          [
-            "  • Portal Groups",
-            "None created yet",
-            "Go to Portal → Contacts → Groups",
-            "Create groups in the portal first, or type a new group name during upload.",
-          ]
-        ];
-
+          `Use exact name "${l.name}" in the "Group" column of Sheet 2`
+        );
+      });
+    } else {
+      addRow(
+        'Portal Group',
+        'None created yet',
+        'Go to Contacts → Groups in portal',
+        'Create groups in the portal first, or type a new group name during upload.'
+      );
+    }
     const portalTagsString = existingTags.length > 0
       ? existingTags.slice(0, 8).join(', ') + (existingTags.length > 8 ? ` (+${existingTags.length - 8} more)` : '')
-      : "VIP, Member, Committee, Lead";
+      : 'VIP, Member, Committee, Lead';
+    addRow(
+      'Active Tags',
+      portalTagsString,
+      'Ready in your portal',
+      'Enter in the "Tags" column in Sheet 2 (or enter new tags separated by commas)'
+    );
+    addBlank();
 
-    // Sheet 1: Professional, Clear, Easy-to-Understand Instructions
-    const instructionsData = [
-      ["VDAJ SERVICES — ENTERPRISE WHATSAPP PLATFORM", "", "", ""],
-      ["Official Contact Upload & Multi-Sheet Excel Guide (v2.0)", "", "", ""],
-      ["Follow these guidelines to prepare your data. Switch to the 'Contacts_Data' tab below to paste your contacts.", "", "", ""],
-      ["", "", "", ""],
-      ["═══════════════════════════════════════════════════════════════════════════════════════════════════════════", "", "", ""],
-      ["SECTION 1: PHONE NUMBER RULES (SUPER SIMPLE & CLEAR)", "", "", ""],
-      ["═══════════════════════════════════════════════════════════════════════════════════════════════════════════", "", "", ""],
-      ["Phone Type", "How to Enter in Sheet", "Example to Enter", "What the System Does"],
-      [
-        "Indian Mobile Numbers (Recommended)",
-        "Enter plain 10 digits only",
-        "9876543210",
-        "Easiest! You DO NOT need to type '+91'. Our platform automatically detects 10-digit Indian numbers and adds '+91' for you.",
-      ],
-      [
-        "International Numbers (Outside India)",
-        "Enter full number starting with '+'",
-        "+14155552671 (US) or +971501234567 (UAE)",
-        "For non-Indian numbers, prefix with '+' followed by the country code and mobile number.",
-      ],
-      [
-        "What to Avoid",
-        "Do NOT use spaces, dashes, or brackets",
-        "Avoid: 98765-43210, (020) 123456",
-        "Always enter digits only. Spaces, dashes, and brackets will be automatically stripped.",
-      ],
-      ["", "", "", ""],
-      ["═══════════════════════════════════════════════════════════════════════════════════════════════════════════", "", "", ""],
-      ["SECTION 2: GROUPS & TAGS (HOW THEY WORK IN PORTAL & EXCEL)", "", "", ""],
-      ["═══════════════════════════════════════════════════════════════════════════════════════════════════════════", "", "", ""],
-      ["Question / Item", "Recommended Workflow", "How it Works", "Best Practice"],
-      [
-        "Should Groups be created in Portal first?",
-        "YES (Highly Recommended)",
-        "Create your Groups in the portal first under 'Contacts → Groups' (e.g. 'SMR Swimming Members').",
-        "When you enter that group name in Sheet 2 or select it in the uploader, contacts are organized into that exact group.",
-      ],
-      [
-        "Can I create a New Group during upload?",
-        "YES",
-        "If you type a new group name in the upload window, the system automatically creates the new group for you.",
-        "Use this for one-off campaigns, new member batches, or event participant blasts.",
-      ],
-      [
-        "How do Tags work?",
-        "Flexible (Portal or Sheet)",
-        "You can enter comma-separated tags in the 'Tags' column (e.g. 'VIP, Morning Batch').",
-        "Any new tags entered are automatically saved and registered in your portal for future smart filtering.",
-      ],
-      ["", "", "", ""],
-      ["═══════════════════════════════════════════════════════════════════════════════════════════════════════════", "", "", ""],
-      ["SECTION 3: YOUR ACTIVE PORTAL GROUPS & TAGS (LIVE SYNCED FROM YOUR ACCOUNT)", "", "", ""],
-      ["═══════════════════════════════════════════════════════════════════════════════════════════════════════════", "", "", ""],
-      ["Item Type", "Name in Your Portal", "Current Status", "How to Use in Sheet 2"],
-      ...portalGroupsRows,
-      [
-        "  • Active Tags",
-        portalTagsString,
-        "Ready in your portal",
-        "Enter any of these tags in the 'Tags' column in Sheet 2 (or enter new tags separated by commas).",
-      ],
-      ["", "", "", ""],
-      ["═══════════════════════════════════════════════════════════════════════════════════════════════════════════", "", "", ""],
-      ["SECTION 4: COMPLETE FIELD DEFINITIONS (FOR SHEET 2: 'Contacts_Data')", "", "", ""],
-      ["═══════════════════════════════════════════════════════════════════════════════════════════════════════════", "", "", ""],
-      ["Column Name", "Required?", "Sample Value", "Description & WhatsApp Template Mapping"],
-      [
-        "Phone",
-        "YES (Mandatory)",
-        "9876543210",
-        "Recipient mobile number. Simply enter 10 digits (India) or with '+' (international).",
-      ],
-      [
-        "First Name",
-        "Optional",
-        "Rajesh",
-        "Recipient's first name. Automatically replaces {{1}} in WhatsApp message templates.",
-      ],
-      [
-        "Last Name",
-        "Optional",
-        "Sharma",
-        "Recipient's surname or family name.",
-      ],
-      [
-        "Group",
-        "Recommended",
-        defaultGroupName,
-        "Audience Group name. Enter your portal group name to automatically place contacts into that group.",
-      ],
-      [
-        "Tags",
-        "Optional",
-        "VIP, Member",
-        "Comma-separated tags for segmentation, campaigns, and inbox triage.",
-      ],
-      [
-        "Email",
-        "Optional",
-        "rajesh.sharma@example.com",
-        "Contact email address for omnichannel customer profiles.",
-      ],
-      [
-        "Custom Variables",
-        "Optional",
-        "City, Membership_No, Due_Date...",
-        "Any additional columns in Sheet 2 are automatically stored as custom parameters (e.g. {{2}}, {{3}}).",
-      ],
-      ["", "", "", ""],
-      ["═══════════════════════════════════════════════════════════════════════════════════════════════════════════", "", "", ""],
-      ["SECTION 5: META WHATSAPP COMPLIANCE (CRITICAL FOR ACCOUNT QUALITY)", "", "", ""],
-      ["═══════════════════════════════════════════════════════════════════════════════════════════════════════════", "", "", ""],
-      ["Compliance Policy", "Status", "Rule Explanation", "Impact of Non-Compliance"],
-      [
-        "1. Explicit Opt-In Consent",
-        "MANDATORY",
-        "All contacts must have given explicit consent to receive WhatsApp messages from your business.",
-        "Unsolicited messages cause user blocks, resulting in Meta phone number quality score downgrades.",
-      ],
-      [
-        "2. No Purchased / Scraped Lists",
-        "STRICTLY PROHIBITED",
-        "Never upload cold, scraped, or third-party databases.",
-        "Violating Meta WhatsApp Business Platform policies leads to permanent account suspension.",
-      ],
-      [
-        "3. Marketing Opt-Out Statement",
-        "MANDATORY",
-        "All marketing and promotional templates must contain an opt-out (e.g. 'Reply STOP to unsubscribe').",
-        "Meta automatically rejects marketing templates submitted without opt-out instructions.",
-      ],
-      ["", "", "", ""],
-      ["═══════════════════════════════════════════════════════════════════════════════════════════════════════════", "", "", ""],
-      ["SECTION 6: HOW TO UPLOAD IN 4 EASY STEPS", "", "", ""],
-      ["═══════════════════════════════════════════════════════════════════════════════════════════════════════════", "", "", ""],
-      ["Step Number", "Action to Take", "Where to Do It", "Notes"],
-      ["Step 1", "Switch to the 'Contacts_Data' tab below.", "Bottom sheet tab", "Sheet 2 contains the clean contact table."],
-      ["Step 2", "Replace sample rows with your actual contacts.", "Sheet 2 ('Contacts_Data')", "You can paste as many rows as you need (up to 5,000)."],
-      ["Step 3", "Save this file (.xlsx) on your computer.", "Excel File → Save", "Keep it in .xlsx or .xls format."],
-      ["Step 4", "Upload into VDAJ Portal.", "Portal → Contacts → Import", "Drag & drop this file, select consent, and click Import!"],
-    ];
+    // Section 4: Data Columns Specification
+    addSection('4. DATA COLUMN SPECIFICATIONS (FOR SHEET 2: "Contacts_Data")');
+    addRow('Column Header', 'Requirement', 'Sample Value', 'Description & WhatsApp Template Mapping');
+    addRow('Phone', 'Mandatory', '9876543210', 'Recipient mobile number. Simply enter 10 digits (India) or with + (international).');
+    addRow('First Name', 'Optional', 'Rajesh', 'Recipient\'s first name. Automatically replaces {{1}} in WhatsApp message templates.');
+    addRow('Last Name', 'Optional', 'Sharma', 'Recipient\'s surname or family name.');
+    addRow('Group', 'Recommended', defaultGroupName, 'Audience Group name. Enter your portal group name to automatically place contacts into that group.');
+    addRow('Tags', 'Optional', 'VIP, Member', 'Comma-separated tags for segmentation, campaigns, and inbox triage.');
+    addRow('Email', 'Optional', 'rajesh.sharma@example.com', 'Contact email address for omnichannel customer profiles.');
+    addRow('Custom Variables', 'Optional', 'City, Membership_No, Due_Date...', 'Any extra columns in Sheet 2 are automatically stored as custom parameters (e.g. {{2}}, {{3}}).');
+    addBlank();
 
-    const wsInstructions = XLSX.utils.aoa_to_sheet(instructionsData);
+    // Section 5: Meta Compliance
+    addSection('5. META WHATSAPP COMPLIANCE (CRITICAL FOR ACCOUNT QUALITY)');
+    addRow('Compliance Policy', 'Status', 'Rule Explanation', 'Impact of Non-Compliance');
+    addRow(
+      'Explicit Opt-In Consent',
+      'Mandatory',
+      'All contacts must have given explicit consent to receive WhatsApp messages from your business.',
+      'Unsolicited messages cause user blocks, resulting in Meta phone number quality score downgrades.'
+    );
+    addRow(
+      'No Scraped / Purchased Lists',
+      'Strictly Prohibited',
+      'Never upload cold, scraped, or third-party phone databases.',
+      'Violating Meta WhatsApp Business Platform policies leads to permanent account suspension.'
+    );
+    addRow(
+      'Marketing Opt-Out Statement',
+      'Mandatory',
+      'All marketing and promotional templates must contain an opt-out (e.g. "Reply STOP to unsubscribe").',
+      'Meta automatically rejects marketing templates submitted without opt-out instructions.'
+    );
+    addBlank();
+
+    // Section 6: How to Upload
+    addSection('6. HOW TO UPLOAD IN 4 EASY STEPS');
+    addRow('Step Number', 'Action to Take', 'Where to Do It', 'Notes');
+    addRow('Step 1', 'Switch to the "Contacts_Data" tab below', 'Bottom sheet tabs', 'Sheet 2 contains the clean contact data table.');
+    addRow('Step 2', 'Replace sample rows with your real contacts', 'Sheet 2 ("Contacts_Data")', 'You can paste as many rows as you need (up to 5,000).');
+    addRow('Step 3', 'Save this file (.xlsx) on your computer', 'Excel File → Save', 'Keep it in .xlsx or .xls format.');
+    addRow('Step 4', 'Upload into VDAJ Portal', 'Portal → Contacts → Import', 'Drag & drop this file, select consent, and click Import!');
+
+    const wsInstructions = XLSX.utils.aoa_to_sheet(rows);
+    wsInstructions['!merges'] = merges;
     wsInstructions['!cols'] = [
-      { wch: 36 },
-      { wch: 28 },
-      { wch: 38 },
-      { wch: 78 },
+      { wch: 26 }, // Column A
+      { wch: 24 }, // Column B
+      { wch: 32 }, // Column C
+      { wch: 72 }, // Column D
     ];
 
     // Sheet 2: Clean Contacts Data with realistic sample values matching user's actual group
@@ -516,15 +502,15 @@ export default function CsvContactUploader({ isOpen, onClose, onImported, lists 
 
     const wsContacts = XLSX.utils.aoa_to_sheet(contactsData);
     wsContacts['!cols'] = [
-      { wch: 16 },
-      { wch: 16 },
-      { wch: 16 },
-      { wch: 26 },
-      { wch: 22 },
-      { wch: 28 },
-      { wch: 16 },
-      { wch: 16 },
-      { wch: 24 },
+      { wch: 15 }, // Phone
+      { wch: 15 }, // First Name
+      { wch: 15 }, // Last Name
+      { wch: 22 }, // Group
+      { wch: 20 }, // Tags
+      { wch: 28 }, // Email
+      { wch: 15 }, // City
+      { wch: 16 }, // Membership_No
+      { wch: 22 }, // Notes
     ];
 
     const wb = XLSX.utils.book_new();
