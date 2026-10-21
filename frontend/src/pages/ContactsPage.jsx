@@ -1062,6 +1062,7 @@ export default function ContactsPage() {
           refreshLists();
         }}
         lists={lists}
+        existingTags={allTags}
       />
 
       {/* ── Delete Confirmation Dialog ────────────────────────── */}
