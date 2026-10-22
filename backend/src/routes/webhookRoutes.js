@@ -97,7 +97,7 @@ router.post(['/', '/whatsapp'], (req, res) => {
       // ── 2. DELIVERY STATUS UPDATES ─────────────────────────────
       if (value.statuses?.length) {
         for (const status of value.statuses) {
-          await handleStatusUpdate(status);
+          await handleStatusUpdate(status, broadcastToTenant);
         }
       }
     } catch (err) {
@@ -350,12 +350,15 @@ async function handleInboundMessage(msg, value, broadcastToTenant) {
 // HANDLER: Outbound delivery status update
 // Applies to BOTH campaign_messages AND inbox_messages
 // ─────────────────────────────────────────────────────────────────
-async function handleStatusUpdate(status) {
-  const { id: metaMessageId, status: msgStatus, timestamp } = status;
+async function handleStatusUpdate(status, broadcastToTenant) {
+  const { id: metaMessageId, status: msgStatus, timestamp, errors } = status;
 
   const statusMap = { sent: 'sent', delivered: 'delivered', read: 'read', failed: 'failed' };
   const dbStatus = statusMap[msgStatus];
   if (!dbStatus) return; // Unknown status — skip
+
+  const errorCode = errors?.[0]?.code ? String(errors[0].code) : null;
+  const errorMsg  = errors?.[0]?.title || errors?.[0]?.message || null;
 
   // ── 1. Campaign message status update ──────────────────────────
   const timestampCol = `${dbStatus}_at`;
@@ -364,9 +367,10 @@ async function handleStatusUpdate(status) {
       `UPDATE campaign_messages
        SET status = $1,
            ${timestampCol} = to_timestamp($2),
+           error_message = COALESCE($3, error_message),
            updated_at = NOW()
-       WHERE meta_message_id = $3`,
-      [dbStatus, parseInt(timestamp, 10), metaMessageId]
+       WHERE meta_message_id = $4`,
+      [dbStatus, parseInt(timestamp, 10), errorMsg, metaMessageId]
     );
 
     // Increment the matching campaign counter (best-effort)
@@ -384,12 +388,30 @@ async function handleStatusUpdate(status) {
 
   // ── 2. Inbox message status update (direct replies + templates) ──
   try {
-    await query(
+    const { rows: updatedRows } = await query(
       `UPDATE inbox_messages
-       SET status = $1, updated_at = NOW()
-       WHERE wa_message_id = $2`,
-      [dbStatus, metaMessageId]
+       SET status = $1,
+           error_code = COALESCE($2, error_code),
+           updated_at = NOW()
+       WHERE wa_message_id = $3
+       RETURNING id, conversation_id, tenant_id, status, error_code`,
+      [dbStatus, errorCode, metaMessageId]
     );
+
+    if (updatedRows.length && typeof broadcastToTenant === 'function') {
+      const row = updatedRows[0];
+      broadcastToTenant(row.tenant_id, {
+        type: 'message_status_update',
+        data: {
+          id:              row.id,
+          conversation_id: row.conversation_id,
+          wa_message_id:   metaMessageId,
+          status:          dbStatus,
+          error_code:      errorCode,
+          error_message:   errorMsg,
+        },
+      });
+    }
   } catch (e) {
     logger.warn('inbox_messages status update skipped', { metaMessageId, error: e.message });
   }

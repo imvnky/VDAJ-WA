@@ -347,16 +347,66 @@ function ConvoCard({ conv, active, onClick }) {
   );
 }
 
+// ── WhatsApp Delivery Status Tick ─────────────────────────────
+function WhatsAppStatusTick({ status, errorCode }) {
+  if (status === 'read') {
+    return (
+      <span className="inline-flex items-center text-[#38BDF8]" title="Read">
+        <svg className="w-3.5 h-3" viewBox="0 0 18 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M1 6.5L4.5 10L11.5 2" />
+          <path d="M6 6.5L9.5 10L16.5 2" />
+        </svg>
+      </span>
+    );
+  }
+
+  if (status === 'delivered') {
+    return (
+      <span className="inline-flex items-center text-white/80" title="Delivered">
+        <svg className="w-3.5 h-3" viewBox="0 0 18 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M1 6.5L4.5 10L11.5 2" />
+          <path d="M6 6.5L9.5 10L16.5 2" />
+        </svg>
+      </span>
+    );
+  }
+
+  if (status === 'failed') {
+    return (
+      <span
+        className="inline-flex items-center text-rose-300 hover:text-rose-200 cursor-pointer"
+        title={errorCode ? `Delivery Failed: ${errorCode}` : 'Failed to deliver message'}
+      >
+        <svg className="w-3 h-3" viewBox="0 0 16 16" fill="currentColor">
+          <path fillRule="evenodd" d="M8 15A7 7 0 1 0 8 1a7 7 0 0 0 0 14zm-.75-9.75a.75.75 0 0 1 1.5 0v3.5a.75.75 0 0 1-1.5 0v-3.5zm.75 6.25a.875.875 0 1 1 0-1.75.875.875 0 0 1 0 1.75z" clipRule="evenodd" />
+        </svg>
+      </span>
+    );
+  }
+
+  if (status === 'pending') {
+    return (
+      <span className="inline-flex items-center text-white/60" title="Sending...">
+        <svg className="w-2.5 h-2.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+          <circle cx="12" cy="12" r="10" strokeDasharray="32" strokeDashoffset="12" />
+        </svg>
+      </span>
+    );
+  }
+
+  // Default: 'sent'
+  return (
+    <span className="inline-flex items-center text-white/70" title="Sent">
+      <svg className="w-3 h-3" viewBox="0 0 14 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M1 6.5L4.5 10L12 2" />
+      </svg>
+    </span>
+  );
+}
+
 // ── Message Bubble ────────────────────────────────────────────
 function MessageBubble({ msg }) {
   const isOut = msg.direction === 'outbound';
-  const statusIcon = {
-    sent: <span className="text-white/70">✓</span>,
-    delivered: <span className="text-white/80">✓✓</span>,
-    read: <span className="text-[#34D399] font-bold">✓✓</span>,
-    failed: <span className="text-rose-300 font-bold">✗</span>
-  };
-
   const formattedDateTime = formatMessageTime(msg.created_at);
   const fullDateTime = msg.created_at ? new Date(msg.created_at).toLocaleString() : '';
 
@@ -378,7 +428,11 @@ function MessageBubble({ msg }) {
           <span className={clsx('text-[10px] font-medium tracking-tight', isOut ? 'text-white/75' : 'text-slate-400')}>
             {formattedDateTime}
           </span>
-          {isOut && <span className="text-[11px] leading-none inline-flex items-center">{statusIcon[msg.status] || '✓'}</span>}
+          {isOut && (
+            <span className="inline-flex items-center ml-0.5">
+              <WhatsAppStatusTick status={msg.status} errorCode={msg.error_code} />
+            </span>
+          )}
         </div>
       </div>
     </div>
@@ -628,7 +682,10 @@ export default function InboxPage() {
           .then((r) => {
             if (Array.isArray(r?.data)) {
               setMessages((prev) => {
-                if (r.data.length !== prev.length || (r.data[r.data.length - 1]?.id !== prev[prev.length - 1]?.id)) {
+                const isDifferent =
+                  r.data.length !== prev.length ||
+                  r.data.some((m, idx) => m.id !== prev[idx]?.id || m.status !== prev[idx]?.status);
+                if (isDifferent) {
                   return r.data;
                 }
                 return prev;
@@ -637,7 +694,7 @@ export default function InboxPage() {
           })
           .catch(() => {});
       }
-    }, 4000);
+    }, 10000); // 10s fallback polling
 
     return () => clearInterval(pollTimer);
   }, [loadConversations]);
@@ -743,6 +800,27 @@ export default function InboxPage() {
                   loadConversations(true);
                 }
               }
+            }
+
+            // Real-time message status updates (sent -> delivered -> read -> failed)
+            if (payload.type === 'message_status_update') {
+              const statusData = payload.data;
+              setMessages((prev) =>
+                prev.map((m) => {
+                  const isMatch =
+                    (statusData.id && m.id === statusData.id) ||
+                    (statusData.wa_message_id && m.wa_message_id === statusData.wa_message_id);
+                  if (isMatch) {
+                    return {
+                      ...m,
+                      status: statusData.status,
+                      error_code: statusData.error_code || m.error_code,
+                      error_message: statusData.error_message || m.error_message,
+                    };
+                  }
+                  return m;
+                })
+              );
             }
 
             // Phase 2: real-time assignment updates

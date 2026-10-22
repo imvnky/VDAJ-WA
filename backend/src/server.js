@@ -124,7 +124,7 @@ const IS_DEV = process.env.NODE_ENV === 'development';
 
 const globalLimiter = rateLimit({
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000', 10), // 15 min
-  max:      IS_DEV ? 10_000 : parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '200', 10),
+  max:      IS_DEV ? 10_000 : parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '3000', 10),
   standardHeaders: true,
   legacyHeaders:   false,
   message: {
@@ -132,14 +132,17 @@ const globalLimiter = rateLimit({
     errorCode: 'ERR_VDAJ_SRV_002',
     message:   'Too many requests. Please slow down.',
   },
-  // Skip health probe + all requests in dev so local tooling never gets blocked
-  skip: (req) => req.path === `${API_PREFIX}/health` || IS_DEV,
+  // Skip health probe + Meta webhooks + dev requests so inbound traffic is never blocked
+  skip: (req) =>
+    req.path === `${API_PREFIX}/health` ||
+    req.path.startsWith(`${API_PREFIX}/webhooks`) ||
+    IS_DEV,
 });
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  // Dev: 1 000 attempts per window — no lockout during rapid login testing
-  max:      IS_DEV ? 1_000 : 20,
+  // 60 attempts per 15 min in prod (prevents accidental lockout across tabs)
+  max:      IS_DEV ? 1_000 : 60,
   standardHeaders: true,
   legacyHeaders:   false,
   message: {
