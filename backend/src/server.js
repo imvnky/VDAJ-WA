@@ -65,7 +65,7 @@ const cookie = require('cookie');
 
 // ──────────────────────────────────────────────────────────────
 const app        = express();
-app.set('trust proxy', 1); // Trust Render's load balancer proxy for rate limiting
+app.set('trust proxy', true); // Trust all reverse proxy hops (Cloudflare, Nginx) so client IP is accurately extracted
 
 const PORT       = process.env.PORT || 5000;
 const API_PREFIX = '/api/v1';
@@ -124,7 +124,7 @@ const IS_DEV = process.env.NODE_ENV === 'development';
 
 const globalLimiter = rateLimit({
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000', 10), // 15 min
-  max:      IS_DEV ? 10_000 : parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '3000', 10),
+  max:      IS_DEV ? 50_000 : Math.max(10_000, parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '10000', 10)),
   standardHeaders: true,
   legacyHeaders:   false,
   message: {
@@ -139,16 +139,16 @@ const globalLimiter = rateLimit({
     IS_DEV,
 });
 
-const authLimiter = rateLimit({
+const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  // 60 attempts per 15 min in prod (prevents accidental lockout across tabs)
-  max:      IS_DEV ? 1_000 : 60,
+  // 100 failed login attempts per 15 min in prod (prevents brute-force without blocking users)
+  max:      IS_DEV ? 1_000 : 100,
   standardHeaders: true,
   legacyHeaders:   false,
   message: {
     success:   false,
     errorCode: 'ERR_VDAJ_SRV_002',
-    message:   'Too many auth attempts. Try again in 15 minutes.',
+    message:   'Too many login attempts. Try again in 15 minutes.',
   },
   skip: () => IS_DEV, // fully bypass in dev
 });
@@ -199,8 +199,9 @@ app.get(`${API_PREFIX}/health`, (req, res) => {
 // API ROUTE TREE
 // ============================================================
 
-// ── Auth (stricter rate limit) ─────────────────────────────────
-app.use(`${API_PREFIX}/auth`,         authLimiter, authRoutes);
+// ── Auth (stricter rate limit on login endpoint ONLY) ──────────
+app.use(`${API_PREFIX}/auth/login`, loginLimiter);
+app.use(`${API_PREFIX}/auth`,       authRoutes);
 
 // ── Core platform routes (JWT-protected inside each router) ────
 app.use(`${API_PREFIX}/tenants`,      tenantRoutes);
