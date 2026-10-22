@@ -25,13 +25,20 @@ async function inspectLastSent() {
     if (m.wa_message_id) {
       console.log(`\n--- Webhook events for wa_message_id: ${m.wa_message_id} ---`);
       const { rows: events } = await query(
-        `SELECT event_type, raw_payload, created_at FROM webhook_events
-         WHERE meta_message_id = $1 ORDER BY created_at DESC LIMIT 5`,
+        `SELECT event_type, raw_payload, received_at FROM webhook_events
+         WHERE meta_message_id = $1 ORDER BY received_at DESC LIMIT 5`,
         [m.wa_message_id]
       );
       console.log(JSON.stringify(events, null, 2));
     }
   }
+
+  console.log('\n--- LATEST 10 WEBHOOK EVENTS RECEIVED FROM META ---');
+  const { rows: latestEvents } = await query(
+    `SELECT event_type, meta_message_id, raw_payload, received_at FROM webhook_events
+     ORDER BY received_at DESC LIMIT 10`
+  );
+  console.log(JSON.stringify(latestEvents, null, 2));
 
   await pool.end();
 }
