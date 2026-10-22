@@ -210,13 +210,26 @@ function CreateTemplateModal({ onClose, onCreated, prefill = null }) {
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
-  // Auto-generate snake_case template name from display name
+  // Auto-generate snake_case template name from display name (strictly no leading/trailing underscores)
   const handleDisplayNameChange = (val) => {
-    const autoSlug = val.trim().toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/_+/g, '_');
+    const autoSlug = val
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9_]/g, '_')
+      .replace(/_+/g, '_')
+      .replace(/^_+|_+$/g, '');
     setForm((f) => ({
       ...f,
       displayName: val,
-      name: f.name === '' || f.name === f.displayName.toLowerCase().replace(/[^a-z0-9_]/g, '_') ? autoSlug : f.name,
+      name:
+        f.name === '' ||
+        f.name ===
+          f.displayName
+            .toLowerCase()
+            .replace(/[^a-z0-9_]/g, '_')
+            .replace(/^_+|_+$/g, '')
+          ? autoSlug
+          : f.name,
     }));
   };
 
@@ -252,8 +265,15 @@ function CreateTemplateModal({ onClose, onCreated, prefill = null }) {
   };
 
   const handleCreate = async () => {
-    if (!form.name.trim()) {
-      showError('Template name is required.', 'ERR_VDAJ_VAL_001');
+    const cleanName = form.name
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9_]/g, '_')
+      .replace(/_+/g, '_')
+      .replace(/^_+|_+$/g, '');
+
+    if (!cleanName) {
+      showError('Valid template name is required (lowercase letters, numbers, underscores).', 'ERR_VDAJ_VAL_001');
       return;
     }
     if (!form.bodyText.trim()) {
@@ -276,7 +296,7 @@ function CreateTemplateModal({ onClose, onCreated, prefill = null }) {
     setLoading(true);
     try {
       const payload = {
-        name: form.name.toLowerCase().trim(),
+        name: cleanName,
         category: form.category,
         language: form.language,
         bodyText: form.bodyText,
@@ -723,14 +743,21 @@ function CreateTemplateModal({ onClose, onCreated, prefill = null }) {
                       <option value="PHONE_NUMBER">Call Phone Number</option>
                     </select>
 
-                    <input
-                      type="text"
-                      maxLength={25}
-                      placeholder="Button label (max 25 chars)"
-                      value={btn.text}
-                      onChange={(e) => updateButton(idx, 'text', e.target.value)}
-                      className="px-2.5 py-1.5 text-xs bg-[#FFFFFF] border border-[#CBD5E1] rounded-lg text-[#0F172A]"
-                    />
+                    <div>
+                      <input
+                        type="text"
+                        maxLength={25}
+                        placeholder="Button label (max 25 chars, plain text)"
+                        value={btn.text}
+                        onChange={(e) => updateButton(idx, 'text', e.target.value)}
+                        className="w-full px-2.5 py-1.5 text-xs bg-[#FFFFFF] border border-[#CBD5E1] rounded-lg text-[#0F172A]"
+                      />
+                      {/[\p{Extended_Pictographic}\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/u.test(btn.text) && (
+                        <p className="text-[10px] text-amber-600 font-semibold mt-1">
+                          ⚠️ Meta forbids emojis in buttons. Emojis will be automatically removed on submit.
+                        </p>
+                      )}
+                    </div>
                   </div>
 
                   {btn.type === 'URL' && (

@@ -76,7 +76,13 @@ const callMetaApi = async ({ method = 'POST', path, accessToken, body }) => {
       throw err;
     }
 
-    throw new AppError(metaErr?.message || 'Meta API error', response.status, errorCode);
+    const detailedMessage =
+      metaErr?.error_user_msg ||
+      metaErr?.error_data?.details ||
+      metaErr?.message ||
+      'Meta API error';
+
+    throw new AppError(detailedMessage, response.status, errorCode);
   }
 
   return responseBody;
@@ -345,18 +351,36 @@ const createMetaTemplate = async (tenantCredentials, templateData) => {
 
   // Buttons (optional)
   if (Array.isArray(templateData.buttons) && templateData.buttons.length > 0) {
+    const emojiRegex = /[\p{Extended_Pictographic}\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{FE00}-\u{FE0F}]/gu;
     const metaButtons = templateData.buttons.map((btn) => {
+      // Clean button text: Meta strictly forbids emojis, formatting, and tabs/newlines in button text. Max 25 chars.
+      const cleanText = (btn.text || '')
+        .replace(emojiRegex, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 25) || btn.text.trim().slice(0, 25);
+
       if (btn.type === 'URL') {
-        return { type: 'URL', text: btn.text, url: btn.url };
+        return { type: 'URL', text: cleanText, url: btn.url };
+      }
+      if (btn.type === 'PHONE_NUMBER') {
+        return { type: 'PHONE_NUMBER', text: cleanText, phone_number: btn.phone_number || btn.phoneNumber };
       }
       // Default: QUICK_REPLY
-      return { type: 'QUICK_REPLY', text: btn.text };
+      return { type: 'QUICK_REPLY', text: cleanText };
     });
     components.push({ type: 'BUTTONS', buttons: metaButtons });
   }
 
+  const cleanTemplateName = (templateData.name || '')
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9_]/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_+|_+$/g, '');
+
   const metaPayload = {
-    name:       templateData.name,
+    name:       cleanTemplateName,
     category:   templateData.category.toUpperCase(), // Meta expects uppercase
     language:   templateData.language,
     components,
