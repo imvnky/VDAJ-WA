@@ -10,7 +10,7 @@ async function inspectTemplate() {
   console.log('\n=== INSPECTING SMR TEMPLATES & WABA LIMITS ===\n');
 
   const { rows: tenants } = await query(
-    `SELECT id, name, phone_number_id, meta_system_token, meta_waba_id FROM tenants WHERE slug ILIKE '%smr%' OR name ILIKE '%smr%' LIMIT 1`
+    `SELECT id, name, phone_number_id, meta_system_token, waba_id FROM tenants WHERE slug ILIKE '%smr%' OR name ILIKE '%smr%' LIMIT 1`
   );
   if (!tenants.length) {
     console.log('No SMR tenant found');
@@ -21,7 +21,7 @@ async function inspectTemplate() {
   const tenant = tenants[0];
   const token = tenant.meta_system_token || process.env.META_ACCESS_TOKEN;
   const phoneId = tenant.phone_number_id;
-  const wabaId = tenant.meta_waba_id;
+  const wabaId = tenant.waba_id || '1102225165878106';
 
   console.log(`Tenant: ${tenant.name}`);
   console.log(`Phone ID: ${phoneId}`);
