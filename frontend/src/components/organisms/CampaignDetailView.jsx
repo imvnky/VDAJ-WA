@@ -179,28 +179,72 @@ export default function CampaignDetailView({ campaignId, onBack, onNewCampaign }
         failed: 0,
         queued: 0,
         accepted: 0,
+        singleTickSent: 0,
+        doubleTickDelivered: 0,
+        totalRead: 0,
       };
     }
 
     const counts = campaign.live_counts || {};
-    const sent = Number(counts.sent ?? campaign.sent_count ?? 0);
-    const delivered = Number(counts.delivered ?? campaign.delivered_count ?? 0);
-    const read = Number(counts.read ?? campaign.read_count ?? 0);
+    const rawSent = Number(counts.sent ?? campaign.sent_count ?? 0);
+    const rawDelivered = Number(counts.delivered ?? campaign.delivered_count ?? 0);
+    const rawRead = Number(counts.read ?? campaign.read_count ?? 0);
     const queued = Number(counts.queued ?? campaign.queued_count ?? 0);
     const failed = Number(counts.failed !== undefined ? counts.failed : (campaign.failed_count || 0));
-    const total = Math.max(Number(campaign.total_count || totalMessages || (sent + delivered + read + failed + queued)), 1);
-    const accepted = sent + delivered + read;
+    const total = Math.max(Number(campaign.total_count || totalMessages || (rawSent + rawDelivered + rawRead + failed + queued)), 1);
+
+    // WhatsApp delivery status hierarchy:
+    // Single Tick = Dispatched to Meta network (sent + delivered + read)
+    // Double Tick = Reached handset (delivered + read)
+    // Read = Opened by contact (read)
+    const singleTickSent = rawSent + rawDelivered + rawRead;
+    const doubleTickDelivered = rawDelivered + rawRead;
+    const totalRead = rawRead;
+    const accepted = singleTickSent;
 
     return {
       total,
-      sent,
-      delivered,
-      read,
+      sent: singleTickSent,
+      delivered: doubleTickDelivered,
+      read: totalRead,
+      singleTickSent,
+      doubleTickDelivered,
+      totalRead,
       failed: Math.min(failed, total),
       queued,
       accepted,
     };
   }, [campaign, totalMessages]);
+
+  // Real-time updates: WebSocket listener + auto-polling while running or queued
+  useEffect(() => {
+    const handleWsMsg = (e) => {
+      const payload = e?.detail;
+      if (!payload) return;
+      if (
+        (payload.type === 'CAMPAIGN_STATUS_UPDATE' && payload.data?.campaignId === campaignId) ||
+        payload.type === 'campaign_update' ||
+        payload.type === 'new_message'
+      ) {
+        loadData(true);
+      }
+    };
+
+    window.addEventListener('vdaj:ws_message', handleWsMsg);
+
+    // Auto-poll every 3.5s when campaign is active/running or has queued messages
+    let pollTimer;
+    if (campaign?.status === 'running' || (stats && stats.queued > 0)) {
+      pollTimer = setInterval(() => {
+        loadData(true);
+      }, 3500);
+    }
+
+    return () => {
+      window.removeEventListener('vdaj:ws_message', handleWsMsg);
+      if (pollTimer) clearInterval(pollTimer);
+    };
+  }, [campaignId, campaign?.status, stats?.queued, loadData]);
 
   // Filtered recipient messages
   const filteredMessages = useMemo(() => {

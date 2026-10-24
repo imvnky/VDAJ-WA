@@ -360,6 +360,24 @@ router.get('/:id', uuidParamValidator('id'), validate, catchAsync(async (req, re
   );
   if (!campaign) throw new AppError('Campaign not found.', 404, 'ERR_VDAJ_CAMP_001');
 
+  // Reconcile delivery statuses from inbox_messages (delivered, read, failed)
+  await query(
+    `UPDATE campaign_messages cm
+     SET status = im.status,
+         delivered_at = COALESCE(cm.delivered_at, im.updated_at),
+         read_at = CASE WHEN im.status = 'read' THEN COALESCE(cm.read_at, im.updated_at) ELSE cm.read_at END,
+         failed_at = CASE WHEN im.status = 'failed' THEN COALESCE(cm.failed_at, im.updated_at) ELSE cm.failed_at END,
+         last_error = COALESCE(cm.last_error, im.error_code),
+         error_code = COALESCE(cm.error_code, im.error_code),
+         updated_at = NOW()
+     FROM inbox_messages im
+     WHERE cm.campaign_id = $1
+       AND cm.meta_message_id = im.wa_message_id
+       AND im.status IN ('delivered', 'read', 'failed')
+       AND cm.status != im.status`,
+    [req.params.id]
+  ).catch(() => {});
+
   // Query live counts from campaign_messages
   const { rows: [counts] } = await query(
     `SELECT
@@ -374,8 +392,18 @@ router.get('/:id', uuidParamValidator('id'), validate, catchAsync(async (req, re
     [req.params.id]
   );
 
+  // If campaign was running and all messages have been processed (0 queued), mark completed
+  let updatedCampaign = campaign;
+  if (campaign.status === 'running' && counts && counts.queued === 0 && counts.total_recipients > 0) {
+    await query(
+      `UPDATE campaigns SET status = 'completed', completed_at = NOW(), updated_at = NOW() WHERE id = $1`,
+      [req.params.id]
+    ).catch(() => {});
+    updatedCampaign = { ...campaign, status: 'completed' };
+  }
+
   return sendSuccess(res, {
-    ...campaign,
+    ...updatedCampaign,
     live_counts: counts || {},
   }, 'Campaign fetched.');
 }));
@@ -425,7 +453,12 @@ router.post('/:id/launch', uuidParamValidator('id'), validate, catchAsync(async 
            (campaign_id, tenant_id, contact_id, phone_e164, template_vars, status)
          SELECT DISTINCT ON (c.phone_e164)
                 $1, $2, c.id, c.phone_e164,
-                COALESCE(c.custom_vars, '{}'::jsonb) || COALESCE(cmp.template_vars, '{}'::jsonb),
+                COALESCE(cmp.template_vars, '{}'::jsonb) || COALESCE(c.custom_vars, '{}'::jsonb) || jsonb_build_object(
+                  'contact_name', NULLIF(TRIM(COALESCE(c.first_name || ' ' || COALESCE(c.last_name, ''), c.first_name, '')), ''),
+                  'first_name', NULLIF(TRIM(c.first_name), ''),
+                  'last_name', NULLIF(TRIM(COALESCE(c.last_name, '')), ''),
+                  'phone', c.phone_e164
+                ),
                 'queued'
          FROM contacts c
          CROSS JOIN campaigns cmp
@@ -446,7 +479,12 @@ router.post('/:id/launch', uuidParamValidator('id'), validate, catchAsync(async 
            (campaign_id, tenant_id, contact_id, phone_e164, template_vars, status)
          SELECT DISTINCT ON (c.phone_e164)
                 $1, $2, c.id, c.phone_e164,
-                COALESCE(c.custom_vars, '{}'::jsonb) || COALESCE(cmp.template_vars, '{}'::jsonb),
+                COALESCE(cmp.template_vars, '{}'::jsonb) || COALESCE(c.custom_vars, '{}'::jsonb) || jsonb_build_object(
+                  'contact_name', NULLIF(TRIM(COALESCE(c.first_name || ' ' || COALESCE(c.last_name, ''), c.first_name, '')), ''),
+                  'first_name', NULLIF(TRIM(c.first_name), ''),
+                  'last_name', NULLIF(TRIM(COALESCE(c.last_name, '')), ''),
+                  'phone', c.phone_e164
+                ),
                 'queued'
          FROM contacts c
          CROSS JOIN campaigns cmp
@@ -470,7 +508,12 @@ router.post('/:id/launch', uuidParamValidator('id'), validate, catchAsync(async 
              (campaign_id, tenant_id, contact_id, phone_e164, template_vars, status)
            SELECT DISTINCT ON (c.phone_e164)
                   $1, $2, c.id, c.phone_e164,
-                  COALESCE(c.custom_vars, '{}'::jsonb) || COALESCE(cmp.template_vars, '{}'::jsonb),
+                  COALESCE(cmp.template_vars, '{}'::jsonb) || COALESCE(c.custom_vars, '{}'::jsonb) || jsonb_build_object(
+                    'contact_name', NULLIF(TRIM(COALESCE(c.first_name || ' ' || COALESCE(c.last_name, ''), c.first_name, '')), ''),
+                    'first_name', NULLIF(TRIM(c.first_name), ''),
+                    'last_name', NULLIF(TRIM(COALESCE(c.last_name, '')), ''),
+                    'phone', c.phone_e164
+                  ),
                   'queued'
            FROM contact_list_members clm
            JOIN contacts c ON c.id = clm.contact_id
@@ -489,7 +532,12 @@ router.post('/:id/launch', uuidParamValidator('id'), validate, catchAsync(async 
              (campaign_id, tenant_id, contact_id, phone_e164, template_vars, status)
            SELECT DISTINCT ON (c.phone_e164)
                   $1, $2, c.id, c.phone_e164,
-                  COALESCE(c.custom_vars, '{}'::jsonb) || COALESCE(cmp.template_vars, '{}'::jsonb),
+                  COALESCE(cmp.template_vars, '{}'::jsonb) || COALESCE(c.custom_vars, '{}'::jsonb) || jsonb_build_object(
+                    'contact_name', NULLIF(TRIM(COALESCE(c.first_name || ' ' || COALESCE(c.last_name, ''), c.first_name, '')), ''),
+                    'first_name', NULLIF(TRIM(c.first_name), ''),
+                    'last_name', NULLIF(TRIM(COALESCE(c.last_name, '')), ''),
+                    'phone', c.phone_e164
+                  ),
                   'queued'
            FROM contact_list_members clm
            JOIN contacts c ON c.id = clm.contact_id
@@ -511,7 +559,12 @@ router.post('/:id/launch', uuidParamValidator('id'), validate, catchAsync(async 
         `INSERT INTO campaign_messages
            (campaign_id, tenant_id, contact_id, phone_e164, template_vars, status)
          SELECT $1, $2, c.id, c.phone_e164,
-                COALESCE(c.custom_vars, '{}'::jsonb) || COALESCE(cmp.template_vars, '{}'::jsonb),
+                COALESCE(cmp.template_vars, '{}'::jsonb) || COALESCE(c.custom_vars, '{}'::jsonb) || jsonb_build_object(
+                  'contact_name', NULLIF(TRIM(COALESCE(c.first_name || ' ' || COALESCE(c.last_name, ''), c.first_name, '')), ''),
+                  'first_name', NULLIF(TRIM(c.first_name), ''),
+                  'last_name', NULLIF(TRIM(COALESCE(c.last_name, '')), ''),
+                  'phone', c.phone_e164
+                ),
                 'queued'
          FROM contact_list_members clm
          JOIN contacts c ON c.id = clm.contact_id
@@ -527,7 +580,8 @@ router.post('/:id/launch', uuidParamValidator('id'), validate, catchAsync(async 
     // 3. Fetch the queued messages
     // Note: Use LEFT JOIN so adhoc_excel messages (where contact_id IS NULL) are fetched properly
     const { rows: messages } = await client.query(
-      `SELECT cm.id, cm.phone_e164, cm.template_vars
+      `SELECT cm.id, cm.phone_e164, cm.template_vars,
+              COALESCE(NULLIF(TRIM(COALESCE(c.first_name || ' ' || COALESCE(c.last_name, ''), c.first_name, '')), ''), cm.template_vars->>'contact_name', cm.template_vars->>'name') AS contact_name
        FROM campaign_messages cm
        LEFT JOIN contacts c ON c.id = cm.contact_id
        WHERE cm.campaign_id = $1 AND cm.status = 'queued' AND (c.status IS NULL OR c.status = 'active')`,
@@ -728,10 +782,17 @@ router.post('/:id/resend', uuidParamValidator('id'), validate, catchAsync(async 
            (campaign_id, tenant_id, contact_id, phone_e164, template_vars, status)
          SELECT DISTINCT ON (c.phone_e164)
                 $1, $2, c.id, c.phone_e164,
-                COALESCE(c.custom_vars, '{}'::jsonb),
+                COALESCE(cmp.template_vars, '{}'::jsonb) || COALESCE(c.custom_vars, '{}'::jsonb) || jsonb_build_object(
+                  'contact_name', NULLIF(TRIM(COALESCE(c.first_name || ' ' || COALESCE(c.last_name, ''), c.first_name, '')), ''),
+                  'first_name', NULLIF(TRIM(c.first_name), ''),
+                  'last_name', NULLIF(TRIM(COALESCE(c.last_name, '')), ''),
+                  'phone', c.phone_e164
+                ),
                 'queued'
          FROM contacts c
+         CROSS JOIN campaigns cmp
          WHERE c.tenant_id = $2
+           AND cmp.id = $1
            AND c.status = 'active'
          ORDER BY c.phone_e164, c.created_at DESC
          ON CONFLICT DO NOTHING`,
@@ -745,10 +806,17 @@ router.post('/:id/resend', uuidParamValidator('id'), validate, catchAsync(async 
              (campaign_id, tenant_id, contact_id, phone_e164, template_vars, status)
            SELECT DISTINCT ON (c.phone_e164)
                   $1, $2, c.id, c.phone_e164,
-                  COALESCE(c.custom_vars, '{}'::jsonb),
+                  COALESCE(cmp.template_vars, '{}'::jsonb) || COALESCE(c.custom_vars, '{}'::jsonb) || jsonb_build_object(
+                    'contact_name', NULLIF(TRIM(COALESCE(c.first_name || ' ' || COALESCE(c.last_name, ''), c.first_name, '')), ''),
+                    'first_name', NULLIF(TRIM(c.first_name), ''),
+                    'last_name', NULLIF(TRIM(COALESCE(c.last_name, '')), ''),
+                    'phone', c.phone_e164
+                  ),
                   'queued'
            FROM contacts c
+           CROSS JOIN campaigns cmp
            WHERE c.tenant_id = $2
+             AND cmp.id = $1
              AND c.status = 'active'
              AND c.tags && $3::text[]
            ORDER BY c.phone_e164, c.created_at DESC
@@ -766,11 +834,18 @@ router.post('/:id/resend', uuidParamValidator('id'), validate, catchAsync(async 
                (campaign_id, tenant_id, contact_id, phone_e164, template_vars, status)
              SELECT DISTINCT ON (c.phone_e164)
                     $1, $2, c.id, c.phone_e164,
-                    COALESCE(c.custom_vars, '{}'::jsonb),
+                    COALESCE(cmp.template_vars, '{}'::jsonb) || COALESCE(c.custom_vars, '{}'::jsonb) || jsonb_build_object(
+                      'contact_name', NULLIF(TRIM(COALESCE(c.first_name || ' ' || COALESCE(c.last_name, ''), c.first_name, '')), ''),
+                      'first_name', NULLIF(TRIM(c.first_name), ''),
+                      'last_name', NULLIF(TRIM(COALESCE(c.last_name, '')), ''),
+                      'phone', c.phone_e164
+                    ),
                     'queued'
              FROM contact_list_members clm
              JOIN contacts c ON c.id = clm.contact_id
+             CROSS JOIN campaigns cmp
              WHERE clm.contact_list_id = ANY($3::uuid[])
+               AND cmp.id = $1
                AND c.status = 'active'
                AND c.tags && $4::text[]
              ORDER BY c.phone_e164, c.created_at DESC
@@ -783,11 +858,18 @@ router.post('/:id/resend', uuidParamValidator('id'), validate, catchAsync(async 
                (campaign_id, tenant_id, contact_id, phone_e164, template_vars, status)
              SELECT DISTINCT ON (c.phone_e164)
                     $1, $2, c.id, c.phone_e164,
-                    COALESCE(c.custom_vars, '{}'::jsonb),
+                    COALESCE(cmp.template_vars, '{}'::jsonb) || COALESCE(c.custom_vars, '{}'::jsonb) || jsonb_build_object(
+                      'contact_name', NULLIF(TRIM(COALESCE(c.first_name || ' ' || COALESCE(c.last_name, ''), c.first_name, '')), ''),
+                      'first_name', NULLIF(TRIM(c.first_name), ''),
+                      'last_name', NULLIF(TRIM(COALESCE(c.last_name, '')), ''),
+                      'phone', c.phone_e164
+                    ),
                     'queued'
              FROM contact_list_members clm
              JOIN contacts c ON c.id = clm.contact_id
+             CROSS JOIN campaigns cmp
              WHERE clm.contact_list_id = ANY($3::uuid[])
+               AND cmp.id = $1
                AND c.status = 'active'
              ORDER BY c.phone_e164, c.created_at DESC
              ON CONFLICT DO NOTHING`,
@@ -800,11 +882,18 @@ router.post('/:id/resend', uuidParamValidator('id'), validate, catchAsync(async 
         `INSERT INTO campaign_messages
            (campaign_id, tenant_id, contact_id, phone_e164, template_vars, status)
          SELECT $1, $2, c.id, c.phone_e164,
-                COALESCE(c.custom_vars, '{}'::jsonb),
+                COALESCE(cmp.template_vars, '{}'::jsonb) || COALESCE(c.custom_vars, '{}'::jsonb) || jsonb_build_object(
+                  'contact_name', NULLIF(TRIM(COALESCE(c.first_name || ' ' || COALESCE(c.last_name, ''), c.first_name, '')), ''),
+                  'first_name', NULLIF(TRIM(c.first_name), ''),
+                  'last_name', NULLIF(TRIM(COALESCE(c.last_name, '')), ''),
+                  'phone', c.phone_e164
+                ),
                 'queued'
          FROM contact_list_members clm
          JOIN contacts c ON c.id = clm.contact_id
+         CROSS JOIN campaigns cmp
          WHERE clm.contact_list_id = $3
+           AND cmp.id = $1
            AND c.status = 'active'
          ON CONFLICT DO NOTHING`,
         [campaign.id, campaign.tenant_id, campaign.contact_list_id]
@@ -832,8 +921,10 @@ router.post('/:id/resend', uuidParamValidator('id'), validate, catchAsync(async 
 
     // 4. Fetch all queued messages
     const { rows: messages } = await client.query(
-      `SELECT cm.id, cm.phone_e164, cm.template_vars
+      `SELECT cm.id, cm.phone_e164, cm.template_vars,
+              COALESCE(NULLIF(TRIM(COALESCE(c.first_name || ' ' || COALESCE(c.last_name, ''), c.first_name, '')), ''), cm.template_vars->>'contact_name', cm.template_vars->>'name') AS contact_name
        FROM campaign_messages cm
+       LEFT JOIN contacts c ON c.id = cm.contact_id
        WHERE cm.campaign_id = $1`,
       [campaign.id]
     );

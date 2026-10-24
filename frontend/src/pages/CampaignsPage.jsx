@@ -539,14 +539,21 @@ function ComposerModal({ onClose, onCreated, contactLists = [], templates = [] }
     setLoading(true);
     try {
       const campaignVariables = { ...form.variables };
-      // Ensure every detected template variable has a valid mapping and fallback
+      // Ensure every detected template variable has a valid mapping, source, and fallback
       detectedVariables.forEach((vKey, idx) => {
+        const source = varSources[vKey] || (idx === 0 ? 'contact_name' : 'custom');
         const fallback = (fallbacks[vKey] || (idx === 0 ? 'Customer' : '-')).trim();
-        const currentVal = (campaignVariables[vKey] || '').trim();
-        if (!currentVal) {
-          campaignVariables[vKey] = fallback;
-        }
+
+        campaignVariables[`${vKey}_source`] = source;
         campaignVariables[`${vKey}_fallback`] = fallback;
+
+        if (source === 'contact_name') {
+          campaignVariables[vKey] = '{{contact_name}}';
+        } else if (source === 'contact_phone') {
+          campaignVariables[vKey] = '{{contact_phone}}';
+        } else {
+          campaignVariables[vKey] = (form.variables[vKey] || fallback).trim();
+        }
       });
 
       if (headerMediaUrl) {

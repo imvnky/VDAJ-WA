@@ -372,10 +372,23 @@ function WhatsAppStatusTick({ status, errorCode }) {
   }
 
   if (status === 'failed') {
+    const errorMap = {
+      '131026': '131026: Undeliverable — Recipient is not registered on WhatsApp or phone is inactive.',
+      '131047': '131047: 24h customer window expired (reply needed or use approved template).',
+      '130429': '130429: Meta Cloud API rate limit exceeded.',
+      '131051': '131051: Unsupported message type.',
+      '131009': '131009: Parameter value is invalid for this template.',
+      '132000': '132000: Template does not exist or is paused by Meta.',
+      '130472': '130472: User number has opted out or blocked business.',
+    };
+    const title = errorCode
+      ? (errorMap[String(errorCode)] || `Delivery Failed (Meta Error Code ${errorCode})`)
+      : 'Failed to deliver message';
+
     return (
       <span
         className="inline-flex items-center text-rose-300 hover:text-rose-200 cursor-pointer"
-        title={errorCode ? `Delivery Failed: ${errorCode}` : 'Failed to deliver message'}
+        title={title}
       >
         <svg className="w-3 h-3" viewBox="0 0 16 16" fill="currentColor">
           <path fillRule="evenodd" d="M8 15A7 7 0 1 0 8 1a7 7 0 0 0 0 14zm-.75-9.75a.75.75 0 0 1 1.5 0v3.5a.75.75 0 0 1-1.5 0v-3.5zm.75 6.25a.875.875 0 1 1 0-1.75.875.875 0 0 1 0 1.75z" clipRule="evenodd" />

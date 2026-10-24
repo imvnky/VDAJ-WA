@@ -124,6 +124,8 @@ export function useNotificationWS() {
         ws.onmessage = (e) => {
           try {
             const payload = JSON.parse(e.data);
+            window.dispatchEvent(new CustomEvent('vdaj:ws_message', { detail: payload }));
+
             const notif = mapWsEventToNotification(payload);
             if (!notif) return;
 

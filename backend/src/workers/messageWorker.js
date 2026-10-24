@@ -194,16 +194,32 @@ const processMessage = async (msg, jobData) => {
 
     // Safely resolve dynamic contact variables and fallback defaults
     const resolvedVars = { ...(msg.template_vars || {}) };
-    const recipientName = (resolvedVars.contact_name || resolvedVars.first_name || resolvedVars.name || '').trim();
+    const recipientName = (
+      msg.contact_name ||
+      msg.contactName ||
+      resolvedVars.contact_name ||
+      resolvedVars.first_name ||
+      resolvedVars.name ||
+      ''
+    ).trim();
 
-    if (resolvedVars['1'] === '{{name}}' || resolvedVars['1'] === '{{contact_name}}' || resolvedVars['1'] === '{{first_name}}') {
-      resolvedVars['1'] = recipientName || resolvedVars['1_fallback'] || 'Customer';
-    } else if (resolvedVars['1'] == null || String(resolvedVars['1']).trim() === '') {
-      resolvedVars['1'] = recipientName || resolvedVars['1_fallback'] || 'Customer';
+    // Iterate through all numeric variables ('1', '2', etc.)
+    for (const [k, v] of Object.entries(resolvedVars)) {
+      if (!/^\d+$/.test(k)) continue;
+      const src = resolvedVars[`${k}_source`] || (k === '1' && (v === '{{contact_name}}' || v === '{{name}}' || v == null) ? 'contact_name' : null);
+      const fallback = (resolvedVars[`${k}_fallback`] || (k === '1' ? 'Customer' : '-')).trim();
+
+      if (src === 'contact_name' || v === '{{contact_name}}' || v === '{{name}}' || v === '{{first_name}}') {
+        resolvedVars[k] = recipientName || fallback;
+      } else if (src === 'contact_phone' || v === '{{contact_phone}}' || v === '{{phone}}') {
+        resolvedVars[k] = msg.phone_e164;
+      } else if (v == null || String(v).trim() === '') {
+        resolvedVars[k] = fallback;
+      }
     }
 
-    if (resolvedVars['2'] === '{{phone}}') {
-      resolvedVars['2'] = msg.phone_e164;
+    if (!resolvedVars['1'] || resolvedVars['1'] === '{{name}}' || resolvedVars['1'] === '{{contact_name}}') {
+      resolvedVars['1'] = recipientName || resolvedVars['1_fallback'] || 'Customer';
     }
 
     const metaResponse = await sendWhatsAppMessage({
@@ -244,7 +260,7 @@ const processMessage = async (msg, jobData) => {
         [
           jobData.tenantId,
           msg.phone_e164,
-          msg.displayName || msg.display_name || null,
+          recipientName || msg.displayName || msg.display_name || null,
           `Template: ${templateName}`,
         ]
       );

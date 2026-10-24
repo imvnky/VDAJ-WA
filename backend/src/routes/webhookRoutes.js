@@ -403,10 +403,11 @@ async function handleStatusUpdate(status, broadcastToTenant) {
       `UPDATE campaign_messages
        SET status = $1,
            ${timestampCol} = to_timestamp($2),
-           error_message = COALESCE($3, error_message),
+           last_error = COALESCE($3, last_error),
+           error_code = COALESCE($4, error_code),
            updated_at = NOW()
-       WHERE meta_message_id = $4`,
-      [dbStatus, parseInt(timestamp, 10), errorMsg, metaMessageId]
+       WHERE meta_message_id = $5`,
+      [dbStatus, parseInt(timestamp, 10), errorMsg, errorCode, metaMessageId]
     );
 
     // Increment the matching campaign counter (best-effort)
@@ -418,6 +419,26 @@ async function handleStatusUpdate(status, broadcastToTenant) {
        )`,
       [metaMessageId]
     );
+
+    // Broadcast real-time status update to campaign viewers
+    if (typeof broadcastToTenant === 'function') {
+      const { rows: campRows } = await query(
+        `SELECT campaign_id, tenant_id FROM campaign_messages WHERE meta_message_id = $1 LIMIT 1`,
+        [metaMessageId]
+      );
+      if (campRows.length) {
+        broadcastToTenant(campRows[0].tenant_id, {
+          type: 'CAMPAIGN_STATUS_UPDATE',
+          data: {
+            campaignId:    campRows[0].campaign_id,
+            metaMessageId: metaMessageId,
+            status:        dbStatus,
+            error_code:    errorCode,
+            error_message: errorMsg,
+          },
+        });
+      }
+    }
   } catch (e) {
     logger.warn('campaign_messages status update skipped', { metaMessageId, error: e.message });
   }
