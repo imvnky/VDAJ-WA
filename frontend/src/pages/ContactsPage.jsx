@@ -862,17 +862,29 @@ export default function ContactsPage() {
                     <Link to={`/contacts/${c.id}`} className="shrink-0">
                       <Avatar contact={c} />
                     </Link>
-                    <div className="min-w-0">
-                      <Link
-                        to={`/contacts/${c.id}`}
-                        className="text-sm font-medium truncate block hover:text-[#534AB7] transition-colors"
-                        style={{ color: 'var(--text-primary)' }}
-                      >
-                        {c.display_name || [c.first_name, c.last_name].filter(Boolean).join(' ') || '—'}
-                      </Link>
-                      {(c.groups || []).length > 0 && (
-                        <div className="flex items-center gap-1 mt-0.5 flex-wrap">
-                          {c.groups.map((g) => (
+                      <div className="min-w-0">
+                        <Link
+                          to={`/contacts/${c.id}`}
+                          className="text-sm font-medium truncate block hover:text-[#534AB7] transition-colors"
+                          style={{ color: 'var(--text-primary)' }}
+                        >
+                          {c.display_name || [c.first_name, c.last_name].filter(Boolean).join(' ') || '—'}
+                        </Link>
+                        <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                          {(c.custom_vars?.membership_no || c.custom_vars?.Membership_No || c.custom_vars?.id || c.custom_vars?.member_id) && (
+                            <span
+                              className="inline-flex items-center text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-indigo-50 text-[#534AB7] border border-indigo-200/80 shrink-0"
+                              title="Membership ID"
+                            >
+                              🆔 {c.custom_vars?.membership_no || c.custom_vars?.Membership_No || c.custom_vars?.id || c.custom_vars?.member_id}
+                            </span>
+                          )}
+                          {c.custom_vars?.city && (
+                            <span className="text-[10px] text-slate-400 font-medium">
+                              📍 {c.custom_vars.city}
+                            </span>
+                          )}
+                          {(c.groups || []).map((g) => (
                             <span
                               key={g.id}
                               onClick={(e) => {
@@ -886,9 +898,8 @@ export default function ContactsPage() {
                             </span>
                           ))}
                         </div>
-                      )}
+                      </div>
                     </div>
-                  </div>
 
                 {/* Phone */}
                 <div className="col-span-2">

@@ -190,32 +190,31 @@ async function main() {
     );
     const campMsg = campRows[0] || null;
 
-    // Deep search for Member ID across all possible sources
-    let memberId = null;
+    // Direct check for membership_no from custom_vars or campaign template_vars
+    let memberId =
+      contact?.custom_vars?.membership_no ||
+      contact?.custom_vars?.membershipNo ||
+      contact?.custom_vars?.Membership_No ||
+      contact?.custom_vars?.id ||
+      contact?.custom_vars?.member_id ||
+      campMsg?.template_vars?.membership_no ||
+      campMsg?.template_vars?.Membership_No ||
+      campMsg?.template_vars?.id ||
+      null;
 
-    // Source 1: Check contact custom_vars with all common key variations
-    if (contact?.custom_vars && typeof contact.custom_vars === 'object') {
+    // Source 1 fallback: scan all custom_vars keys
+    if (!memberId && contact?.custom_vars && typeof contact.custom_vars === 'object') {
       const cv = contact.custom_vars;
       for (const [k, v] of Object.entries(cv)) {
         const lk = k.toLowerCase().replace(/[^a-z0-9]/g, '');
         if (
-          lk.includes('id') ||
-          lk.includes('no') ||
-          lk.includes('sr') ||
+          lk.includes('membership') ||
           lk.includes('member') ||
-          lk.includes('card') ||
-          lk.includes('reg') ||
-          lk.includes('code')
+          lk.includes('no') ||
+          lk.includes('id') ||
+          lk.includes('sr') ||
+          lk.includes('card')
         ) {
-          if (v && String(v).trim()) {
-            memberId = String(v).trim();
-            break;
-          }
-        }
-      }
-      // If still null and there's any non-empty value in custom_vars
-      if (!memberId) {
-        for (const [k, v] of Object.entries(cv)) {
           if (v && String(v).trim()) {
             memberId = String(v).trim();
             break;
@@ -224,19 +223,16 @@ async function main() {
       }
     }
 
-    // Source 2: Check campaign_messages template_vars
-    if (!memberId && campMsg) {
-      const vars = campMsg.template_vars || {};
-      for (const [k, v] of Object.entries(vars)) {
+    // Source 2 fallback: scan campaign template_vars keys
+    if (!memberId && campMsg?.template_vars) {
+      for (const [k, v] of Object.entries(campMsg.template_vars)) {
         const lk = k.toLowerCase().replace(/[^a-z0-9]/g, '');
         if (
-          lk.includes('id') ||
-          lk.includes('no') ||
-          lk.includes('sr') ||
+          lk.includes('membership') ||
           lk.includes('member') ||
-          lk.includes('card') ||
-          lk.includes('reg') ||
-          lk.includes('code')
+          lk.includes('no') ||
+          lk.includes('id') ||
+          lk.includes('sr')
         ) {
           if (v && String(v).trim()) {
             memberId = String(v).trim();
@@ -246,19 +242,15 @@ async function main() {
       }
     }
 
-    // Source 3: Check tags for ID pattern (e.g. SMR-123, FM-101, or pure alphanumeric codes)
-    if (!memberId && Array.isArray(contact?.tags)) {
-      for (const t of contact.tags) {
-        const str = String(t).trim();
-        if (/\d+/.test(str) && !/membership|member|pool|health/i.test(str)) {
-          memberId = str;
-          break;
-        }
+    // Infer membership plan from prefix if available: F- => Family, I- => Individual
+    if (memberId) {
+      const trimmedId = String(memberId).trim().toUpperCase();
+      if (trimmedId.startsWith('F-') || trimmedId.startsWith('F')) {
+        membershipPlan = 'Family Membership';
+      } else if (trimmedId.startsWith('I-') || trimmedId.startsWith('I')) {
+        membershipPlan = 'Individual Membership';
       }
-    }
-
-    // Determine membership plan if still default
-    if (membershipPlan === 'Club Member' && campMsg?.camp_name) {
+    } else if (membershipPlan === 'Club Member' && campMsg?.camp_name) {
       if (/family/i.test(campMsg.camp_name)) {
         membershipPlan = 'Family Membership';
       } else if (/individual/i.test(campMsg.camp_name)) {

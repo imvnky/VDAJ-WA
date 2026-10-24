@@ -309,6 +309,13 @@ export default function ContactDetailPage() {
                   : { background: 'rgba(29,158,117,0.12)', color: '#1D9E75' }}>
                 {isOptedOut ? 'Opted Out' : 'Active'}
               </span>
+
+              {/* Membership No Badge */}
+              {(contact.custom_vars?.membership_no || contact.custom_vars?.Membership_No || contact.custom_vars?.id || contact.custom_vars?.member_id) && (
+                <span className="inline-flex items-center text-xs font-mono font-bold px-2.5 py-0.5 rounded-full bg-indigo-50 text-[#534AB7] border border-indigo-200">
+                  🆔 Membership No: {contact.custom_vars?.membership_no || contact.custom_vars?.Membership_No || contact.custom_vars?.id || contact.custom_vars?.member_id}
+                </span>
+              )}
             </div>
 
             <div className="mt-2 flex flex-col gap-1">
