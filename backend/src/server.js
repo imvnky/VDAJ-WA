@@ -161,6 +161,7 @@ app.use(globalLimiter);
 
 // Webhook endpoint requires raw Buffer for HMAC signature verification
 app.use(`${API_PREFIX}/webhooks`, express.raw({ type: 'application/json' }));
+app.use('/webhooks', express.raw({ type: 'application/json' }));
 
 app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: true, limit: '5mb' }));
@@ -228,6 +229,7 @@ app.use(`${API_PREFIX}/billing`,      billingRoutes);
 
 // ── Meta webhook (no auth — HMAC-verified inside the handler) ──
 app.use(`${API_PREFIX}/webhooks`,     webhookRoutes);
+app.use('/webhooks',                  webhookRoutes);
 
 // ── Admin: queue management (SuperAdmin / tenant_admin only) ───
 app.use(`${API_PREFIX}/admin/queue`,  queueRoutes);

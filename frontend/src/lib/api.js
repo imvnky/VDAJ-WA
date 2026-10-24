@@ -13,15 +13,33 @@ const _envBase = import.meta.env.VITE_API_BASE_URL;
 const _isProd  = typeof window !== 'undefined' &&
                  !window.location.hostname.includes('localhost') &&
                  !window.location.hostname.includes('127.0.0.1');
-let BASE = _envBase ||
-           (_isProd ? 'https://api.vdajservices.com/api/v1' : 'http://localhost:5000/api/v1');
+
+// In browser production, never use localhost even if baked into local build
+const getApiBase = () => {
+  if (_isProd) {
+    if (_envBase && !_envBase.includes('localhost') && !_envBase.includes('127.0.0.1')) {
+      return _envBase;
+    }
+    return `${window.location.origin}/api/v1`;
+  }
+  return _envBase || 'http://localhost:5000/api/v1';
+};
+
+let BASE = getApiBase();
 if (BASE && !BASE.endsWith('/api/v1')) {
   BASE = BASE.replace(/\/+$/, '') + '/api/v1';
 }
 
 // Build WS_BASE dynamically from BASE if VITE_WS_URL is not set
 const getWsBase = () => {
-  if (import.meta.env.VITE_WS_URL) return import.meta.env.VITE_WS_URL;
+  const envWs = import.meta.env.VITE_WS_URL;
+  if (envWs && (!_isProd || (!envWs.includes('localhost') && !envWs.includes('127.0.0.1')))) {
+    return envWs;
+  }
+  if (_isProd) {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    return `${protocol}//${window.location.host}`;
+  }
   try {
     const apiURL = new URL(BASE);
     const protocol = apiURL.protocol === 'https:' ? 'wss:' : 'ws:';

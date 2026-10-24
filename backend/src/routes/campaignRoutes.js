@@ -278,6 +278,24 @@ router.get('/messages', catchAsync(async (req, res) => {
   if (campaign_id) {
     filters.push(`cm.campaign_id = $${pidx++}`);
     params.push(campaign_id);
+
+    // Reconcile delivery statuses before querying
+    await query(
+      `UPDATE campaign_messages cm
+       SET status = im.status,
+           delivered_at = COALESCE(cm.delivered_at, NOW()),
+           read_at = CASE WHEN im.status = 'read' THEN COALESCE(cm.read_at, NOW()) ELSE cm.read_at END,
+           failed_at = CASE WHEN im.status = 'failed' THEN COALESCE(cm.failed_at, NOW()) ELSE cm.failed_at END,
+           last_error = COALESCE(cm.last_error, im.error_code),
+           error_code = COALESCE(cm.error_code, im.error_code),
+           updated_at = NOW()
+       FROM inbox_messages im
+       WHERE cm.campaign_id = $1
+         AND cm.meta_message_id = im.wa_message_id
+         AND im.status IN ('delivered', 'read', 'failed')
+         AND cm.status != im.status`,
+      [campaign_id]
+    ).catch(() => {});
   }
   if (date_from) {
     filters.push(`cm.created_at >= $${pidx++}`);
@@ -317,7 +335,7 @@ router.get('/messages', catchAsync(async (req, res) => {
        -- Contact
        co.first_name,
        co.last_name,
-       co.display_name
+       COALESCE(co.display_name, NULLIF(TRIM(co.first_name || ' ' || COALESCE(co.last_name, '')), ''), cm.template_vars->>'contact_name', cm.template_vars->>'name') AS display_name
      FROM campaign_messages cm
      LEFT JOIN campaigns         c  ON c.id  = cm.campaign_id
      LEFT JOIN message_templates mt ON mt.id = c.template_id
@@ -364,9 +382,9 @@ router.get('/:id', uuidParamValidator('id'), validate, catchAsync(async (req, re
   await query(
     `UPDATE campaign_messages cm
      SET status = im.status,
-         delivered_at = COALESCE(cm.delivered_at, im.updated_at),
-         read_at = CASE WHEN im.status = 'read' THEN COALESCE(cm.read_at, im.updated_at) ELSE cm.read_at END,
-         failed_at = CASE WHEN im.status = 'failed' THEN COALESCE(cm.failed_at, im.updated_at) ELSE cm.failed_at END,
+         delivered_at = COALESCE(cm.delivered_at, NOW()),
+         read_at = CASE WHEN im.status = 'read' THEN COALESCE(cm.read_at, NOW()) ELSE cm.read_at END,
+         failed_at = CASE WHEN im.status = 'failed' THEN COALESCE(cm.failed_at, NOW()) ELSE cm.failed_at END,
          last_error = COALESCE(cm.last_error, im.error_code),
          error_code = COALESCE(cm.error_code, im.error_code),
          updated_at = NOW()
@@ -376,7 +394,7 @@ router.get('/:id', uuidParamValidator('id'), validate, catchAsync(async (req, re
        AND im.status IN ('delivered', 'read', 'failed')
        AND cm.status != im.status`,
     [req.params.id]
-  ).catch(() => {});
+  ).catch((err) => { logger.warn('Status reconciliation failed', { error: err?.message }); });
 
   // Query live counts from campaign_messages
   const { rows: [counts] } = await query(

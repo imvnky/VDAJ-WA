@@ -399,38 +399,36 @@ async function handleStatusUpdate(status, broadcastToTenant) {
   // ── 1. Campaign message status update ──────────────────────────
   const timestampCol = `${dbStatus}_at`;
   try {
-    await query(
+    const { rows: updatedCmRows } = await query(
       `UPDATE campaign_messages
        SET status = $1,
            ${timestampCol} = to_timestamp($2),
            last_error = COALESCE($3, last_error),
            error_code = COALESCE($4, error_code),
            updated_at = NOW()
-       WHERE meta_message_id = $5`,
+       WHERE meta_message_id = $5
+       RETURNING id, campaign_id, tenant_id, status`,
       [dbStatus, parseInt(timestamp, 10), errorMsg, errorCode, metaMessageId]
     );
 
-    // Increment the matching campaign counter (best-effort)
-    await query(
-      `UPDATE campaigns
-       SET ${dbStatus}_count = ${dbStatus}_count + 1, updated_at = NOW()
-       WHERE id = (
-         SELECT campaign_id FROM campaign_messages WHERE meta_message_id = $1 LIMIT 1
-       )`,
-      [metaMessageId]
-    );
+    if (updatedCmRows.length) {
+      const cmRow = updatedCmRows[0];
 
-    // Broadcast real-time status update to campaign viewers
-    if (typeof broadcastToTenant === 'function') {
-      const { rows: campRows } = await query(
-        `SELECT campaign_id, tenant_id FROM campaign_messages WHERE meta_message_id = $1 LIMIT 1`,
-        [metaMessageId]
-      );
-      if (campRows.length) {
-        broadcastToTenant(campRows[0].tenant_id, {
+      // Increment matching campaign counter (best-effort)
+      await query(
+        `UPDATE campaigns
+         SET ${dbStatus}_count = ${dbStatus}_count + 1, updated_at = NOW()
+         WHERE id = $1`,
+        [cmRow.campaign_id]
+      ).catch(() => {});
+
+      // Broadcast real-time status update to campaign viewers
+      if (typeof broadcastToTenant === 'function') {
+        broadcastToTenant(cmRow.tenant_id, {
           type: 'CAMPAIGN_STATUS_UPDATE',
           data: {
-            campaignId:    campRows[0].campaign_id,
+            campaignId:    cmRow.campaign_id,
+            messageId:     cmRow.id,
             metaMessageId: metaMessageId,
             status:        dbStatus,
             error_code:    errorCode,

@@ -216,7 +216,7 @@ export default function CampaignDetailView({ campaignId, onBack, onNewCampaign }
     };
   }, [campaign, totalMessages]);
 
-  // Real-time updates: WebSocket listener + auto-polling while running or queued
+  // Real-time updates: WebSocket listener + continuous live polling
   useEffect(() => {
     const handleWsMsg = (e) => {
       const payload = e?.detail;
@@ -224,25 +224,41 @@ export default function CampaignDetailView({ campaignId, onBack, onNewCampaign }
       if (
         (payload.type === 'CAMPAIGN_STATUS_UPDATE' && payload.data?.campaignId === campaignId) ||
         payload.type === 'campaign_update' ||
+        payload.type === 'message_status_update' ||
         payload.type === 'new_message'
       ) {
+        // Optimistically update matching recipient row in table instantly
+        if (payload.data?.metaMessageId && payload.data?.status) {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.meta_message_id === payload.data.metaMessageId || m.id === payload.data.messageId
+                ? {
+                    ...m,
+                    status: payload.data.status,
+                    delivered_at: payload.data.status === 'delivered' ? new Date().toISOString() : m.delivered_at,
+                    read_at: payload.data.status === 'read' ? new Date().toISOString() : m.read_at,
+                    failed_at: payload.data.status === 'failed' ? new Date().toISOString() : m.failed_at,
+                    last_error: payload.data.error_message || m.last_error,
+                  }
+                : m
+            )
+          );
+        }
         loadData(true);
       }
     };
 
     window.addEventListener('vdaj:ws_message', handleWsMsg);
 
-    // Auto-poll every 3.5s when campaign is active/running or has queued messages
-    let pollTimer;
-    if (campaign?.status === 'running' || (stats && stats.queued > 0)) {
-      pollTimer = setInterval(() => {
-        loadData(true);
-      }, 3500);
-    }
+    // Continuous live polling: 3.5s while dispatching/queued, 6s for executed campaigns to stream handset delivery/read receipts
+    const intervalMs = (campaign?.status === 'running' || (stats && stats.queued > 0)) ? 3500 : 6000;
+    const pollTimer = setInterval(() => {
+      loadData(true);
+    }, intervalMs);
 
     return () => {
       window.removeEventListener('vdaj:ws_message', handleWsMsg);
-      if (pollTimer) clearInterval(pollTimer);
+      clearInterval(pollTimer);
     };
   }, [campaignId, campaign?.status, stats?.queued, loadData]);
 
