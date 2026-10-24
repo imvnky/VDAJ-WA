@@ -25,42 +25,41 @@ const logger = require('../src/utils/logger');
 
 const IS_SEND_MODE = process.argv.includes('--send');
 
-// ── Official Facility Timings ─────────────────────────────────────
-const FACILITY_TIMINGS_TEXT = `🏊 *SMR Swimming Pool & Health Club — Facility Timings*
+// ── Official Facility Timings (Clean & Professional) ─────────────
+const FACILITY_TIMINGS_TEXT = `*SMR Swimming Pool & Health Club — Facility Timings*
 
-🏊‍♂️ *Swimming Pool:*
-• 06:00 AM – 10:00 AM (General / All)
-• 04:00 PM – 05:00 PM (*Women Only*)
-• 05:00 PM – 06:45 PM (General / All)
-• 06:45 PM – 08:00 PM (*Members Only*)
+*Swimming Pool:*
+• 06:00 AM – 10:00 AM : General (All)
+• 04:00 PM – 05:00 PM : Women Only
+• 05:00 PM – 06:45 PM : General (All)
+• 06:45 PM – 08:00 PM : Members Only
 
-🏸 *Badminton Court:*
+*Badminton Court:*
 • 06:00 AM – 10:00 AM
 • 04:00 PM – 09:00 PM
 
-🏋️ *Gymnasium:*
-• 06:00 AM – 10:00 AM (General)
-• 04:00 PM – 05:00 PM (*Women Only*)
-• 05:00 PM – 08:00 PM (General)
+*Gymnasium:*
+• 06:00 AM – 10:00 AM : General
+• 04:00 PM – 05:00 PM : Women Only
+• 05:00 PM – 08:00 PM : General
 
-_For any queries or facility bookings, feel free to reply directly to this chat!_`;
+For facility bookings or any queries, please feel free to reply directly to this message.`;
 
-// ── Membership Info Formatter ─────────────────────────────────────
-function buildMembershipText(contactName, membershipPlan, memberId) {
-  const name = contactName || 'Member';
-  const plan = membershipPlan || 'Club Membership';
-  const idDisplay = memberId ? `• *Member ID:* ${memberId}\n` : '';
+// ── Generic Membership Inquiry Response (Clean & Professional) ────
+const GENERIC_MEMBERSHIP_TEXT = `*SMR Swimming Pool & Health Club — Membership Desk*
 
-  return `👋 *Hello ${name},*
+Hello, thank you for reaching out regarding membership at SMR.
 
-Here are your membership details at *SMR Swimming Pool & Health Club*:
-• *Member Name:* ${name}
-• *Membership Plan:* ${plan}
-${idDisplay}
-Whether you wish to renew, register a family member, or inquire about coaching plans, feel free to reply right here or visit our club reception!`;
-}
+We offer comprehensive *Individual & Family Membership Plans* covering:
+• Swimming Pool & Professional Coaching
+• Badminton Courts
+• Modern Gymnasium & Fitness Center
 
-// ── Opt-Out Formatter ─────────────────────────────────────────────
+To check your specific membership status, renewal details, or to enroll a family member, please visit our *Club Reception Desk* or speak with our front desk staff during operational hours.
+
+Our team will be delighted to assist you.`;
+
+// ── Opt-Out Formatter (Clean & Professional) ───────────────────────
 const OPT_OUT_TEXT = `You have been successfully unsubscribed from promotional updates from SMR Swimming Pool & Health Club. You will not receive further broadcast messages. Reply START anytime to re-enable.`;
 
 async function main() {
@@ -276,8 +275,8 @@ async function main() {
       rawInbound.includes('member info') ||
       rawInbound.includes('plan')
     ) {
-      category = 'MEMBERSHIP_ON_HOLD';
-      replyText = null; // ⏸️ ON HOLD: Kept pending approval. Will NOT be sent.
+      category = 'MEMBERSHIP';
+      replyText = GENERIC_MEMBERSHIP_TEXT;
     } else if (
       rawInbound === 'stop' ||
       rawInbound === 'unsubscribe' ||
@@ -324,10 +323,7 @@ async function main() {
     console.log(`     Customer Message: "${item.inboundBody}"`);
     console.log(`     Category: ${item.category}`);
 
-    if (item.category === 'MEMBERSHIP_ON_HOLD') {
-      console.log(`     ⏸️ [ON HOLD] Membership inquiry held pending client approval. (Detected Plan: ${item.membershipPlan} | ID: ${item.memberId || 'N/A'})`);
-      console.log(`     👉 Status: Will NOT be sent.`);
-    } else if (item.replyText) {
+    if (item.replyText) {
       autoCount++;
       console.log(`     👉 Proposed Reply:\n${item.replyText.split('\n').map(l => '        ' + l).join('\n')}`);
     } else {
@@ -337,8 +333,12 @@ async function main() {
     console.log('');
   });
 
+  const timingsCount = pendingReplies.filter(p => p.category === 'TIMINGS').length;
+  const membershipCount = pendingReplies.filter(p => p.category === 'MEMBERSHIP').length;
+  const optOutCount = pendingReplies.filter(p => p.category === 'OPT_OUT').length;
+
   console.log('---------------------------------------------------------------');
-  console.log(`Summary: ${autoCount} Timings/Opt-out replies ready to send | ${pendingReplies.filter(p => p.category === 'MEMBERSHIP_ON_HOLD').length} Membership inquiries on HOLD | ${manualCount} Custom queries.`);
+  console.log(`Summary: ${autoCount} automated replies ready (${timingsCount} Timings, ${membershipCount} Membership Desk, ${optOutCount} Opt-Out) | ${manualCount} Custom inquiries for manual review.`);
   console.log('---------------------------------------------------------------\n');
 
   if (!IS_SEND_MODE) {
