@@ -17,10 +17,11 @@
  * so they are safe to re-run, but the tracking table prevents even that.
  */
 
+const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
 require('dotenv').config();
 const { Client } = require('pg');
 const fs = require('fs');
-const path = require('path');
 
 // ── Migration order matters — V1 must precede V2, V2 must precede V3 ──
 const DB_DIR = path.join(__dirname);
