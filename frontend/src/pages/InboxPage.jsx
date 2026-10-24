@@ -1447,10 +1447,15 @@ export default function InboxPage() {
           <div className="flex items-center gap-3 px-5 py-3 border-b border-slate-200/80 bg-white shrink-0 shadow-2xs">
             <Avatar name={activeConv.display_name} phone={activeConv.phone_e164} />
             <div className="min-w-0">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <p className="text-sm font-bold text-slate-900 truncate">
                   {activeConv.display_name || activeConv.phone_e164}
                 </p>
+                {activeConv.profile_name && activeConv.directory_name && activeConv.profile_name.toLowerCase().trim() !== activeConv.directory_name.toLowerCase().trim() && (
+                  <span className="text-[11px] font-normal text-slate-400 truncate max-w-[140px]" title={`WhatsApp Profile Name: ${activeConv.profile_name}`}>
+                    ({activeConv.profile_name})
+                  </span>
+                )}
                 <StatusPill status={activeConv.status} />
               </div>
               <p className="text-[11px] text-slate-400 font-mono mt-0.5">{activeConv.phone_e164}</p>

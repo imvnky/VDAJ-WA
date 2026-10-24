@@ -223,16 +223,45 @@ async function handleInboundMessage(msg, value, broadcastToTenant) {
     }
   }
 
+  const formattedPhone = fromPhone.startsWith('+') ? fromPhone : `+${fromPhone}`;
+
+  // 1. Check if contact exists in directory
+  const { rows: contactRows } = await query(
+    `SELECT id, first_name, last_name, custom_vars
+     FROM contacts
+     WHERE tenant_id = $1 
+       AND (phone_e164 = $2 OR RIGHT(phone_e164, 10) = RIGHT($2, 10))
+     LIMIT 1`,
+    [tenantId, formattedPhone]
+  );
+  const contact = contactRows[0] || null;
+  const contactId = contact?.id || null;
+
+  const directoryName = contact
+    ? (
+        [contact.first_name, contact.last_name].filter(Boolean).join(' ').trim() ||
+        contact.first_name ||
+        contact.custom_vars?.Name ||
+        contact.custom_vars?.name ||
+        contact.custom_vars?.full_name ||
+        null
+      )
+    : null;
+
+  // Directory name takes priority; fallback to WhatsApp profile name, then phone
+  const effectiveDisplayName = directoryName || displayName || formattedPhone;
+
   // ── Upsert inbox_conversation (unique per tenant + phone) ──────
   const { rows: [conv] } = await query(
     `INSERT INTO inbox_conversations
-       (tenant_id, phone_e164, display_name, status, unread_count, last_message_at, last_message_preview)
-     VALUES ($1, $2, $3, 'open', 1, to_timestamp($4), $5)
+       (tenant_id, phone_e164, display_name, contact_id, status, unread_count, last_message_at, last_message_preview)
+     VALUES ($1, $2, $3, $4, 'open', 1, to_timestamp($5), $6)
      ON CONFLICT (tenant_id, phone_e164) DO UPDATE
        SET unread_count        = inbox_conversations.unread_count + 1,
-           last_message_at     = to_timestamp($4),
-           last_message_preview = $5,
-           display_name        = COALESCE($3, inbox_conversations.display_name),
+           last_message_at     = to_timestamp($5),
+           last_message_preview = $6,
+           display_name        = COALESCE($7, inbox_conversations.display_name, $3),
+           contact_id          = COALESCE($4, inbox_conversations.contact_id),
            status              = CASE WHEN inbox_conversations.status = 'resolved'
                                       THEN 'open'
                                       ELSE inbox_conversations.status
@@ -241,28 +270,14 @@ async function handleInboundMessage(msg, value, broadcastToTenant) {
      RETURNING *`,
     [
       tenantId,
-      fromPhone.startsWith('+') ? fromPhone : `+${fromPhone}`,
-      displayName,
+      formattedPhone,
+      effectiveDisplayName,
+      contactId,
       parseInt(timestamp, 10),
       body ? body.slice(0, 200) : `[${msgType}]`,
+      directoryName, // $7: if directory has a name, it will update display_name; otherwise keep existing or fallback
     ]
   );
-
-  // Resolve contact_id if we have one
-  const { rows: contactRows } = await query(
-    `SELECT id FROM contacts
-     WHERE tenant_id = $1 AND phone_e164 = $2 LIMIT 1`,
-    [tenantId, conv.phone_e164]
-  );
-  const contactId = contactRows[0]?.id || null;
-
-  // Update contact_id on conversation if we just found it
-  if (contactId && !conv.contact_id) {
-    await query(
-      `UPDATE inbox_conversations SET contact_id = $1 WHERE id = $2`,
-      [contactId, conv.id]
-    );
-  }
 
   // ── Insert inbox_message record ────────────────────────────────
   const { rows: [savedMsg] } = await query(

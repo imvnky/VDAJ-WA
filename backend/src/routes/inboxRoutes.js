@@ -51,7 +51,14 @@ router.get('/conversations', catchAsync(async (req, res) => {
       SELECT
         cm.tenant_id,
         cm.phone_e164,
-        COALESCE(c.display_name, NULLIF(TRIM(c.first_name || ' ' || COALESCE(c.last_name, '')), ''), cm.phone_e164) AS display_name,
+        COALESCE(
+          NULLIF(TRIM(c.first_name || ' ' || COALESCE(c.last_name, '')), ''),
+          NULLIF(c.first_name, ''),
+          NULLIF(c.last_name, ''),
+          NULLIF(c.custom_vars->>'Name', ''),
+          NULLIF(c.custom_vars->>'name', ''),
+          cm.phone_e164
+        ) AS display_name,
         cm.contact_id,
         'open' AS status,
         0 AS unread_count,
@@ -64,8 +71,31 @@ router.get('/conversations', catchAsync(async (req, res) => {
       WHERE cm.status IN ('sent', 'delivered', 'read')
       ON CONFLICT (tenant_id, phone_e164) DO UPDATE
         SET last_message_at = GREATEST(inbox_conversations.last_message_at, EXCLUDED.last_message_at),
-            display_name = COALESCE(inbox_conversations.display_name, EXCLUDED.display_name),
             contact_id = COALESCE(inbox_conversations.contact_id, EXCLUDED.contact_id);
+
+      -- Reconcile directory names into inbox_conversations for all matched contacts
+      UPDATE inbox_conversations ic
+      SET 
+        contact_id = COALESCE(ic.contact_id, c.id),
+        display_name = COALESCE(
+          NULLIF(TRIM(c.first_name || ' ' || COALESCE(c.last_name, '')), ''),
+          NULLIF(c.first_name, ''),
+          NULLIF(c.last_name, ''),
+          NULLIF(c.custom_vars->>'Name', ''),
+          NULLIF(c.custom_vars->>'name', ''),
+          NULLIF(c.custom_vars->>'Full Name', ''),
+          ic.display_name
+        )
+      FROM contacts c
+      WHERE c.tenant_id = ic.tenant_id
+        AND (c.id = ic.contact_id OR c.phone_e164 = ic.phone_e164 OR RIGHT(c.phone_e164, 10) = RIGHT(ic.phone_e164, 10))
+        AND COALESCE(
+          NULLIF(TRIM(c.first_name || ' ' || COALESCE(c.last_name, '')), ''),
+          NULLIF(c.first_name, ''),
+          NULLIF(c.last_name, ''),
+          NULLIF(c.custom_vars->>'Name', ''),
+          NULLIF(c.custom_vars->>'name', '')
+        ) IS NOT NULL;
 
       INSERT INTO inbox_messages (conversation_id, tenant_id, wa_message_id, direction, message_type, body, status, created_at, metadata)
       SELECT
@@ -130,7 +160,20 @@ router.get('/conversations', catchAsync(async (req, res) => {
 
   if (search) {
     params.push(`%${search}%`);
-    conditions.push(`(c.display_name ILIKE $${params.length} OR c.phone_e164 ILIKE $${params.length})`);
+    conditions.push(`(
+      c.display_name ILIKE $${params.length} 
+      OR c.phone_e164 ILIKE $${params.length}
+      OR EXISTS (
+        SELECT 1 FROM contacts ct 
+        WHERE ct.tenant_id = c.tenant_id 
+          AND (ct.id = c.contact_id OR ct.phone_e164 = c.phone_e164 OR RIGHT(ct.phone_e164, 10) = RIGHT(c.phone_e164, 10))
+          AND (
+            ct.first_name ILIKE $${params.length} 
+            OR ct.last_name ILIKE $${params.length}
+            OR ct.custom_vars->>'Name' ILIKE $${params.length}
+          )
+      )
+    )`);
   }
 
   const WHERE = conditions.join(' AND ');
@@ -142,15 +185,39 @@ router.get('/conversations', catchAsync(async (req, res) => {
   );
   const total = parseInt(countRows[0]?.total || 0);
 
-  // Data query — join assigned agent info
+  // Data query — join directory contact info and assigned agent info
   params.push(parseInt(limit), offset);
   const { rows } = await query(
     `SELECT
        c.*,
+       COALESCE(
+         NULLIF(TRIM(ct.first_name || ' ' || COALESCE(ct.last_name, '')), ''),
+         NULLIF(ct.first_name, ''),
+         NULLIF(ct.last_name, ''),
+         NULLIF(ct.custom_vars->>'Name', ''),
+         NULLIF(ct.custom_vars->>'name', ''),
+         NULLIF(ct.custom_vars->>'Full Name', ''),
+         NULLIF(c.display_name, ''),
+         c.phone_e164
+       ) AS display_name,
+       NULLIF(TRIM(ct.first_name || ' ' || COALESCE(ct.last_name, '')), '') AS directory_name,
+       c.display_name AS profile_name,
        u.first_name  AS assigned_first,
        u.last_name   AS assigned_last,
        u.email       AS assigned_email
      FROM inbox_conversations c
+     LEFT JOIN LATERAL (
+       SELECT first_name, last_name, custom_vars
+       FROM contacts
+       WHERE tenant_id = c.tenant_id
+         AND (
+           id = c.contact_id
+           OR phone_e164 = c.phone_e164
+           OR RIGHT(phone_e164, 10) = RIGHT(c.phone_e164, 10)
+         )
+       ORDER BY (id = c.contact_id) DESC, (phone_e164 = c.phone_e164) DESC
+       LIMIT 1
+     ) ct ON true
      LEFT JOIN users u ON u.id = c.assigned_to
      WHERE ${WHERE}
      ORDER BY c.last_message_at DESC NULLS LAST
@@ -488,11 +555,17 @@ router.post('/conversations/initiate', catchAsync(async (req, res) => {
 
   // Find contact name if available
   const { rows: contactRows } = await query(
-    `SELECT id, first_name, last_name, display_name FROM contacts WHERE (tenant_id = $1 OR $1 IS NULL) AND phone_e164 = $2 LIMIT 1`,
+    `SELECT id, first_name, last_name, display_name, custom_vars 
+     FROM contacts 
+     WHERE (tenant_id = $1 OR $1 IS NULL) 
+       AND (phone_e164 = $2 OR RIGHT(phone_e164, 10) = RIGHT($2, 10))
+     LIMIT 1`,
     [tenantId, cleanPhone]
   );
   const contact = contactRows[0];
-  const displayName = contact?.display_name || (contact?.first_name ? `${contact.first_name} ${contact.last_name || ''}`.trim() : null);
+  const displayName = contact
+    ? ([contact.first_name, contact.last_name].filter(Boolean).join(' ').trim() || contact.first_name || contact.custom_vars?.Name || contact.custom_vars?.name || contact.display_name)
+    : null;
 
   // Get or create conversation
   const { rows: [conv] } = await query(
@@ -500,8 +573,8 @@ router.post('/conversations/initiate', catchAsync(async (req, res) => {
        (tenant_id, phone_e164, display_name, contact_id, status, unread_count, last_message_at)
      VALUES ($1, $2, $3, $4, 'open', 0, NOW())
      ON CONFLICT (tenant_id, phone_e164) DO UPDATE
-       SET display_name = COALESCE(inbox_conversations.display_name, $3),
-           contact_id = COALESCE(inbox_conversations.contact_id, $4),
+       SET display_name = COALESCE($3, inbox_conversations.display_name),
+           contact_id = COALESCE($4, inbox_conversations.contact_id),
            updated_at = NOW()
      RETURNING *`,
     [tenantId, cleanPhone, displayName, contact?.id || null]
