@@ -57,7 +57,7 @@ We offer *Individual & Family Plans* with access to:
 • Swimming Pool & Coaching
 • Badminton Courts & Gymnasium
 
-For card renewals, member details, or new additions, please visit our *Club Reception Desk* during operational hours.
+For more details and assistance, please visit our *Club Reception Desk* during operational hours.
 ━━━━━━━━━━━━━━━━━━
 _Our team is delighted to assist you!_`;
 
