@@ -79,25 +79,28 @@ router.post(['/', '/whatsapp'], (req, res) => {
   setImmediate(async () => {
     try {
       const payload = JSON.parse(rawBody.toString());
-      const entry   = payload?.entry?.[0];
-      const changes = entry?.changes?.[0];
-      const value   = changes?.value;
-
-      if (!value) return;
-
+      const entries = payload?.entry || [];
       const broadcastToTenant = req.app.get('broadcastToTenant');
 
-      // ── 1. INBOUND MESSAGES ────────────────────────────────────
-      if (value.messages?.length) {
-        for (const msg of value.messages) {
-          await handleInboundMessage(msg, value, broadcastToTenant);
-        }
-      }
+      for (const entry of entries) {
+        const changes = entry?.changes || [];
+        for (const change of changes) {
+          const value = change?.value;
+          if (!value) continue;
 
-      // ── 2. DELIVERY STATUS UPDATES ─────────────────────────────
-      if (value.statuses?.length) {
-        for (const status of value.statuses) {
-          await handleStatusUpdate(status, broadcastToTenant);
+          // ── 1. INBOUND MESSAGES ────────────────────────────────────
+          if (value.messages?.length) {
+            for (const msg of value.messages) {
+              await handleInboundMessage(msg, value, broadcastToTenant);
+            }
+          }
+
+          // ── 2. DELIVERY STATUS UPDATES ─────────────────────────────
+          if (value.statuses?.length) {
+            for (const status of value.statuses) {
+              await handleStatusUpdate(status, broadcastToTenant);
+            }
+          }
         }
       }
     } catch (err) {
@@ -157,9 +160,13 @@ async function handleInboundMessage(msg, value, broadcastToTenant) {
     case 'reaction':
       body = `${msg.reaction?.emoji || '👍'} reaction`;
       break;
+    case 'button':
+      body = msg.button?.text || msg.button?.payload || '[button]';
+      break;
     case 'interactive':
       body = msg.interactive?.button_reply?.title ||
-             msg.interactive?.list_reply?.title   || '[interactive]';
+             msg.interactive?.list_reply?.title   ||
+             msg.interactive?.nfm_reply?.response_json || '[interactive]';
       break;
     case 'order':
       body = `🛒 Order received (${msg.order?.product_items?.length || 0} items)`;
@@ -305,6 +312,35 @@ async function handleInboundMessage(msg, value, broadcastToTenant) {
      WHERE tenant_id = $1 AND phone_e164 = $2`,
     [tenantId, conv.phone_e164, `Inbound WA message ${waMessageId}`]
   );
+
+  // ── Auto-promote preceding outbound messages to read ─────────
+  // Since customer replied or clicked a quick reply button, previous outbound
+  // messages were successfully delivered and read.
+  try {
+    const { rows: promotedOutbound } = await query(
+      `UPDATE inbox_messages
+       SET status = 'read', updated_at = NOW()
+       WHERE conversation_id = $1 AND direction = 'outbound' AND status IN ('sent', 'delivered')
+       RETURNING id, wa_message_id`,
+      [conv.id]
+    );
+
+    if (promotedOutbound.length && typeof broadcastToTenant === 'function') {
+      for (const p of promotedOutbound) {
+        broadcastToTenant(tenantId, {
+          type: 'message_status_update',
+          data: {
+            id: p.id,
+            conversation_id: conv.id,
+            wa_message_id: p.wa_message_id,
+            status: 'read',
+          },
+        });
+      }
+    }
+  } catch (promoErr) {
+    logger.warn('Failed to auto-promote outbound messages to read', { error: promoErr.message });
+  }
 
   logger.info('Inbound message saved', {
     tenantId,

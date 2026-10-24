@@ -81,8 +81,9 @@ router.get('/conversations', catchAsync(async (req, res) => {
       JOIN inbox_conversations ic ON ic.tenant_id = cm.tenant_id AND ic.phone_e164 = cm.phone_e164
       LEFT JOIN campaigns camp ON camp.id = cm.campaign_id
       LEFT JOIN message_templates mt ON mt.id = camp.template_id
-      WHERE cm.meta_message_id IS NOT NULL AND cm.status IN ('sent', 'delivered', 'read')
-      ON CONFLICT (wa_message_id) DO NOTHING;
+      ON CONFLICT (wa_message_id) DO UPDATE
+        SET status = EXCLUDED.status
+        WHERE inbox_messages.status = 'sent' AND EXCLUDED.status IN ('delivered', 'read');
     `);
   } catch (syncErr) {
     // Non-blocking sync

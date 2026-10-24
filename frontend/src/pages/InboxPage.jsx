@@ -421,9 +421,20 @@ function MessageBubble({ msg }) {
         {msg.sender_name && !isOut && (
           <p className="text-[11px] font-bold mb-1 text-[#534AB7] tracking-tight">{msg.sender_name}</p>
         )}
-        <p className={clsx('text-sm leading-relaxed whitespace-pre-wrap break-words', isOut ? 'text-white' : 'text-slate-800')}>
-          {msg.body}
-        </p>
+        {msg.message_type === 'button' || msg.type === 'button' ? (
+          <div className="flex items-center gap-1.5 py-0.5">
+            <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-indigo-50 text-[#534AB7] text-xs font-bold shrink-0">
+              🔘
+            </span>
+            <span className="text-sm font-semibold text-slate-800 break-words">
+              {msg.body || 'Quick Reply selected'}
+            </span>
+          </div>
+        ) : (
+          <p className={clsx('text-sm leading-relaxed whitespace-pre-wrap break-words', isOut ? 'text-white' : 'text-slate-800')}>
+            {msg.body || (isOut ? '[Outbound Message]' : '[Quick Reply response]')}
+          </p>
+        )}
         <div className="flex items-center justify-end gap-1.5 mt-1 select-none" title={fullDateTime}>
           <span className={clsx('text-[10px] font-medium tracking-tight', isOut ? 'text-white/75' : 'text-slate-400')}>
             {formattedDateTime}
