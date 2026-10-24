@@ -409,13 +409,15 @@ function getMessageTemplateInfo(msg, templates = []) {
   if (!msg) return null;
 
   // 1. Direct metadata from DB if available
-  if (msg.metadata && (msg.metadata.buttons || msg.metadata.template_name)) {
+  if (msg.metadata && (msg.metadata.buttons || msg.metadata.template_name || msg.metadata.header_text || msg.metadata.header_sample_url)) {
+    const metaHeaderUrl = msg.metadata.header_sample_url || msg.metadata.header_url || msg.media_url;
     return {
       name: msg.metadata.template_name,
       buttons: Array.isArray(msg.metadata.buttons) ? msg.metadata.buttons : [],
       footerText: msg.metadata.footer_text || msg.metadata.footer,
       headerText: msg.metadata.header_text,
-      headerUrl: msg.metadata.header_sample_url || msg.metadata.header_url || msg.media_url,
+      headerType: String(msg.metadata.header_type || (metaHeaderUrl ? 'IMAGE' : msg.metadata.header_text ? 'TEXT' : 'NONE')).toUpperCase(),
+      headerUrl: metaHeaderUrl,
     };
   }
 
@@ -429,6 +431,9 @@ function getMessageTemplateInfo(msg, templates = []) {
       ? t.buttons
       : (typeof t.buttons === 'string' ? JSON.parse(t.buttons || '[]') : []);
 
+    const resolvedHeaderUrl = t.header_sample_url || t.header_url || (t.header_type === 'IMAGE' ? t.header_sample_url : null) || msg.media_url;
+    const resolvedHeaderType = String(t.header_type || (resolvedHeaderUrl ? 'IMAGE' : t.header_text ? 'TEXT' : 'NONE')).toUpperCase();
+
     // A. Check if body explicitly states "Template: <name>"
     if (trimmedBody === `Template: ${t.name}` || trimmedBody === t.name) {
       return {
@@ -436,7 +441,8 @@ function getMessageTemplateInfo(msg, templates = []) {
         buttons: tButtons,
         footerText: t.footer_text,
         headerText: t.header_text,
-        headerUrl: t.header_sample_url || (t.header_type === 'IMAGE' ? t.header_sample_url : null),
+        headerType: resolvedHeaderType,
+        headerUrl: resolvedHeaderUrl,
         bodyText: t.body_text,
       };
     }
@@ -456,7 +462,8 @@ function getMessageTemplateInfo(msg, templates = []) {
           buttons: tButtons,
           footerText: t.footer_text,
           headerText: t.header_text,
-          headerUrl: t.header_sample_url || (t.header_type === 'IMAGE' ? t.header_sample_url : null),
+          headerType: resolvedHeaderType,
+          headerUrl: resolvedHeaderUrl,
         };
       }
     } catch (_) {}
@@ -473,7 +480,8 @@ function getMessageTemplateInfo(msg, templates = []) {
         buttons: tButtons,
         footerText: t.footer_text,
         headerText: t.header_text,
-        headerUrl: t.header_sample_url || (t.header_type === 'IMAGE' ? t.header_sample_url : null),
+        headerType: resolvedHeaderType,
+        headerUrl: resolvedHeaderUrl,
       };
     }
   }
@@ -491,6 +499,8 @@ function MessageBubble({ msg, templates = [] }) {
   const templateInfo = getMessageTemplateInfo(msg, templates);
   const buttons = templateInfo?.buttons || [];
   const footerText = templateInfo?.footerText;
+  const headerText = templateInfo?.headerText;
+  const headerType = templateInfo?.headerType || '';
   const headerUrl = templateInfo?.headerUrl || msg.media_url;
 
   // If body is just "Template: name" but we found template body, show full rich text
@@ -506,15 +516,49 @@ function MessageBubble({ msg, templates = [] }) {
           ? 'rounded-tr-xs bg-gradient-to-r from-[#534AB7] to-[#4338CA] text-white'
           : 'rounded-tl-xs bg-white text-slate-900 border border-slate-200/90'
       )}>
-        {/* Optional Header Image Preview */}
-        {headerUrl && (
-          <div className="w-full max-h-48 overflow-hidden bg-black/10 border-b border-white/10">
+        {/* Optional Media Header (Image, Video, Document) */}
+        {headerUrl && (headerType === 'IMAGE' || !headerType || headerType === 'NONE') && (
+          <div className="w-full overflow-hidden bg-black/10 border-b border-white/10">
             <img
               src={headerUrl}
               alt="Template Header"
-              className="w-full h-auto object-cover max-h-48"
-              onError={(e) => { e.target.style.display = 'none'; }}
+              className="w-full max-h-56 object-cover"
+              onError={(e) => {
+                if (e.target && e.target.parentElement) {
+                  e.target.parentElement.style.display = 'none';
+                }
+              }}
             />
+          </div>
+        )}
+
+        {headerType === 'VIDEO' && headerUrl && (
+          <div className="w-full overflow-hidden bg-black/20 border-b border-white/10">
+            <video
+              src={headerUrl}
+              controls
+              className="w-full max-h-56 object-cover"
+            />
+          </div>
+        )}
+
+        {headerType === 'DOCUMENT' && (
+          <div className={clsx(
+            'px-3.5 py-2.5 border-b flex items-center gap-2.5 text-xs font-semibold',
+            isOut ? 'bg-black/15 border-white/15 text-white' : 'bg-slate-100 border-slate-200 text-slate-800'
+          )}>
+            <span className="text-xl shrink-0">📄</span>
+            <span className="truncate flex-1">{headerText || 'Attached Document'}</span>
+            {headerUrl && (
+              <a
+                href={headerUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[11px] underline opacity-85 hover:opacity-100 shrink-0"
+              >
+                Open
+              </a>
+            )}
           </div>
         )}
 
@@ -522,6 +566,16 @@ function MessageBubble({ msg, templates = [] }) {
         <div className="px-4 py-2.5">
           {msg.sender_name && !isOut && (
             <p className="text-[11px] font-bold mb-1 text-[#534AB7] tracking-tight">{msg.sender_name}</p>
+          )}
+
+          {/* WhatsApp Text Header (Rendered as bold title at top of body) */}
+          {headerText && headerType !== 'DOCUMENT' && (
+            <div className={clsx(
+              'font-bold text-[13px] sm:text-sm tracking-tight border-b pb-1 mb-1.5',
+              isOut ? 'text-white border-white/15' : 'text-slate-900 border-slate-200'
+            )}>
+              {headerText}
+            </div>
           )}
 
           {msg.message_type === 'button' || msg.type === 'button' ? (

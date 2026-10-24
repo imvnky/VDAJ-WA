@@ -83,7 +83,8 @@ router.get('/conversations', catchAsync(async (req, res) => {
           'buttons', COALESCE(mt.buttons, '[]'::jsonb),
           'footer_text', mt.footer_text,
           'header_text', mt.header_text,
-          'header_sample_url', mt.header_sample_url
+          'header_type', mt.header_type,
+          'header_sample_url', COALESCE(camp.header_url, mt.header_sample_url)
         )
       FROM campaign_messages cm
       JOIN inbox_conversations ic ON ic.tenant_id = cm.tenant_id AND ic.phone_e164 = cm.phone_e164
