@@ -15,6 +15,7 @@ const { campaignValidators, uuidParamValidator, validate } = require('../middlew
 const AppError = require('../utils/AppError');
 const { enqueueCampaign } = require('../workers/messageWorker');
 const { recordAudit } = require('../services/auditService');
+const logger = require('../utils/logger');
 
 // All campaign routes require authentication
 router.use(authenticate);
@@ -282,7 +283,7 @@ router.get('/messages', catchAsync(async (req, res) => {
     // Reconcile delivery statuses before querying
     await query(
       `UPDATE campaign_messages cm
-       SET status = im.status,
+       SET status = im.status::message_status,
            delivered_at = COALESCE(cm.delivered_at, NOW()),
            read_at = CASE WHEN im.status = 'read' THEN COALESCE(cm.read_at, NOW()) ELSE cm.read_at END,
            failed_at = CASE WHEN im.status = 'failed' THEN COALESCE(cm.failed_at, NOW()) ELSE cm.failed_at END,
@@ -293,7 +294,7 @@ router.get('/messages', catchAsync(async (req, res) => {
        WHERE cm.campaign_id = $1
          AND cm.meta_message_id = im.wa_message_id
          AND im.status IN ('delivered', 'read', 'failed')
-         AND cm.status != im.status`,
+         AND cm.status::text != im.status::text`,
       [campaign_id]
     ).catch(() => {});
   }
@@ -381,7 +382,7 @@ router.get('/:id', uuidParamValidator('id'), validate, catchAsync(async (req, re
   // Reconcile delivery statuses from inbox_messages (delivered, read, failed)
   await query(
     `UPDATE campaign_messages cm
-     SET status = im.status,
+     SET status = im.status::message_status,
          delivered_at = COALESCE(cm.delivered_at, NOW()),
          read_at = CASE WHEN im.status = 'read' THEN COALESCE(cm.read_at, NOW()) ELSE cm.read_at END,
          failed_at = CASE WHEN im.status = 'failed' THEN COALESCE(cm.failed_at, NOW()) ELSE cm.failed_at END,
@@ -392,7 +393,7 @@ router.get('/:id', uuidParamValidator('id'), validate, catchAsync(async (req, re
      WHERE cm.campaign_id = $1
        AND cm.meta_message_id = im.wa_message_id
        AND im.status IN ('delivered', 'read', 'failed')
-       AND cm.status != im.status`,
+       AND cm.status::text != im.status::text`,
     [req.params.id]
   ).catch((err) => { logger.warn('Status reconciliation failed', { error: err?.message }); });
 
