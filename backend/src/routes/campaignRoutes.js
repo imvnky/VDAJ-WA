@@ -704,7 +704,7 @@ router.post('/:id/retry-failed', uuidParamValidator('id'), validate, catchAsync(
        LEFT JOIN contacts c ON c.id = cm.contact_id
        WHERE cm.campaign_id = $1
          AND cm.status NOT IN ('sent', 'delivered', 'read')
-       FOR UPDATE`,
+       FOR UPDATE OF cm`,
       [campaign.id]
     );
 
