@@ -5,8 +5,10 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { clsx } from 'clsx';
+import * as XLSX from 'xlsx';
 import { campaignApi, contactApi, templateApi, mediaApi } from '../lib/api';
-import { showSuccess, showError } from '../components/atoms/Toast/Toast.jsx';
+import useAuthStore from '../store/authStore';
+import { showSuccess, showError, showWarning } from '../components/atoms/Toast/Toast.jsx';
 import Button, { PrimaryButton, DangerButton, GhostButton, SecondaryButton } from '../components/atoms/Button/Button.jsx';
 import Input, { Select, Textarea } from '../components/atoms/Input/Input.jsx';
 import CampaignDetailView from '../components/organisms/CampaignDetailView.jsx';
@@ -35,6 +37,10 @@ function StatusBadge({ status }) {
 function WhatsAppPreview({ template, variables = {}, headerMediaUrl = '' }) {
   const now = new Date();
   const time = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const { tenant, impersonatedTenant } = useAuthStore();
+  const activeTenant = impersonatedTenant || tenant;
+  const tenantDisplayName = activeTenant?.name || 'SMR Swimming Pool & Health Club';
+  const tenantInitial = (tenantDisplayName[0] || 'S').toUpperCase();
 
   // Interpolate variables into template body
   const getInterpolatedBody = () => {
@@ -75,10 +81,10 @@ function WhatsAppPreview({ template, variables = {}, headerMediaUrl = '' }) {
       {/* WA Header */}
       <div className="flex items-center gap-3 px-4 py-3 bg-[#1F2C34] border-b border-white/5">
         <div className="w-8 h-8 rounded-full bg-[#534AB7] flex items-center justify-center text-xs font-bold text-white shrink-0">
-          V
+          {tenantInitial}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-semibold text-white truncate">VDAJ Services LLP</p>
+          <p className="text-xs font-semibold text-white truncate">{tenantDisplayName}</p>
           <p className="text-[10px] text-[#00A884]">Official Business Account</p>
         </div>
       </div>
@@ -146,16 +152,33 @@ function WhatsAppPreview({ template, variables = {}, headerMediaUrl = '' }) {
 }
 
 // ---- Composer Modal ----
-function ComposerModal({ onClose, onCreated, contactLists, templates }) {
+function ComposerModal({ onClose, onCreated, contactLists = [], templates = [] }) {
   const [form, setForm] = useState({
     name: '',
     templateId: '',
-    contactListId: '',
     variables: {},
     sendTiming: 'now', // 'now' | 'schedule'
     scheduledAt: '',
     interactive: false,
   });
+
+  // Audience Configuration
+  // 'lists': Select 1 or more contact groups (with automatic deduplication)
+  // 'all': Broadcast to all active tenant contacts
+  // 'adhoc_excel': Direct blast from uploaded Excel/CSV (zero contact directory pollution)
+  const [audienceType, setAudienceType] = useState('lists');
+  const [selectedListIds, setSelectedListIds] = useState(
+    contactLists && contactLists.length > 0 ? [contactLists[0].id] : []
+  );
+  const [audienceCount, setAudienceCount] = useState({ totalContacts: 0, uniqueContacts: 0, duplicates: 0 });
+  const [loadingAudienceCount, setLoadingAudienceCount] = useState(false);
+
+  // Adhoc Excel / CSV Direct Blast state
+  const [adhocRecipients, setAdhocRecipients] = useState([]);
+  const [adhocFileName, setAdhocFileName] = useState('');
+  const [parsingAdhoc, setParsingAdhoc] = useState(false);
+  const [adhocStats, setAdhocStats] = useState({ total: 0, valid: 0, invalid: 0 });
+
   const [headerMediaUrl, setHeaderMediaUrl] = useState('');
   const [uploadingMedia, setUploadingMedia] = useState(false);
   const [activeTab, setActiveTab] = useState('preview'); // 'preview' | 'excel_guide'
@@ -183,6 +206,184 @@ function ComposerModal({ onClose, onCreated, contactLists, templates }) {
 
   const [varSources, setVarSources] = useState({});
   const [fallbacks, setFallbacks] = useState({});
+
+  // Real-time Audience Count Query with Cross-Group Deduplication
+  useEffect(() => {
+    let isMounted = true;
+    if (audienceType === 'adhoc_excel') {
+      setAudienceCount({
+        totalContacts: adhocRecipients.length,
+        uniqueContacts: adhocRecipients.length,
+        duplicates: 0,
+      });
+      return;
+    }
+
+    if (audienceType === 'lists' && (!selectedListIds || selectedListIds.length === 0)) {
+      setAudienceCount({ totalContacts: 0, uniqueContacts: 0, duplicates: 0 });
+      return;
+    }
+
+    setLoadingAudienceCount(true);
+    campaignApi.getAudienceCount({
+      audienceType,
+      listIds: audienceType === 'lists' ? selectedListIds : [],
+    })
+      .then((res) => {
+        if (isMounted && res.data) {
+          setAudienceCount(res.data);
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (isMounted) setLoadingAudienceCount(false);
+      });
+
+    return () => { isMounted = false; };
+  }, [audienceType, selectedListIds, adhocRecipients.length]);
+
+  const toggleListId = (id) => {
+    setSelectedListIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
+
+  const toggleSelectAllLists = () => {
+    if (selectedListIds.length === contactLists.length) {
+      setSelectedListIds([]);
+    } else {
+      setSelectedListIds(contactLists.map((l) => l.id));
+    }
+  };
+
+  // Direct Blast: Parse Excel (.xlsx, .xls) or CSV (.csv) completely client-side
+  // NO contacts table insertion or pollution!
+  const handleAdhocFileUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setParsingAdhoc(true);
+    setAdhocFileName(file.name);
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const buffer = new Uint8Array(evt.target.result);
+        const workbook = XLSX.read(buffer, { type: 'array' });
+        const firstSheetName = workbook.SheetNames[0];
+        const sheet = workbook.Sheets[firstSheetName];
+        const rawJson = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+        if (!rawJson || rawJson.length < 2) {
+          showError('Uploaded file appears to be empty or has no data rows.');
+          setParsingAdhoc(false);
+          return;
+        }
+
+        const headers = rawJson[0].map((h) => String(h || '').trim().toLowerCase());
+        const phoneIdx = headers.findIndex((h) => /phone|mobile|cell|contact|number/i.test(h));
+        const nameIdx = headers.findIndex((h) => /name|firstname|fullname|customer/i.test(h));
+
+        if (phoneIdx === -1) {
+          showError('Could not find a "phone" or "mobile" column header in the file.');
+          setParsingAdhoc(false);
+          return;
+        }
+
+        const validList = [];
+        let invalidCount = 0;
+        const seenPhones = new Set();
+
+        for (let i = 1; i < rawJson.length; i++) {
+          const row = rawJson[i];
+          if (!row || !row.length) continue;
+          const rawPhone = String(row[phoneIdx] || '').trim();
+          if (!rawPhone) continue;
+
+          // Normalize digits
+          const digits = rawPhone.replace(/\D/g, '');
+          let cleanPhone = '';
+          if (digits.length === 10) {
+            cleanPhone = `+91${digits}`;
+          } else if (digits.length === 12 && digits.startsWith('91')) {
+            cleanPhone = `+${digits}`;
+          } else if (rawPhone.startsWith('+') && digits.length >= 7) {
+            cleanPhone = `+${digits}`;
+          } else if (digits.length >= 7) {
+            cleanPhone = `+${digits}`;
+          }
+
+          if (!cleanPhone || seenPhones.has(cleanPhone)) {
+            if (!cleanPhone) invalidCount++;
+            continue;
+          }
+          seenPhones.add(cleanPhone);
+
+          const recipientName = nameIdx >= 0 && row[nameIdx] ? String(row[nameIdx]).trim() : '';
+          const rowVars = {};
+          if (recipientName) {
+            rowVars['1'] = recipientName;
+            rowVars.name = recipientName;
+            rowVars.contact_name = recipientName;
+          }
+
+          // Map additional variable columns
+          headers.forEach((h, colIdx) => {
+            if (colIdx !== phoneIdx && colIdx !== nameIdx && row[colIdx] != null) {
+              const val = String(row[colIdx]).trim();
+              if (val) {
+                const varMatch = h.match(/^var(\d+)$/i) || h.match(/^(\d+)$/);
+                if (varMatch) {
+                  rowVars[varMatch[1]] = val;
+                } else {
+                  rowVars[h] = val;
+                }
+              }
+            }
+          });
+
+          validList.push({
+            phone: cleanPhone,
+            name: recipientName,
+            vars: rowVars,
+          });
+        }
+
+        setAdhocRecipients(validList);
+        setAdhocStats({
+          total: rawJson.length - 1,
+          valid: validList.length,
+          invalid: invalidCount,
+        });
+
+        if (validList.length > 0) {
+          showSuccess(`Parsed ${validList.length} valid unique recipients! (Will not touch Contacts directory)`);
+        } else {
+          showError('No valid phone numbers found in file.');
+        }
+      } catch (err) {
+        showError(`Failed to parse file: ${err.message}`);
+      } finally {
+        setParsingAdhoc(false);
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
+  // Download Sample Excel Template
+  const handleDownloadSampleTemplate = () => {
+    const wb = XLSX.utils.book_new();
+    const wsData = [
+      ['phone', 'name', 'var1', 'var2'],
+      ['919876543210', 'Rajesh Sharma', 'Rajesh', '15% Discount'],
+      ['919864008174', 'Priya Patel', 'Priya', 'Free Consultation'],
+      ['919970364001', 'Vikram Joshi', 'Vikram', 'Special VIP Pass'],
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    XLSX.utils.book_append_sheet(wb, ws, 'Direct Blast Sample');
+    XLSX.writeFile(wb, 'VDAJ_Direct_Blast_Sample.xlsx');
+    showSuccess('Sample Excel template downloaded.');
+  };
 
   // Auto-initialize variable sources and defaults whenever a template with variables is chosen
   useEffect(() => {
@@ -243,9 +444,17 @@ function ComposerModal({ onClose, onCreated, contactLists, templates }) {
       showError('Please select an approved WhatsApp template for this campaign.', 'ERR_VDAJ_VAL_006');
       return;
     }
-    if (!form.contactListId) {
-      showError('Please select a contact audience list.', 'ERR_VDAJ_VAL_007');
-      return;
+
+    if (audienceType === 'lists') {
+      if (!selectedListIds || selectedListIds.length === 0) {
+        showError('Please select at least one contact group for this campaign.', 'ERR_VDAJ_VAL_007');
+        return;
+      }
+    } else if (audienceType === 'adhoc_excel') {
+      if (!adhocRecipients || adhocRecipients.length === 0) {
+        showError('Please upload an Excel or CSV file with at least one valid recipient.', 'ERR_VDAJ_VAL_007');
+        return;
+      }
     }
 
     setLoading(true);
@@ -267,16 +476,33 @@ function ComposerModal({ onClose, onCreated, contactLists, templates }) {
         campaignVariables.headerType = selectedTemplate?.header_type || 'IMAGE';
       }
 
-      const res = await campaignApi.create({
+      const payload = {
         name: form.name,
         templateId: form.templateId,
-        contactListId: form.contactListId,
+        audienceType,
+        contactListId: audienceType === 'lists' ? selectedListIds[0] : undefined,
+        contactListIds: audienceType === 'lists' ? selectedListIds : undefined,
+        adhocRecipients: audienceType === 'adhoc_excel' ? adhocRecipients : undefined,
         templateVariables: campaignVariables,
         headerUrl: headerMediaUrl || undefined,
         headerType: selectedTemplate?.header_type || (headerMediaUrl ? 'IMAGE' : undefined),
         scheduledAt: form.sendTiming === 'schedule' && form.scheduledAt ? new Date(form.scheduledAt).toISOString() : undefined,
-      });
-      showSuccess('Campaign created successfully!');
+      };
+
+      const res = await campaignApi.create(payload);
+
+      // If user selected "Send Immediately", launch the campaign directly!
+      if (form.sendTiming === 'now' && res.data?.id) {
+        try {
+          await campaignApi.launch(res.data.id);
+          showSuccess('Campaign created and launched successfully!');
+        } catch (launchErr) {
+          showWarning('Campaign created, but launch could not proceed automatically. You can launch it from the campaign details.');
+        }
+      } else {
+        showSuccess('Campaign created and scheduled successfully!');
+      }
+
       onCreated(res.data);
       onClose();
     } catch {
@@ -556,23 +782,225 @@ function ComposerModal({ onClose, onCreated, contactLists, templates }) {
               )}
             </div>
 
-            {/* 3. Recipients (Audience) */}
-            <div className="space-y-1.5 pt-2 border-t border-[#E2E8F0]">
-              <label className="text-xs font-semibold text-[#0F172A] uppercase tracking-wider">
-                Recipients (Contact Audience) *
-              </label>
-              <Select
-                placeholder="Select a contact audience list…"
-                value={form.contactListId}
-                onChange={(e) => set('contactListId', e.target.value)}
-                options={contactLists.map((l) => ({
-                  value: l.id,
-                  label: `${l.name} (${l.contact_count || 0} active contacts)`,
-                }))}
-              />
-              <p className="text-[11px] text-[#64748B]">
-                Upload CSV lists with <code className="text-[#534AB7] font-mono">phone</code>, <code className="text-[#534AB7] font-mono">name</code>, and optional variable columns in the <strong>Contacts</strong> page.
-              </p>
+            {/* 3. Recipients (Audience Configuration) */}
+            <div className="space-y-3 pt-3 border-t border-[#E2E8F0]">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-semibold text-[#0F172A] uppercase tracking-wider">
+                  Target Audience *
+                </label>
+                {audienceType === 'lists' && (
+                  <button
+                    type="button"
+                    onClick={toggleSelectAllLists}
+                    className="text-[11px] font-bold text-[#534AB7] hover:underline"
+                  >
+                    {selectedListIds.length === contactLists.length ? 'Deselect All' : 'Select All Groups'}
+                  </button>
+                )}
+              </div>
+
+              {/* Audience Mode Segmented Selector */}
+              <div className="grid grid-cols-3 gap-1 bg-[#F1F5F9] p-1 rounded-xl text-xs font-semibold">
+                <button
+                  type="button"
+                  onClick={() => setAudienceType('lists')}
+                  className={clsx(
+                    'py-2 px-2 rounded-lg transition-all text-center flex items-center justify-center gap-1.5',
+                    audienceType === 'lists'
+                      ? 'bg-white text-[#0F172A] shadow-sm font-bold'
+                      : 'text-[#64748B] hover:text-[#0F172A]'
+                  )}
+                >
+                  <span>👥</span>
+                  <span className="truncate">Contact Groups</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAudienceType('all')}
+                  className={clsx(
+                    'py-2 px-2 rounded-lg transition-all text-center flex items-center justify-center gap-1.5',
+                    audienceType === 'all'
+                      ? 'bg-white text-[#0F172A] shadow-sm font-bold'
+                      : 'text-[#64748B] hover:text-[#0F172A]'
+                  )}
+                >
+                  <span>🌐</span>
+                  <span className="truncate">All Contacts</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAudienceType('adhoc_excel')}
+                  className={clsx(
+                    'py-2 px-2 rounded-lg transition-all text-center flex items-center justify-center gap-1.5',
+                    audienceType === 'adhoc_excel'
+                      ? 'bg-white text-[#0F172A] shadow-sm font-bold'
+                      : 'text-[#64748B] hover:text-[#0F172A]'
+                  )}
+                >
+                  <span>⚡</span>
+                  <span className="truncate">Direct Blast (Excel)</span>
+                </button>
+              </div>
+
+              {/* Mode A: Contact Groups (Multi-Select with deduplication) */}
+              {audienceType === 'lists' && (
+                <div className="space-y-3">
+                  {contactLists.length === 0 ? (
+                    <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800">
+                      No contact groups found. You can create groups in the Contacts directory or use <strong>Direct Blast</strong> to send from an Excel file immediately.
+                    </div>
+                  ) : (
+                    <div className="max-h-44 overflow-y-auto space-y-1.5 pr-1 border border-[#E2E8F0] rounded-xl p-2.5 bg-[#F8FAFC]">
+                      {contactLists.map((list) => {
+                        const isChecked = selectedListIds.includes(list.id);
+                        return (
+                          <label
+                            key={list.id}
+                            className={clsx(
+                              'flex items-center justify-between p-2 rounded-lg cursor-pointer transition-colors border',
+                              isChecked
+                                ? 'bg-white border-[#534AB7]/40 shadow-xs'
+                                : 'bg-transparent border-transparent hover:bg-white/60'
+                            )}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={() => toggleListId(list.id)}
+                                className="w-4 h-4 rounded text-[#534AB7] focus:ring-[#534AB7] border-[#CBD5E1]"
+                              />
+                              <span className="text-xs font-semibold text-[#0F172A] truncate">
+                                {list.name}
+                              </span>
+                            </div>
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#E2E8F0] text-[#475569] shrink-0">
+                              {list.contact_count || 0} contacts
+                            </span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Real-time Audience Summary Badge */}
+                  <div className="p-3 rounded-xl bg-[#F0FDF4] border border-[#BBF7D0] flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2">
+                      <span className="text-base">🎯</span>
+                      <div>
+                        <div className="font-bold text-[#166534]">
+                          {loadingAudienceCount
+                            ? 'Calculating deduplicated audience…'
+                            : `Total Audience: ${audienceCount.uniqueContacts} unique contacts`}
+                        </div>
+                        {audienceCount.duplicates > 0 && (
+                          <p className="text-[11px] text-[#15803D] mt-0.5">
+                            Auto-deduplicated: <strong>{audienceCount.duplicates}</strong> overlapping contact(s) across selected groups removed automatically.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#DCFCE7] text-[#15803D] border border-[#86EFAC] shrink-0">
+                      ✓ No Double Messages
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Mode B: All Workspace Contacts */}
+              {audienceType === 'all' && (
+                <div className="p-3.5 rounded-xl bg-[#EFF6FF] border border-[#BFDBFE] space-y-2 text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-[#1E40AF] flex items-center gap-1.5">
+                      <span>🌐</span> Workspace Broadcast
+                    </span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#DBEAFE] text-[#1D4ED8] border border-[#93C5FD]">
+                      {loadingAudienceCount ? '...' : `${audienceCount.uniqueContacts} Active Contacts`}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-[#1E3A8A] leading-relaxed">
+                    Broadcasts this template to every active phone number currently registered in your workspace without needing separate groups.
+                  </p>
+                </div>
+              )}
+
+              {/* Mode C: Direct Blast from Excel / CSV (Zero Pollution) */}
+              {audienceType === 'adhoc_excel' && (
+                <div className="space-y-3">
+                  <div className="p-3 rounded-xl bg-[#ECFDF5] border border-[#A7F3D0] text-xs flex items-start gap-2.5">
+                    <span className="text-base shrink-0">🛡️</span>
+                    <div>
+                      <p className="font-bold text-[#065F46]">Direct Blast: Zero Contacts Directory Pollution</p>
+                      <p className="text-[11px] text-[#047857] leading-relaxed mt-0.5">
+                        These numbers are processed directly from your file for this campaign only. They will <strong>NOT</strong> be saved or added to your permanent Contacts directory.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="p-4 bg-[#F8FAFC] border-2 border-dashed border-[#CBD5E1] rounded-xl hover:border-[#534AB7] transition-colors text-center">
+                    <label className="cursor-pointer block">
+                      <div className="flex flex-col items-center justify-center gap-1.5">
+                        <span className="text-2xl">📊</span>
+                        <span className="text-xs font-bold text-[#0F172A]">
+                          {adhocFileName ? adhocFileName : 'Choose Excel (.xlsx, .xls) or CSV (.csv)'}
+                        </span>
+                        <span className="text-[11px] text-[#64748B]">
+                          {parsingAdhoc ? 'Parsing recipients and variables...' : 'Click to select file or drag here'}
+                        </span>
+                      </div>
+                      <input
+                        type="file"
+                        accept=".xlsx, .xls, .csv"
+                        onChange={handleAdhocFileUpload}
+                        disabled={parsingAdhoc}
+                        className="sr-only"
+                      />
+                    </label>
+                  </div>
+
+                  {adhocRecipients.length > 0 && (
+                    <div className="p-3 bg-white border border-[#E2E8F0] rounded-xl space-y-2 text-xs shadow-sm">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-[#0F172A] flex items-center gap-1.5">
+                          <span className="text-green-600">✓</span> {adhocRecipients.length} Valid Recipients Ready
+                        </span>
+                        {adhocStats.invalid > 0 && (
+                          <span className="text-[10px] text-amber-600 font-semibold">
+                            ({adhocStats.invalid} invalid/duplicate skipped)
+                          </span>
+                        )}
+                      </div>
+                      <div className="max-h-28 overflow-y-auto border border-[#E2E8F0] rounded-lg">
+                        <table className="w-full text-[11px] text-left">
+                          <thead className="bg-[#F8FAFC] text-[#64748B] font-semibold sticky top-0">
+                            <tr>
+                              <th className="p-1.5">Phone</th>
+                              <th className="p-1.5">Name</th>
+                              <th className="p-1.5">Variables</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-[#E2E8F0]">
+                            {adhocRecipients.slice(0, 4).map((r, i) => (
+                              <tr key={i}>
+                                <td className="p-1.5 font-mono text-[10px]">{r.phone}</td>
+                                <td className="p-1.5">{r.name || '-'}</td>
+                                <td className="p-1.5 font-mono text-[10px] text-[#534AB7]">
+                                  {Object.keys(r.vars || {}).length ? JSON.stringify(r.vars) : '-'}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      {adhocRecipients.length > 4 && (
+                        <p className="text-[10px] text-[#64748B] text-center italic">
+                          + {adhocRecipients.length - 4} more recipients in file
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* 4. Interactive Campaign Toggle */}
@@ -678,11 +1106,11 @@ function ComposerModal({ onClose, onCreated, contactLists, templates }) {
                 />
               </div>
             ) : (
-              <div className="bg-[#FFFFFF] border border-[#E2E8F0] rounded-xl p-4 text-xs space-y-3 shadow-sm">
+              <div className="bg-[#FFFFFF] border border-[#E2E8F0] rounded-xl p-4 text-xs space-y-3.5 shadow-sm">
                 <div>
-                  <h4 className="font-bold text-[#0F172A] mb-1">Excel / CSV Format</h4>
+                  <h4 className="font-bold text-[#0F172A] mb-1">Excel & CSV File Format</h4>
                   <p className="text-[11px] text-[#64748B]">
-                    First row must be column headers. <code className="text-[#534AB7] font-mono">phone</code> is required.
+                    Row 1 must be headers. <code className="text-[#534AB7] font-mono font-bold">phone</code> is required. All other columns are mapped to template variables.
                   </p>
                 </div>
 
@@ -701,21 +1129,33 @@ function ComposerModal({ onClose, onCreated, contactLists, templates }) {
                         <td className="p-1.5 font-mono text-[10px]">919876543210</td>
                         <td className="p-1.5">Rajesh</td>
                         <td className="p-1.5">Rajesh</td>
-                        <td className="p-1.5">10%</td>
+                        <td className="p-1.5">15% Off</td>
                       </tr>
                       <tr>
                         <td className="p-1.5 font-mono text-[10px]">919864008174</td>
                         <td className="p-1.5">Priya</td>
                         <td className="p-1.5">Priya</td>
-                        <td className="p-1.5">20%</td>
+                        <td className="p-1.5">Free Pass</td>
                       </tr>
                     </tbody>
                   </table>
                 </div>
 
-                <p className="text-[11px] text-[#64748B] leading-relaxed">
-                  <span className="text-[#534AB7] font-semibold">var1</span> fills <code className="font-mono">{"{{1}}"}</code>, <span className="text-[#534AB7] font-semibold">var2</span> fills <code className="font-mono">{"{{2}}"}</code>. Per-row values override form defaults.
-                </p>
+                <div className="p-2.5 rounded-lg bg-[#F8FAFC] border border-[#CBD5E1] text-[11px] text-[#475569] space-y-1">
+                  <p><strong>• Phone formats:</strong> 10-digit Indian (9876543210), with country code (919876543210), or E.164 (+919876543210).</p>
+                  <p><strong>• Direct Blast:</strong> Files uploaded in Direct Blast mode are never added to your Contacts Directory.</p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleDownloadSampleTemplate}
+                  className="w-full py-2 px-3 rounded-xl bg-[#534AB7] hover:bg-[#433A9D] text-white text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                  <span>Download Sample Template (.xlsx)</span>
+                </button>
               </div>
             )}
           </div>

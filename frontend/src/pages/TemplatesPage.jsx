@@ -8,6 +8,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { clsx } from 'clsx';
 import { templateApi, mediaApi } from '../lib/api';
+import useAuthStore from '../store/authStore';
 import { showSuccess, showError, showInfo } from '../components/atoms/Toast/Toast.jsx';
 import Button, { PrimaryButton, GhostButton } from '../components/atoms/Button/Button.jsx';
 import { ErrorState, parseApiError } from '../components/atoms/ErrorState/ErrorState.jsx';
@@ -41,10 +42,14 @@ const HEADER_TYPES = [
 function WhatsAppLivePreview({ form, sampleValues = {} }) {
   const now = new Date();
   const time = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const { tenant, impersonatedTenant } = useAuthStore();
+  const activeTenant = impersonatedTenant || tenant;
+  const tenantDisplayName = activeTenant?.name || 'SMR Swimming Pool & Health Club';
+  const tenantInitial = (tenantDisplayName[0] || 'S').toUpperCase();
 
   const getInterpolatedBody = () => {
     if (!form.bodyText) {
-      return 'Hello {{1}}, thank you for contacting VDAJ Services. Your request is being processed.';
+      return `Hello {{1}}, thank you for contacting ${tenantDisplayName}. Your request is being processed.`;
     }
     let text = form.bodyText;
     return text.replace(/\{\{(\w+)\}\}/g, (match, p1) => {
@@ -89,11 +94,11 @@ function WhatsAppLivePreview({ form, sampleValues = {} }) {
       {/* WhatsApp Header */}
       <div className="flex items-center gap-2.5 px-3.5 py-2.5 bg-[#1F2C34] border-b border-white/5">
         <div className="w-8 h-8 rounded-full bg-[#534AB7] flex items-center justify-center text-xs font-bold text-white shrink-0 shadow">
-          V
+          {tenantInitial}
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1">
-            <p className="text-xs font-semibold text-white truncate">VDAJ Services LLP</p>
+            <p className="text-xs font-semibold text-white truncate">{tenantDisplayName}</p>
             <svg className="w-3 h-3 text-[#00A884] shrink-0" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
             </svg>

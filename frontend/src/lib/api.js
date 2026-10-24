@@ -124,6 +124,7 @@ export const campaignApi = {
   list: (params, config = {}) => client.get('/campaigns', { params, ...config }),
   get: (id) => client.get(`/campaigns/${id}`),
   create: (data) => client.post('/campaigns', data),
+  getAudienceCount: (data) => client.post('/campaigns/audience-count', data),
   launch: (id) => client.post(`/campaigns/${id}/launch`),
   pause: (id) => client.patch(`/campaigns/${id}/pause`),
   retryFailed: (id) => client.post(`/campaigns/${id}/retry-failed`),

@@ -51,15 +51,18 @@ const loginValidators = [
 ];
 
 const campaignValidators = [
-  body('name').trim().notEmpty().isLength({ max: 512 }).escape(),
+  body('name').trim().notEmpty().isLength({ max: 512 }),
   body('templateId').isUUID(4),
-  body('contactListId').isUUID(4),
+  body('contactListId').optional({ nullable: true, checkFalsy: true }).isUUID(4),
+  body('audienceType').optional().isIn(['list', 'lists', 'all', 'adhoc_excel']),
+  body('contactListIds').optional().isArray(),
+  body('adhocRecipients').optional().isArray(),
   body('scheduledAt')
-    .optional()
+    .optional({ checkFalsy: true })
     .isISO8601()
     .withMessage('Scheduled time must be valid ISO8601 UTC.')
     .custom((val) => {
-      if (new Date(val) <= new Date()) throw new Error('Scheduled time must be in the future. ERR_VDAJ_CAMP_004');
+      if (val && new Date(val) <= new Date()) throw new Error('Scheduled time must be in the future. ERR_VDAJ_CAMP_004');
       return true;
     }),
 ];

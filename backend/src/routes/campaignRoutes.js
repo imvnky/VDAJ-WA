@@ -47,12 +47,71 @@ router.get('/', catchAsync(async (req, res) => {
   return sendSuccess(res, rows, 'Campaigns fetched.');
 }));
 
+// ── POST /campaigns/audience-count ───────────────────────────
+// Preview total and unique recipient counts with automatic deduplication
+router.post('/audience-count', catchAsync(async (req, res) => {
+  const { audienceType = 'lists', listIds = [], adhocCount = 0 } = req.body;
+  const tenantId = req.user.tenantId;
+
+  if (audienceType === 'adhoc_excel') {
+    const count = parseInt(adhocCount, 10) || 0;
+    return sendSuccess(res, {
+      totalContacts: count,
+      uniqueContacts: count,
+      duplicates: 0,
+    });
+  }
+
+  if (audienceType === 'all') {
+    const { rows } = await query(
+      `SELECT COUNT(*)::int AS count FROM contacts WHERE tenant_id = $1 AND status = 'active'`,
+      [tenantId]
+    );
+    const count = rows[0]?.count || 0;
+    return sendSuccess(res, {
+      totalContacts: count,
+      uniqueContacts: count,
+      duplicates: 0,
+    });
+  }
+
+  // Multi-group list mode
+  const validListIds = (Array.isArray(listIds) ? listIds : [listIds]).filter(Boolean);
+  if (!validListIds.length) {
+    return sendSuccess(res, { totalContacts: 0, uniqueContacts: 0, duplicates: 0 });
+  }
+
+  const { rows } = await query(
+    `SELECT
+       COUNT(*)::int AS raw_total,
+       COUNT(DISTINCT c.phone_e164)::int AS unique_total
+     FROM contact_list_members clm
+     JOIN contacts c ON c.id = clm.contact_id
+     WHERE clm.contact_list_id = ANY($1::uuid[])
+       AND c.tenant_id = $2
+       AND c.status = 'active'`,
+    [validListIds, tenantId]
+  );
+
+  const rawTotal = rows[0]?.raw_total || 0;
+  const uniqueTotal = rows[0]?.unique_total || 0;
+
+  return sendSuccess(res, {
+    totalContacts: rawTotal,
+    uniqueContacts: uniqueTotal,
+    duplicates: Math.max(0, rawTotal - uniqueTotal),
+  });
+}));
+
 // ── POST /campaigns ────────────────────────────────────────────
 router.post('/', campaignValidators, validate, catchAsync(async (req, res) => {
   const {
     name,
     templateId,
     contactListId,
+    contactListIds,
+    audienceType = 'list',
+    adhocRecipients = [],
     scheduledAt,
     chunkSize,
     delayMs,
@@ -66,23 +125,84 @@ router.post('/', campaignValidators, validate, catchAsync(async (req, res) => {
   if (headerUrl && !finalVars.headerUrl) finalVars.headerUrl = headerUrl;
   if (headerType && !finalVars.headerType) finalVars.headerType = headerType;
 
+  // Determine effective audience_type and audience_config
+  let resolvedAudienceType = audienceType;
+  let resolvedAudienceConfig = {};
+  let effectiveContactListId = contactListId || null;
+
+  if (audienceType === 'adhoc_excel') {
+    resolvedAudienceType = 'adhoc_excel';
+    resolvedAudienceConfig = { adhoc_count: adhocRecipients.length };
+    effectiveContactListId = null;
+  } else if (audienceType === 'all') {
+    resolvedAudienceType = 'all';
+    effectiveContactListId = null;
+  } else if (audienceType === 'lists' || (Array.isArray(contactListIds) && contactListIds.length > 0)) {
+    resolvedAudienceType = 'lists';
+    const listArr = (contactListIds && contactListIds.length > 0) ? contactListIds : (contactListId ? [contactListId] : []);
+    resolvedAudienceConfig = { list_ids: listArr };
+    effectiveContactListId = listArr[0] || null;
+  }
+
+  // Ensure table has audience_type and audience_config columns (safe idempotent self-migration)
+  try {
+    await query(`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS audience_type VARCHAR(50) DEFAULT 'list';`);
+    await query(`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS audience_config JSONB DEFAULT '{}';`);
+  } catch {}
+
   const { rows: [campaign] } = await query(
-    `INSERT INTO campaigns (tenant_id, name, template_id, contact_list_id, scheduled_at_utc, chunk_size, delay_ms, created_by, template_vars, header_url)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+    `INSERT INTO campaigns (
+       tenant_id, name, template_id, contact_list_id, scheduled_at_utc,
+       chunk_size, delay_ms, created_by, template_vars, header_url,
+       audience_type, audience_config, total_count, queued_count
+     )
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
      RETURNING *`,
     [
       req.user.tenantId,
       name,
       templateId,
-      contactListId,
+      effectiveContactListId,
       scheduledAt || null,
       chunkSize || null,
       delayMs || null,
       req.user.id,
       JSON.stringify(finalVars),
       headerUrl || finalVars.headerUrl || null,
+      resolvedAudienceType,
+      JSON.stringify(resolvedAudienceConfig),
+      resolvedAudienceType === 'adhoc_excel' ? adhocRecipients.length : 0,
+      resolvedAudienceType === 'adhoc_excel' ? adhocRecipients.length : 0,
     ]
   );
+
+  // If adhoc Excel campaign, immediately insert queued messages directly into campaign_messages
+  // WITHOUT inserting into contacts directory!
+  if (resolvedAudienceType === 'adhoc_excel' && adhocRecipients.length > 0) {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      for (const r of adhocRecipients) {
+        const phone = r.phone || r.phoneE164;
+        if (!phone || !String(phone).trim()) continue;
+        const cleanPhone = String(phone).trim().startsWith('+') ? String(phone).trim() : `+${String(phone).trim()}`;
+        const mergedVars = { ...(r.vars || {}), ...finalVars };
+        if (r.name) mergedVars.name = r.name;
+        await client.query(
+          `INSERT INTO campaign_messages (campaign_id, tenant_id, contact_id, phone_e164, template_vars, status)
+           VALUES ($1, $2, NULL, $3, $4, 'queued')
+           ON CONFLICT DO NOTHING`,
+          [campaign.id, req.user.tenantId, cleanPhone, JSON.stringify(mergedVars)]
+        );
+      }
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      logger.error('Failed to populate adhoc campaign messages', { error: err.message });
+    } finally {
+      client.release();
+    }
+  }
 
   return sendCreated(res, campaign, 'Campaign created.');
 }));
@@ -243,9 +363,6 @@ router.post('/:id/launch', uuidParamValidator('id'), validate, catchAsync(async 
     if (['running', 'completed'].includes(campaign.status)) {
       throw new AppError('Campaign is already running or completed.', 409, 'ERR_VDAJ_CAMP_002');
     }
-    if (!campaign.contact_list_id) {
-      throw new AppError('Campaign has no contact list assigned.', 400, 'ERR_VDAJ_CAMP_004');
-    }
     if (!campaign.meta_system_token) {
       throw new AppError(
         'WhatsApp not configured. Complete setup at /whatsapp-setup first.',
@@ -254,38 +371,87 @@ router.post('/:id/launch', uuidParamValidator('id'), validate, catchAsync(async 
       );
     }
 
-    // 2. ── CRITICAL FIX ──────────────────────────────────────────
-    //    Bulk-insert one campaign_message row per active contact in the list.
-    //    Uses ON CONFLICT DO NOTHING so replaying a paused campaign is idempotent.
-    //    Merges contact custom_vars with campaign-level template_vars (such as image header URLs).
-    await client.query(
-      `INSERT INTO campaign_messages
-         (campaign_id, tenant_id, contact_id, phone_e164, template_vars, status)
-       SELECT $1, $2, c.id, c.phone_e164,
-              COALESCE(c.custom_vars, '{}'::jsonb) || COALESCE(cmp.template_vars, '{}'::jsonb),
-              'queued'
-       FROM contact_list_members clm
-       JOIN contacts c ON c.id = clm.contact_id
-       CROSS JOIN campaigns cmp
-       WHERE clm.contact_list_id = $3
-         AND cmp.id = $1
-         AND c.status = 'active'
-       ON CONFLICT DO NOTHING`,
-      [campaign.id, req.user.tenantId, campaign.contact_list_id]
-    );
+    // 2. Audience population based on audience_type
+    // - 'adhoc_excel': Messages are already inserted directly into campaign_messages during creation with contact_id = NULL
+    // - 'all': All active contacts in the tenant
+    // - 'lists': All active contacts across selected contact lists (de-duplicated by phone)
+    // - 'list' (legacy fallback): Contacts in campaign.contact_list_id
+    if (campaign.audience_type === 'adhoc_excel') {
+      // No insertion needed, already stored with zero contact-directory pollution!
+    } else if (campaign.audience_type === 'all') {
+      await client.query(
+        `INSERT INTO campaign_messages
+           (campaign_id, tenant_id, contact_id, phone_e164, template_vars, status)
+         SELECT DISTINCT ON (c.phone_e164)
+                $1, $2, c.id, c.phone_e164,
+                COALESCE(c.custom_vars, '{}'::jsonb) || COALESCE(cmp.template_vars, '{}'::jsonb),
+                'queued'
+         FROM contacts c
+         CROSS JOIN campaigns cmp
+         WHERE c.tenant_id = $2
+           AND cmp.id = $1
+           AND c.status = 'active'
+         ORDER BY c.phone_e164, c.created_at DESC
+         ON CONFLICT DO NOTHING`,
+        [campaign.id, req.user.tenantId]
+      );
+    } else if (campaign.audience_type === 'lists') {
+      const listIds = campaign.audience_config?.list_ids || (campaign.contact_list_id ? [campaign.contact_list_id] : []);
+      if (!listIds.length) {
+        throw new AppError('Campaign has no contact lists assigned.', 400, 'ERR_VDAJ_CAMP_004');
+      }
+      await client.query(
+        `INSERT INTO campaign_messages
+           (campaign_id, tenant_id, contact_id, phone_e164, template_vars, status)
+         SELECT DISTINCT ON (c.phone_e164)
+                $1, $2, c.id, c.phone_e164,
+                COALESCE(c.custom_vars, '{}'::jsonb) || COALESCE(cmp.template_vars, '{}'::jsonb),
+                'queued'
+         FROM contact_list_members clm
+         JOIN contacts c ON c.id = clm.contact_id
+         CROSS JOIN campaigns cmp
+         WHERE clm.contact_list_id = ANY($3::uuid[])
+           AND cmp.id = $1
+           AND c.status = 'active'
+         ORDER BY c.phone_e164, c.created_at DESC
+         ON CONFLICT DO NOTHING`,
+        [campaign.id, req.user.tenantId, listIds]
+      );
+    } else {
+      // Default: single list
+      if (!campaign.contact_list_id) {
+        throw new AppError('Campaign has no contact list assigned.', 400, 'ERR_VDAJ_CAMP_004');
+      }
+      await client.query(
+        `INSERT INTO campaign_messages
+           (campaign_id, tenant_id, contact_id, phone_e164, template_vars, status)
+         SELECT $1, $2, c.id, c.phone_e164,
+                COALESCE(c.custom_vars, '{}'::jsonb) || COALESCE(cmp.template_vars, '{}'::jsonb),
+                'queued'
+         FROM contact_list_members clm
+         JOIN contacts c ON c.id = clm.contact_id
+         CROSS JOIN campaigns cmp
+         WHERE clm.contact_list_id = $3
+           AND cmp.id = $1
+           AND c.status = 'active'
+         ON CONFLICT DO NOTHING`,
+        [campaign.id, req.user.tenantId, campaign.contact_list_id]
+      );
+    }
 
-    // 3. Fetch the queued messages (now guaranteed to exist if contacts are active)
+    // 3. Fetch the queued messages
+    // Note: Use LEFT JOIN so adhoc_excel messages (where contact_id IS NULL) are fetched properly
     const { rows: messages } = await client.query(
-      `SELECT cm.id, c.phone_e164, cm.template_vars
+      `SELECT cm.id, cm.phone_e164, cm.template_vars
        FROM campaign_messages cm
-       JOIN contacts c ON c.id = cm.contact_id
-       WHERE cm.campaign_id = $1 AND cm.status = 'queued' AND c.status = 'active'`,
+       LEFT JOIN contacts c ON c.id = cm.contact_id
+       WHERE cm.campaign_id = $1 AND cm.status = 'queued' AND (c.status IS NULL OR c.status = 'active')`,
       [campaign.id]
     );
 
     if (messages.length === 0) {
       throw new AppError(
-        'No active contacts found in the assigned contact list.',
+        'No active recipients found for the assigned campaign audience.',
         400,
         'ERR_VDAJ_CAMP_003'
       );
@@ -468,20 +634,58 @@ router.post('/:id/resend', uuidParamValidator('id'), validate, catchAsync(async 
       throw new AppError('WhatsApp not configured. Connect your WABA credentials first.', 400, 'ERR_META_006');
     }
 
-    // 2. Ensure all active contacts in the audience list have rows
-    await client.query(
-      `INSERT INTO campaign_messages
-         (campaign_id, tenant_id, contact_id, phone_e164, template_vars, status)
-       SELECT $1, $2, c.id, c.phone_e164,
-              COALESCE(c.custom_vars, '{}'::jsonb),
-              'queued'
-       FROM contact_list_members clm
-       JOIN contacts c ON c.id = clm.contact_id
-       WHERE clm.contact_list_id = $3
-         AND c.status = 'active'
-       ON CONFLICT DO NOTHING`,
-      [campaign.id, campaign.tenant_id, campaign.contact_list_id]
-    );
+    // 2. Ensure all active contacts in the audience have rows
+    if (campaign.audience_type === 'adhoc_excel') {
+      // Adhoc excel messages already exist in campaign_messages with contact_id = NULL
+    } else if (campaign.audience_type === 'all') {
+      await client.query(
+        `INSERT INTO campaign_messages
+           (campaign_id, tenant_id, contact_id, phone_e164, template_vars, status)
+         SELECT DISTINCT ON (c.phone_e164)
+                $1, $2, c.id, c.phone_e164,
+                COALESCE(c.custom_vars, '{}'::jsonb),
+                'queued'
+         FROM contacts c
+         WHERE c.tenant_id = $2
+           AND c.status = 'active'
+         ORDER BY c.phone_e164, c.created_at DESC
+         ON CONFLICT DO NOTHING`,
+        [campaign.id, campaign.tenant_id]
+      );
+    } else if (campaign.audience_type === 'lists') {
+      const listIds = campaign.audience_config?.list_ids || (campaign.contact_list_id ? [campaign.contact_list_id] : []);
+      if (listIds.length > 0) {
+        await client.query(
+          `INSERT INTO campaign_messages
+             (campaign_id, tenant_id, contact_id, phone_e164, template_vars, status)
+           SELECT DISTINCT ON (c.phone_e164)
+                  $1, $2, c.id, c.phone_e164,
+                  COALESCE(c.custom_vars, '{}'::jsonb),
+                  'queued'
+           FROM contact_list_members clm
+           JOIN contacts c ON c.id = clm.contact_id
+           WHERE clm.contact_list_id = ANY($3::uuid[])
+             AND c.status = 'active'
+           ORDER BY c.phone_e164, c.created_at DESC
+           ON CONFLICT DO NOTHING`,
+          [campaign.id, campaign.tenant_id, listIds]
+        );
+      }
+    } else if (campaign.contact_list_id) {
+      await client.query(
+        `INSERT INTO campaign_messages
+           (campaign_id, tenant_id, contact_id, phone_e164, template_vars, status)
+         SELECT $1, $2, c.id, c.phone_e164,
+                COALESCE(c.custom_vars, '{}'::jsonb),
+                'queued'
+         FROM contact_list_members clm
+         JOIN contacts c ON c.id = clm.contact_id
+         WHERE clm.contact_list_id = $3
+           AND c.status = 'active'
+         ON CONFLICT DO NOTHING`,
+        [campaign.id, campaign.tenant_id, campaign.contact_list_id]
+      );
+    }
 
     // 3. Reset ALL campaign messages to queued
     await client.query(
