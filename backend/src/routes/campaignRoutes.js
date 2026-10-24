@@ -388,7 +388,10 @@ router.post('/:id/launch', uuidParamValidator('id'), validate, catchAsync(async 
     // 1. Lock campaign row and validate state
     const { rows: [campaign] } = await client.query(
       `SELECT c.*, t.meta_system_token, t.phone_number_id,
-              mt.name AS template_name, mt.language AS template_language
+              mt.name AS template_name, mt.language AS template_language,
+              mt.body_text AS template_body, mt.buttons AS template_buttons,
+              mt.footer_text AS template_footer, mt.header_text AS template_header,
+              mt.header_sample_url AS template_header_url
        FROM campaigns c
        JOIN tenants t ON t.id = c.tenant_id
        JOIN message_templates mt ON mt.id = c.template_id

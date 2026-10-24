@@ -139,6 +139,11 @@ const enqueueCampaign = async (campaign, messages) => {
       metaSystemToken: campaign.meta_system_token || process.env.META_ACCESS_TOKEN,
       templateName: campaign.template_name,
       templateLanguage: campaign.template_language,
+      templateBody: campaign.template_body,
+      templateButtons: campaign.template_buttons,
+      templateFooter: campaign.template_footer,
+      templateHeader: campaign.template_header,
+      templateHeaderUrl: campaign.template_header_url || campaign.header_url,
       messages: chunk,
     },
     opts: {
@@ -245,16 +250,30 @@ const processMessage = async (msg, jobData) => {
       );
 
       if (conv?.id) {
+        let renderedBody = `Template: ${templateName}`;
+        if (jobData.templateBody) {
+          renderedBody = jobData.templateBody.replace(/\{\{(\w+)\}\}/g, (_, k) => resolvedVars[k] || '');
+        }
+
+        const msgMeta = {
+          template_name: templateName,
+          buttons: jobData.templateButtons || [],
+          footer_text: jobData.templateFooter || null,
+          header_text: jobData.templateHeader || null,
+          header_sample_url: jobData.templateHeaderUrl || null,
+        };
+
         await db.query(
           `INSERT INTO inbox_messages
-             (conversation_id, tenant_id, wa_message_id, direction, message_type, body, status)
-           VALUES ($1, $2, $3, 'outbound', 'template', $4, 'sent')
+             (conversation_id, tenant_id, wa_message_id, direction, message_type, body, status, metadata)
+           VALUES ($1, $2, $3, 'outbound', 'template', $4, 'sent', $5)
            ON CONFLICT (wa_message_id) DO NOTHING`,
           [
             conv.id,
             jobData.tenantId,
             metaResponse.messages[0].id,
-            `Template: ${templateName}`,
+            renderedBody,
+            JSON.stringify(msgMeta),
           ]
         );
       }

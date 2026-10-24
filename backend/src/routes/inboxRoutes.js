@@ -67,7 +67,7 @@ router.get('/conversations', catchAsync(async (req, res) => {
             display_name = COALESCE(inbox_conversations.display_name, EXCLUDED.display_name),
             contact_id = COALESCE(inbox_conversations.contact_id, EXCLUDED.contact_id);
 
-      INSERT INTO inbox_messages (conversation_id, tenant_id, wa_message_id, direction, message_type, body, status, created_at)
+      INSERT INTO inbox_messages (conversation_id, tenant_id, wa_message_id, direction, message_type, body, status, created_at, metadata)
       SELECT
         ic.id,
         cm.tenant_id,
@@ -76,13 +76,22 @@ router.get('/conversations', catchAsync(async (req, res) => {
         'template',
         COALESCE('Template: ' || mt.name, 'Template Message'),
         cm.status,
-        COALESCE(cm.sent_at, cm.created_at)
+        COALESCE(cm.sent_at, cm.created_at),
+        jsonb_build_object(
+          'template_id', mt.id,
+          'template_name', mt.name,
+          'buttons', COALESCE(mt.buttons, '[]'::jsonb),
+          'footer_text', mt.footer_text,
+          'header_text', mt.header_text,
+          'header_sample_url', mt.header_sample_url
+        )
       FROM campaign_messages cm
       JOIN inbox_conversations ic ON ic.tenant_id = cm.tenant_id AND ic.phone_e164 = cm.phone_e164
       LEFT JOIN campaigns camp ON camp.id = cm.campaign_id
       LEFT JOIN message_templates mt ON mt.id = camp.template_id
       ON CONFLICT (wa_message_id) DO UPDATE
-        SET status = EXCLUDED.status
+        SET status = EXCLUDED.status,
+            metadata = COALESCE(inbox_messages.metadata, EXCLUDED.metadata)
         WHERE inbox_messages.status = 'sent' AND EXCLUDED.status IN ('delivered', 'read');
     `);
   } catch (syncErr) {
@@ -264,15 +273,19 @@ router.post('/conversations/:id/reply', catchAsync(async (req, res) => {
   let resolvedTemplateName = template_name;
   let resolvedTemplateLang = template_language;
   let resolvedTemplateVars = template_vars;
+  let templateObj = null;
 
-  if (template_id && (!resolvedTemplateName || !resolvedTemplateLang)) {
+  if (template_id || (isTemplate && resolvedTemplateName)) {
     const tplRes = await query(
-      `SELECT name, language FROM message_templates WHERE id = $1 AND deleted_at IS NULL`,
-      [template_id]
+      `SELECT id, name, language, header_text, header_type, header_sample_url, footer_text, buttons
+       FROM message_templates
+       WHERE (id = $1 OR name = $2) AND deleted_at IS NULL LIMIT 1`,
+      [template_id || null, resolvedTemplateName || null]
     );
     if (tplRes.rows.length) {
-      resolvedTemplateName = resolvedTemplateName || tplRes.rows[0].name;
-      resolvedTemplateLang = resolvedTemplateLang || tplRes.rows[0].language;
+      templateObj = tplRes.rows[0];
+      resolvedTemplateName = resolvedTemplateName || templateObj.name;
+      resolvedTemplateLang = resolvedTemplateLang || templateObj.language;
     }
   }
 
@@ -313,12 +326,22 @@ router.post('/conversations/:id/reply', catchAsync(async (req, res) => {
     });
   }
 
+  const msgMetadata = templateObj ? {
+    template_id: templateObj.id,
+    template_name: templateObj.name,
+    header_text: templateObj.header_text,
+    header_type: templateObj.header_type,
+    header_sample_url: templateObj.header_sample_url,
+    footer_text: templateObj.footer_text,
+    buttons: templateObj.buttons || [],
+  } : {};
+
   const { rows } = await query(
     `INSERT INTO inbox_messages
-       (conversation_id, tenant_id, wa_message_id, direction, message_type, body, status, sent_by)
-     VALUES ($1, $2, $3, 'outbound', $4, $5, 'sent', $6)
+       (conversation_id, tenant_id, wa_message_id, direction, message_type, body, status, sent_by, metadata)
+     VALUES ($1, $2, $3, 'outbound', $4, $5, 'sent', $6, $7)
      RETURNING *`,
-    [req.params.id, req.user.tenantId, metaResponse?.messages?.[0]?.id, messageType, messageBody, req.user.id]
+    [req.params.id, req.user.tenantId, metaResponse?.messages?.[0]?.id, messageType, messageBody, req.user.id, JSON.stringify(msgMetadata)]
   );
 
   await query(

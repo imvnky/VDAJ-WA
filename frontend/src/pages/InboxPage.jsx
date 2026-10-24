@@ -404,47 +404,223 @@ function WhatsAppStatusTick({ status, errorCode }) {
   );
 }
 
+// ── Template Matcher Helper ──────────────────────────────────
+function getMessageTemplateInfo(msg, templates = []) {
+  if (!msg) return null;
+
+  // 1. Direct metadata from DB if available
+  if (msg.metadata && (msg.metadata.buttons || msg.metadata.template_name)) {
+    return {
+      name: msg.metadata.template_name,
+      buttons: Array.isArray(msg.metadata.buttons) ? msg.metadata.buttons : [],
+      footerText: msg.metadata.footer_text || msg.metadata.footer,
+      headerText: msg.metadata.header_text,
+      headerUrl: msg.metadata.header_sample_url || msg.metadata.header_url || msg.media_url,
+    };
+  }
+
+  if (!msg.body || !templates.length) return null;
+  const trimmedBody = msg.body.trim();
+
+  for (const t of templates) {
+    if (!t) continue;
+
+    const tButtons = Array.isArray(t.buttons)
+      ? t.buttons
+      : (typeof t.buttons === 'string' ? JSON.parse(t.buttons || '[]') : []);
+
+    // A. Check if body explicitly states "Template: <name>"
+    if (trimmedBody === `Template: ${t.name}` || trimmedBody === t.name) {
+      return {
+        name: t.name,
+        buttons: tButtons,
+        footerText: t.footer_text,
+        headerText: t.header_text,
+        headerUrl: t.header_sample_url || (t.header_type === 'IMAGE' ? t.header_sample_url : null),
+        bodyText: t.body_text,
+      };
+    }
+
+    if (!t.body_text) continue;
+
+    // B. Check if body matches template with variables {{1}}, {{2}} replaced
+    const pattern = t.body_text
+      .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      .replace(/\\\{\\\{\s*\w+\s*\\\}\\\}/g, '([\\s\\S]*?)');
+
+    try {
+      const regex = new RegExp(`^${pattern}$`, 'i');
+      if (regex.test(trimmedBody)) {
+        return {
+          name: t.name,
+          buttons: tButtons,
+          footerText: t.footer_text,
+          headerText: t.header_text,
+          headerUrl: t.header_sample_url || (t.header_type === 'IMAGE' ? t.header_sample_url : null),
+        };
+      }
+    } catch (_) {}
+
+    // C. Fallback: match based on static non-variable text segments (> 20 chars)
+    const staticParts = t.body_text
+      .split(/\{\{\s*\w+\s*\}\}/g)
+      .map((s) => s.trim())
+      .filter((s) => s.length > 20);
+
+    if (staticParts.length > 0 && staticParts.every((part) => trimmedBody.includes(part))) {
+      return {
+        name: t.name,
+        buttons: tButtons,
+        footerText: t.footer_text,
+        headerText: t.header_text,
+        headerUrl: t.header_sample_url || (t.header_type === 'IMAGE' ? t.header_sample_url : null),
+      };
+    }
+  }
+
+  return null;
+}
+
 // ── Message Bubble ────────────────────────────────────────────
-function MessageBubble({ msg }) {
+function MessageBubble({ msg, templates = [] }) {
   const isOut = msg.direction === 'outbound';
   const formattedDateTime = formatMessageTime(msg.created_at);
   const fullDateTime = msg.created_at ? new Date(msg.created_at).toLocaleString() : '';
 
+  // Detect template components (buttons, footer, header)
+  const templateInfo = getMessageTemplateInfo(msg, templates);
+  const buttons = templateInfo?.buttons || [];
+  const footerText = templateInfo?.footerText;
+  const headerUrl = templateInfo?.headerUrl || msg.media_url;
+
+  // If body is just "Template: name" but we found template body, show full rich text
+  const displayBody = (templateInfo?.bodyText && (msg.body === `Template: ${templateInfo.name}` || msg.body === templateInfo.name))
+    ? templateInfo.bodyText
+    : msg.body;
+
   return (
     <div className={clsx('flex w-full', isOut ? 'justify-end' : 'justify-start')}>
       <div className={clsx(
-        'max-w-[78%] rounded-2xl px-4 py-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.05)] transition-all',
+        'max-w-[85%] sm:max-w-[72%] rounded-2xl shadow-[0_1px_2px_rgba(0,0,0,0.06)] transition-all overflow-hidden',
         isOut
           ? 'rounded-tr-xs bg-gradient-to-r from-[#534AB7] to-[#4338CA] text-white'
           : 'rounded-tl-xs bg-white text-slate-900 border border-slate-200/90'
       )}>
-        {msg.sender_name && !isOut && (
-          <p className="text-[11px] font-bold mb-1 text-[#534AB7] tracking-tight">{msg.sender_name}</p>
-        )}
-        {msg.message_type === 'button' || msg.type === 'button' ? (
-          <div className="flex items-center gap-1.5 py-0.5">
-            <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-indigo-50 text-[#534AB7] text-xs font-bold shrink-0">
-              🔘
-            </span>
-            <span className="text-sm font-semibold text-slate-800 break-words">
-              {msg.body || 'Quick Reply selected'}
-            </span>
+        {/* Optional Header Image Preview */}
+        {headerUrl && (
+          <div className="w-full max-h-48 overflow-hidden bg-black/10 border-b border-white/10">
+            <img
+              src={headerUrl}
+              alt="Template Header"
+              className="w-full h-auto object-cover max-h-48"
+              onError={(e) => { e.target.style.display = 'none'; }}
+            />
           </div>
-        ) : (
-          <p className={clsx('text-sm leading-relaxed whitespace-pre-wrap break-words', isOut ? 'text-white' : 'text-slate-800')}>
-            {msg.body || (isOut ? '[Outbound Message]' : '[Quick Reply response]')}
-          </p>
         )}
-        <div className="flex items-center justify-end gap-1.5 mt-1 select-none" title={fullDateTime}>
-          <span className={clsx('text-[10px] font-medium tracking-tight', isOut ? 'text-white/75' : 'text-slate-400')}>
-            {formattedDateTime}
-          </span>
-          {isOut && (
-            <span className="inline-flex items-center ml-0.5">
-              <WhatsAppStatusTick status={msg.status} errorCode={msg.error_code} />
-            </span>
+
+        {/* Bubble Inner Content */}
+        <div className="px-4 py-2.5">
+          {msg.sender_name && !isOut && (
+            <p className="text-[11px] font-bold mb-1 text-[#534AB7] tracking-tight">{msg.sender_name}</p>
           )}
+
+          {msg.message_type === 'button' || msg.type === 'button' ? (
+            <div className="flex items-center gap-1.5 py-0.5">
+              <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-indigo-50 text-[#534AB7] text-xs font-bold shrink-0">
+                🔘
+              </span>
+              <span className="text-sm font-semibold text-slate-800 break-words">
+                {msg.body || 'Quick Reply selected'}
+              </span>
+            </div>
+          ) : (
+            <div className="space-y-1.5">
+              <p className={clsx('text-sm leading-relaxed whitespace-pre-wrap break-words', isOut ? 'text-white' : 'text-slate-800')}>
+                {displayBody || (isOut ? '[Outbound Message]' : '[Quick Reply response]')}
+              </p>
+
+              {/* Optional Template Footer */}
+              {footerText && (
+                <p className={clsx('text-[11px] italic pt-1 leading-snug', isOut ? 'text-white/60' : 'text-slate-400')}>
+                  {footerText}
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Time & Double Checkmark */}
+          <div className="flex items-center justify-end gap-1.5 mt-1 select-none" title={fullDateTime}>
+            <span className={clsx('text-[10px] font-medium tracking-tight', isOut ? 'text-white/75' : 'text-slate-400')}>
+              {formattedDateTime}
+            </span>
+            {isOut && (
+              <span className="inline-flex items-center ml-0.5">
+                <WhatsAppStatusTick status={msg.status} errorCode={msg.error_code} />
+              </span>
+            )}
+          </div>
         </div>
+
+        {/* WhatsApp Interactive Buttons (Quick Replies, CTAs, Phone) */}
+        {buttons && buttons.length > 0 && (
+          <div className={clsx(
+            'border-t flex flex-col',
+            isOut ? 'border-white/20 bg-black/10' : 'border-slate-100 bg-slate-50/60'
+          )}>
+            {buttons.map((btn, bIdx) => {
+              const btnType = String(btn.type || 'quick_reply').toUpperCase();
+              const isUrl = btnType === 'URL';
+              const isPhone = btnType === 'PHONE_NUMBER';
+              const isQuickReply = btnType === 'QUICK_REPLY';
+
+              const content = (
+                <div
+                  key={bIdx}
+                  className={clsx(
+                    'py-2 px-3 text-center text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-default select-none',
+                    bIdx > 0 && (isOut ? 'border-t border-white/15' : 'border-t border-slate-100'),
+                    isOut
+                      ? 'text-[#53BDEB] hover:bg-white/10 active:bg-white/20'
+                      : 'text-[#534AB7] hover:bg-slate-100/80'
+                  )}
+                >
+                  {isUrl && <span>🔗</span>}
+                  {isPhone && <span>📞</span>}
+                  {isQuickReply && <span>↩️</span>}
+                  <span className="truncate">{btn.text || `Button ${bIdx + 1}`}</span>
+                </div>
+              );
+
+              if (isUrl && btn.url) {
+                return (
+                  <a
+                    key={bIdx}
+                    href={btn.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block focus:outline-none"
+                  >
+                    {content}
+                  </a>
+                );
+              }
+
+              if (isPhone && btn.phone_number) {
+                return (
+                  <a
+                    key={bIdx}
+                    href={`tel:${btn.phone_number}`}
+                    className="block focus:outline-none"
+                  >
+                    {content}
+                  </a>
+                );
+              }
+
+              return content;
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -1259,7 +1435,7 @@ export default function InboxPage() {
                         </span>
                       </div>
                     )}
-                    <MessageBubble msg={m} />
+                    <MessageBubble msg={m} templates={templates} />
                   </React.Fragment>
                 );
               })
