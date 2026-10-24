@@ -319,7 +319,7 @@ async function handleInboundMessage(msg, value, broadcastToTenant) {
   try {
     const { rows: promotedOutbound } = await query(
       `UPDATE inbox_messages
-       SET status = 'read', updated_at = NOW()
+       SET status = 'read'
        WHERE conversation_id = $1 AND direction = 'outbound' AND status IN ('sent', 'delivered')
        RETURNING id, wa_message_id`,
       [conv.id]
@@ -427,8 +427,7 @@ async function handleStatusUpdate(status, broadcastToTenant) {
     const { rows: updatedRows } = await query(
       `UPDATE inbox_messages
        SET status = $1,
-           error_code = COALESCE($2, error_code),
-           updated_at = NOW()
+           error_code = COALESCE($2, error_code)
        WHERE wa_message_id = $3
        RETURNING id, conversation_id, tenant_id, status, error_code`,
       [dbStatus, errorCode, metaMessageId]
