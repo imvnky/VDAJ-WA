@@ -50,7 +50,7 @@ router.get('/', catchAsync(async (req, res) => {
 // ── POST /campaigns/audience-count ───────────────────────────
 // Preview total and unique recipient counts with automatic deduplication
 router.post('/audience-count', catchAsync(async (req, res) => {
-  const { audienceType = 'lists', listIds = [], adhocCount = 0 } = req.body;
+  const { audienceType = 'lists', listIds = [], tags = [], filterTags = [], adhocCount = 0 } = req.body;
   const tenantId = req.user.tenantId;
 
   if (audienceType === 'adhoc_excel') {
@@ -75,24 +75,50 @@ router.post('/audience-count', catchAsync(async (req, res) => {
     });
   }
 
+  if (audienceType === 'tags') {
+    const cleanTags = (Array.isArray(tags) ? tags : [tags]).filter(Boolean);
+    if (!cleanTags.length) {
+      return sendSuccess(res, { totalContacts: 0, uniqueContacts: 0, duplicates: 0 });
+    }
+    const { rows } = await query(
+      `SELECT COUNT(DISTINCT c.phone_e164)::int AS count
+       FROM contacts c
+       WHERE c.tenant_id = $1
+         AND c.status = 'active'
+         AND c.tags && $2::text[]`,
+      [tenantId, cleanTags]
+    );
+    const count = rows[0]?.count || 0;
+    return sendSuccess(res, {
+      totalContacts: count,
+      uniqueContacts: count,
+      duplicates: 0,
+    });
+  }
+
   // Multi-group list mode
   const validListIds = (Array.isArray(listIds) ? listIds : [listIds]).filter(Boolean);
   if (!validListIds.length) {
     return sendSuccess(res, { totalContacts: 0, uniqueContacts: 0, duplicates: 0 });
   }
 
-  const { rows } = await query(
-    `SELECT
+  let listSql = `SELECT
        COUNT(*)::int AS raw_total,
        COUNT(DISTINCT c.phone_e164)::int AS unique_total
      FROM contact_list_members clm
      JOIN contacts c ON c.id = clm.contact_id
      WHERE clm.contact_list_id = ANY($1::uuid[])
        AND c.tenant_id = $2
-       AND c.status = 'active'`,
-    [validListIds, tenantId]
-  );
+       AND c.status = 'active'`;
+  const listParams = [validListIds, tenantId];
 
+  const cleanFilterTags = (Array.isArray(filterTags) ? filterTags : []).filter(Boolean);
+  if (cleanFilterTags.length > 0) {
+    listSql += ` AND c.tags && $3::text[]`;
+    listParams.push(cleanFilterTags);
+  }
+
+  const { rows } = await query(listSql, listParams);
   const rawTotal = rows[0]?.raw_total || 0;
   const uniqueTotal = rows[0]?.unique_total || 0;
 
@@ -111,6 +137,8 @@ router.post('/', campaignValidators, validate, catchAsync(async (req, res) => {
     contactListId,
     contactListIds,
     audienceType = 'list',
+    tags = [],
+    filterTags = [],
     adhocRecipients = [],
     scheduledAt,
     chunkSize,
@@ -137,10 +165,19 @@ router.post('/', campaignValidators, validate, catchAsync(async (req, res) => {
   } else if (audienceType === 'all') {
     resolvedAudienceType = 'all';
     effectiveContactListId = null;
+  } else if (audienceType === 'tags') {
+    resolvedAudienceType = 'tags';
+    const cleanTags = (Array.isArray(tags) ? tags : [tags]).filter(Boolean);
+    resolvedAudienceConfig = { tags: cleanTags };
+    effectiveContactListId = null;
   } else if (audienceType === 'lists' || (Array.isArray(contactListIds) && contactListIds.length > 0)) {
     resolvedAudienceType = 'lists';
     const listArr = (contactListIds && contactListIds.length > 0) ? contactListIds : (contactListId ? [contactListId] : []);
-    resolvedAudienceConfig = { list_ids: listArr };
+    const cleanFilterTags = (Array.isArray(filterTags) ? filterTags : []).filter(Boolean);
+    resolvedAudienceConfig = {
+      list_ids: listArr,
+      filter_tags: cleanFilterTags.length > 0 ? cleanFilterTags : undefined,
+    };
     effectiveContactListId = listArr[0] || null;
   }
 
@@ -374,7 +411,8 @@ router.post('/:id/launch', uuidParamValidator('id'), validate, catchAsync(async 
     // 2. Audience population based on audience_type
     // - 'adhoc_excel': Messages are already inserted directly into campaign_messages during creation with contact_id = NULL
     // - 'all': All active contacts in the tenant
-    // - 'lists': All active contacts across selected contact lists (de-duplicated by phone)
+    // - 'tags': All active contacts having any of the specified tags
+    // - 'lists': All active contacts across selected contact lists (with optional tag filtering, de-duplicated by phone)
     // - 'list' (legacy fallback): Contacts in campaign.contact_list_id
     if (campaign.audience_type === 'adhoc_excel') {
       // No insertion needed, already stored with zero contact-directory pollution!
@@ -395,10 +433,10 @@ router.post('/:id/launch', uuidParamValidator('id'), validate, catchAsync(async 
          ON CONFLICT DO NOTHING`,
         [campaign.id, req.user.tenantId]
       );
-    } else if (campaign.audience_type === 'lists') {
-      const listIds = campaign.audience_config?.list_ids || (campaign.contact_list_id ? [campaign.contact_list_id] : []);
-      if (!listIds.length) {
-        throw new AppError('Campaign has no contact lists assigned.', 400, 'ERR_VDAJ_CAMP_004');
+    } else if (campaign.audience_type === 'tags') {
+      const targetTags = campaign.audience_config?.tags || [];
+      if (!targetTags.length) {
+        throw new AppError('Campaign has no tags assigned.', 400, 'ERR_VDAJ_CAMP_004');
       }
       await client.query(
         `INSERT INTO campaign_messages
@@ -407,16 +445,60 @@ router.post('/:id/launch', uuidParamValidator('id'), validate, catchAsync(async 
                 $1, $2, c.id, c.phone_e164,
                 COALESCE(c.custom_vars, '{}'::jsonb) || COALESCE(cmp.template_vars, '{}'::jsonb),
                 'queued'
-         FROM contact_list_members clm
-         JOIN contacts c ON c.id = clm.contact_id
+         FROM contacts c
          CROSS JOIN campaigns cmp
-         WHERE clm.contact_list_id = ANY($3::uuid[])
+         WHERE c.tenant_id = $2
            AND cmp.id = $1
            AND c.status = 'active'
+           AND c.tags && $3::text[]
          ORDER BY c.phone_e164, c.created_at DESC
          ON CONFLICT DO NOTHING`,
-        [campaign.id, req.user.tenantId, listIds]
+        [campaign.id, req.user.tenantId, targetTags]
       );
+    } else if (campaign.audience_type === 'lists') {
+      const listIds = campaign.audience_config?.list_ids || (campaign.contact_list_id ? [campaign.contact_list_id] : []);
+      if (!listIds.length) {
+        throw new AppError('Campaign has no contact lists assigned.', 400, 'ERR_VDAJ_CAMP_004');
+      }
+      const filterTags = campaign.audience_config?.filter_tags;
+      if (Array.isArray(filterTags) && filterTags.length > 0) {
+        await client.query(
+          `INSERT INTO campaign_messages
+             (campaign_id, tenant_id, contact_id, phone_e164, template_vars, status)
+           SELECT DISTINCT ON (c.phone_e164)
+                  $1, $2, c.id, c.phone_e164,
+                  COALESCE(c.custom_vars, '{}'::jsonb) || COALESCE(cmp.template_vars, '{}'::jsonb),
+                  'queued'
+           FROM contact_list_members clm
+           JOIN contacts c ON c.id = clm.contact_id
+           CROSS JOIN campaigns cmp
+           WHERE clm.contact_list_id = ANY($3::uuid[])
+             AND cmp.id = $1
+             AND c.status = 'active'
+             AND c.tags && $4::text[]
+           ORDER BY c.phone_e164, c.created_at DESC
+           ON CONFLICT DO NOTHING`,
+          [campaign.id, req.user.tenantId, listIds, filterTags]
+        );
+      } else {
+        await client.query(
+          `INSERT INTO campaign_messages
+             (campaign_id, tenant_id, contact_id, phone_e164, template_vars, status)
+           SELECT DISTINCT ON (c.phone_e164)
+                  $1, $2, c.id, c.phone_e164,
+                  COALESCE(c.custom_vars, '{}'::jsonb) || COALESCE(cmp.template_vars, '{}'::jsonb),
+                  'queued'
+           FROM contact_list_members clm
+           JOIN contacts c ON c.id = clm.contact_id
+           CROSS JOIN campaigns cmp
+           WHERE clm.contact_list_id = ANY($3::uuid[])
+             AND cmp.id = $1
+             AND c.status = 'active'
+           ORDER BY c.phone_e164, c.created_at DESC
+           ON CONFLICT DO NOTHING`,
+          [campaign.id, req.user.tenantId, listIds]
+        );
+      }
     } else {
       // Default: single list
       if (!campaign.contact_list_id) {
@@ -652,9 +734,9 @@ router.post('/:id/resend', uuidParamValidator('id'), validate, catchAsync(async 
          ON CONFLICT DO NOTHING`,
         [campaign.id, campaign.tenant_id]
       );
-    } else if (campaign.audience_type === 'lists') {
-      const listIds = campaign.audience_config?.list_ids || (campaign.contact_list_id ? [campaign.contact_list_id] : []);
-      if (listIds.length > 0) {
+    } else if (campaign.audience_type === 'tags') {
+      const targetTags = campaign.audience_config?.tags || [];
+      if (targetTags.length > 0) {
         await client.query(
           `INSERT INTO campaign_messages
              (campaign_id, tenant_id, contact_id, phone_e164, template_vars, status)
@@ -662,14 +744,53 @@ router.post('/:id/resend', uuidParamValidator('id'), validate, catchAsync(async 
                   $1, $2, c.id, c.phone_e164,
                   COALESCE(c.custom_vars, '{}'::jsonb),
                   'queued'
-           FROM contact_list_members clm
-           JOIN contacts c ON c.id = clm.contact_id
-           WHERE clm.contact_list_id = ANY($3::uuid[])
+           FROM contacts c
+           WHERE c.tenant_id = $2
              AND c.status = 'active'
+             AND c.tags && $3::text[]
            ORDER BY c.phone_e164, c.created_at DESC
            ON CONFLICT DO NOTHING`,
-          [campaign.id, campaign.tenant_id, listIds]
+          [campaign.id, campaign.tenant_id, targetTags]
         );
+      }
+    } else if (campaign.audience_type === 'lists') {
+      const listIds = campaign.audience_config?.list_ids || (campaign.contact_list_id ? [campaign.contact_list_id] : []);
+      const filterTags = campaign.audience_config?.filter_tags;
+      if (listIds.length > 0) {
+        if (Array.isArray(filterTags) && filterTags.length > 0) {
+          await client.query(
+            `INSERT INTO campaign_messages
+               (campaign_id, tenant_id, contact_id, phone_e164, template_vars, status)
+             SELECT DISTINCT ON (c.phone_e164)
+                    $1, $2, c.id, c.phone_e164,
+                    COALESCE(c.custom_vars, '{}'::jsonb),
+                    'queued'
+             FROM contact_list_members clm
+             JOIN contacts c ON c.id = clm.contact_id
+             WHERE clm.contact_list_id = ANY($3::uuid[])
+               AND c.status = 'active'
+               AND c.tags && $4::text[]
+             ORDER BY c.phone_e164, c.created_at DESC
+             ON CONFLICT DO NOTHING`,
+            [campaign.id, campaign.tenant_id, listIds, filterTags]
+          );
+        } else {
+          await client.query(
+            `INSERT INTO campaign_messages
+               (campaign_id, tenant_id, contact_id, phone_e164, template_vars, status)
+             SELECT DISTINCT ON (c.phone_e164)
+                    $1, $2, c.id, c.phone_e164,
+                    COALESCE(c.custom_vars, '{}'::jsonb),
+                    'queued'
+             FROM contact_list_members clm
+             JOIN contacts c ON c.id = clm.contact_id
+             WHERE clm.contact_list_id = ANY($3::uuid[])
+               AND c.status = 'active'
+             ORDER BY c.phone_e164, c.created_at DESC
+             ON CONFLICT DO NOTHING`,
+            [campaign.id, campaign.tenant_id, listIds]
+          );
+        }
       }
     } else if (campaign.contact_list_id) {
       await client.query(

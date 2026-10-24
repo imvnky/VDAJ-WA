@@ -54,8 +54,10 @@ const campaignValidators = [
   body('name').trim().notEmpty().isLength({ max: 512 }),
   body('templateId').isUUID(4),
   body('contactListId').optional({ nullable: true, checkFalsy: true }).isUUID(4),
-  body('audienceType').optional().isIn(['list', 'lists', 'all', 'adhoc_excel']),
+  body('audienceType').optional().isIn(['list', 'lists', 'all', 'adhoc_excel', 'tags']),
   body('contactListIds').optional().isArray(),
+  body('tags').optional().isArray(),
+  body('filterTags').optional().isArray(),
   body('adhocRecipients').optional().isArray(),
   body('scheduledAt')
     .optional({ checkFalsy: true })

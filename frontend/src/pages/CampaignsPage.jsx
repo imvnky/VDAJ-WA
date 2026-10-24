@@ -164,14 +164,36 @@ function ComposerModal({ onClose, onCreated, contactLists = [], templates = [] }
 
   // Audience Configuration
   // 'lists': Select 1 or more contact groups (with automatic deduplication)
+  // 'tags': Select 1 or more tags (e.g. VIP, Member, Inquiry)
   // 'all': Broadcast to all active tenant contacts
   // 'adhoc_excel': Direct blast from uploaded Excel/CSV (zero contact directory pollution)
   const [audienceType, setAudienceType] = useState('lists');
   const [selectedListIds, setSelectedListIds] = useState(
     contactLists && contactLists.length > 0 ? [contactLists[0].id] : []
   );
+  const [availableTags, setAvailableTags] = useState([]);
+  const [selectedTags, setSelectedTags] = useState([]);
+  const [filterTagsInGroups, setFilterTagsInGroups] = useState([]);
+  const [showGroupTagFilter, setShowGroupTagFilter] = useState(false);
   const [audienceCount, setAudienceCount] = useState({ totalContacts: 0, uniqueContacts: 0, duplicates: 0 });
   const [loadingAudienceCount, setLoadingAudienceCount] = useState(false);
+
+  // Fetch available workspace tags on mount
+  useEffect(() => {
+    let isMounted = true;
+    contactApi.tagsStats({ silent: true })
+      .then((res) => {
+        if (isMounted && Array.isArray(res.data)) {
+          setAvailableTags(res.data);
+          // Default first tag if none selected
+          if (res.data.length > 0 && selectedTags.length === 0) {
+            setSelectedTags([res.data[0].tag]);
+          }
+        }
+      })
+      .catch(() => {});
+    return () => { isMounted = false; };
+  }, []);
 
   // Adhoc Excel / CSV Direct Blast state
   const [adhocRecipients, setAdhocRecipients] = useState([]);
@@ -207,7 +229,7 @@ function ComposerModal({ onClose, onCreated, contactLists = [], templates = [] }
   const [varSources, setVarSources] = useState({});
   const [fallbacks, setFallbacks] = useState({});
 
-  // Real-time Audience Count Query with Cross-Group Deduplication
+  // Real-time Audience Count Query with Deduplication & Tag Filtering
   useEffect(() => {
     let isMounted = true;
     if (audienceType === 'adhoc_excel') {
@@ -219,20 +241,52 @@ function ComposerModal({ onClose, onCreated, contactLists = [], templates = [] }
       return;
     }
 
-    if (audienceType === 'lists' && (!selectedListIds || selectedListIds.length === 0)) {
-      setAudienceCount({ totalContacts: 0, uniqueContacts: 0, duplicates: 0 });
+    if (audienceType === 'tags') {
+      if (!selectedTags || selectedTags.length === 0) {
+        setAudienceCount({ totalContacts: 0, uniqueContacts: 0, duplicates: 0 });
+        return;
+      }
+      setLoadingAudienceCount(true);
+      campaignApi.getAudienceCount({
+        audienceType: 'tags',
+        tags: selectedTags,
+      })
+        .then((res) => {
+          if (isMounted && res.data) setAudienceCount(res.data);
+        })
+        .catch(() => {})
+        .finally(() => {
+          if (isMounted) setLoadingAudienceCount(false);
+        });
       return;
     }
 
+    if (audienceType === 'lists') {
+      if (!selectedListIds || selectedListIds.length === 0) {
+        setAudienceCount({ totalContacts: 0, uniqueContacts: 0, duplicates: 0 });
+        return;
+      }
+      setLoadingAudienceCount(true);
+      campaignApi.getAudienceCount({
+        audienceType: 'lists',
+        listIds: selectedListIds,
+        filterTags: filterTagsInGroups,
+      })
+        .then((res) => {
+          if (isMounted && res.data) setAudienceCount(res.data);
+        })
+        .catch(() => {})
+        .finally(() => {
+          if (isMounted) setLoadingAudienceCount(false);
+        });
+      return;
+    }
+
+    // Mode: 'all'
     setLoadingAudienceCount(true);
-    campaignApi.getAudienceCount({
-      audienceType,
-      listIds: audienceType === 'lists' ? selectedListIds : [],
-    })
+    campaignApi.getAudienceCount({ audienceType: 'all' })
       .then((res) => {
-        if (isMounted && res.data) {
-          setAudienceCount(res.data);
-        }
+        if (isMounted && res.data) setAudienceCount(res.data);
       })
       .catch(() => {})
       .finally(() => {
@@ -240,7 +294,7 @@ function ComposerModal({ onClose, onCreated, contactLists = [], templates = [] }
       });
 
     return () => { isMounted = false; };
-  }, [audienceType, selectedListIds, adhocRecipients.length]);
+  }, [audienceType, selectedListIds, selectedTags, filterTagsInGroups, adhocRecipients.length]);
 
   const toggleListId = (id) => {
     setSelectedListIds((prev) =>
@@ -254,6 +308,26 @@ function ComposerModal({ onClose, onCreated, contactLists = [], templates = [] }
     } else {
       setSelectedListIds(contactLists.map((l) => l.id));
     }
+  };
+
+  const toggleTag = (tag) => {
+    setSelectedTags((prev) =>
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
+    );
+  };
+
+  const toggleSelectAllTags = () => {
+    if (selectedTags.length === availableTags.length) {
+      setSelectedTags([]);
+    } else {
+      setSelectedTags(availableTags.map((t) => t.tag));
+    }
+  };
+
+  const toggleGroupFilterTag = (tag) => {
+    setFilterTagsInGroups((prev) =>
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
+    );
   };
 
   // Direct Blast: Parse Excel (.xlsx, .xls) or CSV (.csv) completely client-side
@@ -450,6 +524,11 @@ function ComposerModal({ onClose, onCreated, contactLists = [], templates = [] }
         showError('Please select at least one contact group for this campaign.', 'ERR_VDAJ_VAL_007');
         return;
       }
+    } else if (audienceType === 'tags') {
+      if (!selectedTags || selectedTags.length === 0) {
+        showError('Please select at least one tag for this campaign.', 'ERR_VDAJ_VAL_007');
+        return;
+      }
     } else if (audienceType === 'adhoc_excel') {
       if (!adhocRecipients || adhocRecipients.length === 0) {
         showError('Please upload an Excel or CSV file with at least one valid recipient.', 'ERR_VDAJ_VAL_007');
@@ -482,6 +561,8 @@ function ComposerModal({ onClose, onCreated, contactLists = [], templates = [] }
         audienceType,
         contactListId: audienceType === 'lists' ? selectedListIds[0] : undefined,
         contactListIds: audienceType === 'lists' ? selectedListIds : undefined,
+        tags: audienceType === 'tags' ? selectedTags : undefined,
+        filterTags: audienceType === 'lists' && filterTagsInGroups.length > 0 ? filterTagsInGroups : undefined,
         adhocRecipients: audienceType === 'adhoc_excel' ? adhocRecipients : undefined,
         templateVariables: campaignVariables,
         headerUrl: headerMediaUrl || undefined,
@@ -682,104 +763,133 @@ function ComposerModal({ onClose, onCreated, contactLists = [], templates = [] }
                 </div>
               )}
 
-              {/* Dynamic Variable Configuration & Fallback Mapping */}
-              {detectedVariables.length > 0 && (
-                <div className="mt-4 pt-4 border-t border-[#E2E8F0] space-y-3.5">
-                  <div>
-                    <h4 className="text-xs font-bold text-[#0F172A] uppercase tracking-wider flex items-center gap-1.5">
-                      <span>Variable Mapping & Fallbacks</span>
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#EDE9FE] text-[#534AB7]">
-                        {detectedVariables.length} variable{detectedVariables.length > 1 ? 's' : ''} detected
+              {/* Template Variables & Personalization Section (Always Visible) */}
+              <div className="mt-4 pt-4 border-t border-[#E2E8F0] space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold text-[#0F172A] uppercase tracking-wider flex items-center gap-1.5">
+                    <span>Variable Mapping & Personalization</span>
+                    {selectedTemplate && (
+                      <span
+                        className={clsx(
+                          'px-2 py-0.5 rounded-full text-[10px] font-bold',
+                          detectedVariables.length > 0
+                            ? 'bg-[#EDE9FE] text-[#534AB7]'
+                            : 'bg-[#DCFCE7] text-[#166534]'
+                        )}
+                      >
+                        {detectedVariables.length > 0
+                          ? `${detectedVariables.length} variable${detectedVariables.length > 1 ? 's' : ''} detected`
+                          : 'Static (0 variables)'}
                       </span>
-                    </h4>
-                    <p className="text-[11px] text-[#64748B] mt-0.5">
-                      Select a contact attribute or enter custom text. If a contact has missing data, the fallback is delivered automatically.
-                    </p>
-                  </div>
-
-                  <div className="space-y-3">
-                    {detectedVariables.map((vKey, idx) => {
-                      const source = varSources[vKey] || (idx === 0 ? 'contact_name' : 'custom');
-                      const fallback = fallbacks[vKey] || (idx === 0 ? 'Customer' : '-');
-                      return (
-                        <div key={vKey} className="p-3 bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl space-y-2.5">
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold font-mono text-[#534AB7] bg-white px-2 py-0.5 rounded border border-[#CBD5E1]">
-                              {`{{${vKey}}}`}
-                            </span>
-                            <span className="text-[10px] text-[#64748B] font-semibold">
-                              Meta Parameter #{idx + 1}
-                            </span>
-                          </div>
-
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                            {/* Source Selection */}
-                            <div>
-                              <label className="block text-[11px] font-medium text-[#475569] mb-1">
-                                Value Source:
-                              </label>
-                              <select
-                                value={source}
-                                onChange={(e) => handleSourceChange(vKey, e.target.value)}
-                                className="w-full px-2.5 py-1.5 text-xs bg-[#FFFFFF] border border-[#CBD5E1] rounded-lg text-[#0F172A] focus:border-[#534AB7] focus:outline-none"
-                              >
-                                <option value="contact_name">👤 Contact Name (Personalized)</option>
-                                <option value="contact_phone">📱 Recipient Phone Number</option>
-                                <option value="custom">✍️ Static Custom Text</option>
-                              </select>
-                            </div>
-
-                            {/* Fallback / Custom Value Input */}
-                            <div>
-                              {source === 'contact_name' ? (
-                                <>
-                                  <label className="block text-[11px] font-medium text-[#475569] mb-1">
-                                    Default Fallback <span className="text-gray-400 font-normal">(if name is blank)</span>:
-                                  </label>
-                                  <input
-                                    type="text"
-                                    placeholder="e.g. Customer"
-                                    value={fallback}
-                                    onChange={(e) => handleFallbackChange(vKey, e.target.value)}
-                                    className="w-full px-2.5 py-1.5 text-xs bg-[#FFFFFF] border border-[#CBD5E1] rounded-lg text-[#0F172A] placeholder-[#94A3B8] focus:border-[#534AB7] focus:outline-none"
-                                  />
-                                </>
-                              ) : source === 'contact_phone' ? (
-                                <>
-                                  <label className="block text-[11px] font-medium text-[#475569] mb-1">
-                                    Recipient Value:
-                                  </label>
-                                  <div className="px-2.5 py-1.5 text-xs bg-[#F1F5F9] border border-[#CBD5E1] rounded-lg text-[#475569] font-mono truncate">
-                                    +91XXXXXXXXXX (From Contact)
-                                  </div>
-                                </>
-                              ) : (
-                                <>
-                                  <label className="block text-[11px] font-medium text-[#475569] mb-1">
-                                    Custom Text to Send:
-                                  </label>
-                                  <input
-                                    type="text"
-                                    placeholder={`Enter text for {{${vKey}}}`}
-                                    value={form.variables[vKey] || ''}
-                                    onChange={(e) => handleVariableChange(vKey, e.target.value)}
-                                    className="w-full px-2.5 py-1.5 text-xs bg-[#FFFFFF] border border-[#CBD5E1] rounded-lg text-[#0F172A] placeholder-[#94A3B8] focus:border-[#534AB7] focus:outline-none"
-                                  />
-                                </>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  <div className="p-2.5 rounded-lg bg-[#E6F7F1] border border-[#A7F3D0] text-[11px] text-[#065F46] flex items-center gap-2">
-                    <span>✓</span>
-                    <span><strong>Meta Cloud API Protection:</strong> If a contact has empty data, the fallback is delivered automatically to guarantee 0% message drops.</span>
-                  </div>
+                    )}
+                  </h4>
                 </div>
-              )}
+
+                {!selectedTemplate ? (
+                  <div className="p-3 bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl text-xs text-[#64748B] flex items-center gap-3">
+                    <span className="text-xl shrink-0">✨</span>
+                    <div>
+                      <p className="font-semibold text-[#1E293B]">No template selected yet</p>
+                      <p className="text-[11px] text-[#64748B] mt-0.5">
+                        Choose an approved template above to map dynamic parameters like <code className="text-[#534AB7] bg-white px-1 py-0.5 rounded border border-[#CBD5E1] font-mono">{"{{1}}"}</code>, <code className="text-[#534AB7] bg-white px-1 py-0.5 rounded border border-[#CBD5E1] font-mono">{"{{2}}"}</code> to Contact Name, Phone, or Custom Text with automatic fallbacks.
+                      </p>
+                    </div>
+                  </div>
+                ) : detectedVariables.length === 0 ? (
+                  <div className="p-3 bg-[#F0FDF4] border border-[#BBF7D0] rounded-xl text-xs text-[#166534] flex items-center gap-2">
+                    <span className="text-base shrink-0">✓</span>
+                    <span><strong>Static Template:</strong> This template message has no variable placeholders. It will be sent exactly as approved by Meta.</span>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <p className="text-[11px] text-[#64748B]">
+                      Map each Meta variable to a contact field or enter custom text. If a contact has empty data, the fallback is delivered automatically.
+                    </p>
+
+                    <div className="space-y-3">
+                      {detectedVariables.map((vKey, idx) => {
+                        const source = varSources[vKey] || (idx === 0 ? 'contact_name' : 'custom');
+                        const fallback = fallbacks[vKey] || (idx === 0 ? 'Customer' : '-');
+                        return (
+                          <div key={vKey} className="p-3 bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl space-y-2.5">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-bold font-mono text-[#534AB7] bg-white px-2 py-0.5 rounded border border-[#CBD5E1]">
+                                {`{{${vKey}}}`}
+                              </span>
+                              <span className="text-[10px] text-[#64748B] font-semibold">
+                                Meta Parameter #{idx + 1}
+                              </span>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                              {/* Source Selection */}
+                              <div>
+                                <label className="block text-[11px] font-medium text-[#475569] mb-1">
+                                  Value Source:
+                                </label>
+                                <select
+                                  value={source}
+                                  onChange={(e) => handleSourceChange(vKey, e.target.value)}
+                                  className="w-full px-2.5 py-1.5 text-xs bg-[#FFFFFF] border border-[#CBD5E1] rounded-lg text-[#0F172A] focus:border-[#534AB7] focus:outline-none"
+                                >
+                                  <option value="contact_name">👤 Contact Name (Personalized)</option>
+                                  <option value="contact_phone">📱 Recipient Phone Number</option>
+                                  <option value="custom">✍️ Static Custom Text</option>
+                                </select>
+                              </div>
+
+                              {/* Fallback / Custom Value Input */}
+                              <div>
+                                {source === 'contact_name' ? (
+                                  <>
+                                    <label className="block text-[11px] font-medium text-[#475569] mb-1">
+                                      Default Fallback <span className="text-gray-400 font-normal">(if name is blank)</span>:
+                                    </label>
+                                    <input
+                                      type="text"
+                                      placeholder="e.g. Customer"
+                                      value={fallback}
+                                      onChange={(e) => handleFallbackChange(vKey, e.target.value)}
+                                      className="w-full px-2.5 py-1.5 text-xs bg-[#FFFFFF] border border-[#CBD5E1] rounded-lg text-[#0F172A] placeholder-[#94A3B8] focus:border-[#534AB7] focus:outline-none"
+                                    />
+                                  </>
+                                ) : source === 'contact_phone' ? (
+                                  <>
+                                    <label className="block text-[11px] font-medium text-[#475569] mb-1">
+                                      Recipient Value:
+                                    </label>
+                                    <div className="px-2.5 py-1.5 text-xs bg-[#F1F5F9] border border-[#CBD5E1] rounded-lg text-[#475569] font-mono truncate">
+                                      +91XXXXXXXXXX (From Contact)
+                                    </div>
+                                  </>
+                                ) : (
+                                  <>
+                                    <label className="block text-[11px] font-medium text-[#475569] mb-1">
+                                      Custom Text to Send:
+                                    </label>
+                                    <input
+                                      type="text"
+                                      placeholder={`Enter text for {{${vKey}}}`}
+                                      value={form.variables[vKey] || ''}
+                                      onChange={(e) => handleVariableChange(vKey, e.target.value)}
+                                      className="w-full px-2.5 py-1.5 text-xs bg-[#FFFFFF] border border-[#CBD5E1] rounded-lg text-[#0F172A] placeholder-[#94A3B8] focus:border-[#534AB7] focus:outline-none"
+                                    />
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <div className="p-2.5 rounded-lg bg-[#E6F7F1] border border-[#A7F3D0] text-[11px] text-[#065F46] flex items-center gap-2">
+                      <span>✓</span>
+                      <span><strong>Meta Cloud API Protection:</strong> If a contact has empty data, the fallback is delivered automatically to guarantee 0% message drops.</span>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* 3. Recipients (Audience Configuration) */}
@@ -788,7 +898,7 @@ function ComposerModal({ onClose, onCreated, contactLists = [], templates = [] }
                 <label className="text-xs font-semibold text-[#0F172A] uppercase tracking-wider">
                   Target Audience *
                 </label>
-                {audienceType === 'lists' && (
+                {audienceType === 'lists' && contactLists.length > 0 && (
                   <button
                     type="button"
                     onClick={toggleSelectAllLists}
@@ -797,10 +907,19 @@ function ComposerModal({ onClose, onCreated, contactLists = [], templates = [] }
                     {selectedListIds.length === contactLists.length ? 'Deselect All' : 'Select All Groups'}
                   </button>
                 )}
+                {audienceType === 'tags' && availableTags.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={toggleSelectAllTags}
+                    className="text-[11px] font-bold text-[#534AB7] hover:underline"
+                  >
+                    {selectedTags.length === availableTags.length ? 'Deselect All' : 'Select All Tags'}
+                  </button>
+                )}
               </div>
 
-              {/* Audience Mode Segmented Selector */}
-              <div className="grid grid-cols-3 gap-1 bg-[#F1F5F9] p-1 rounded-xl text-xs font-semibold">
+              {/* Audience Mode Segmented Selector (4 Options) */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-1 bg-[#F1F5F9] p-1 rounded-xl text-xs font-semibold">
                 <button
                   type="button"
                   onClick={() => setAudienceType('lists')}
@@ -813,6 +932,19 @@ function ComposerModal({ onClose, onCreated, contactLists = [], templates = [] }
                 >
                   <span>👥</span>
                   <span className="truncate">Contact Groups</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAudienceType('tags')}
+                  className={clsx(
+                    'py-2 px-2 rounded-lg transition-all text-center flex items-center justify-center gap-1.5',
+                    audienceType === 'tags'
+                      ? 'bg-white text-[#0F172A] shadow-sm font-bold'
+                      : 'text-[#64748B] hover:text-[#0F172A]'
+                  )}
+                >
+                  <span>🏷️</span>
+                  <span className="truncate">By Tags</span>
                 </button>
                 <button
                   type="button"
@@ -842,7 +974,7 @@ function ComposerModal({ onClose, onCreated, contactLists = [], templates = [] }
                 </button>
               </div>
 
-              {/* Mode A: Contact Groups (Multi-Select with deduplication) */}
+              {/* Mode A: Contact Groups (Multi-Select with deduplication + optional tag filter) */}
               {audienceType === 'lists' && (
                 <div className="space-y-3">
                   {contactLists.length === 0 ? (
@@ -883,6 +1015,55 @@ function ComposerModal({ onClose, onCreated, contactLists = [], templates = [] }
                     </div>
                   )}
 
+                  {/* Optional Filter by Tag within groups */}
+                  {availableTags.length > 0 && (
+                    <div className="pt-1">
+                      <button
+                        type="button"
+                        onClick={() => setShowGroupTagFilter(!showGroupTagFilter)}
+                        className="text-[11px] font-semibold text-[#534AB7] hover:underline flex items-center gap-1"
+                      >
+                        <span>{showGroupTagFilter ? '▾ Hide tag filter' : '▸ Filter selected groups by Tag (optional)'}</span>
+                        {filterTagsInGroups.length > 0 && (
+                          <span className="px-1.5 py-0.2 bg-[#EDE9FE] text-[#534AB7] rounded-full text-[10px] font-bold">
+                            {filterTagsInGroups.length} active
+                          </span>
+                        )}
+                      </button>
+
+                      {showGroupTagFilter && (
+                        <div className="mt-2 p-2.5 bg-white border border-[#E2E8F0] rounded-xl space-y-2">
+                          <p className="text-[11px] text-[#64748B]">
+                            Only include contacts from selected groups who have at least one of these tags:
+                          </p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {availableTags.map((t) => {
+                              const active = filterTagsInGroups.includes(t.tag);
+                              return (
+                                <button
+                                  key={t.tag}
+                                  type="button"
+                                  onClick={() => toggleGroupFilterTag(t.tag)}
+                                  className={clsx(
+                                    'px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors flex items-center gap-1.5',
+                                    active
+                                      ? 'bg-[#534AB7] text-white border-[#534AB7]'
+                                      : 'bg-[#F8FAFC] text-[#475569] border-[#CBD5E1] hover:bg-[#F1F5F9]'
+                                  )}
+                                >
+                                  <span>🏷️ {t.tag}</span>
+                                  <span className={clsx('text-[10px] px-1 py-0.2 rounded font-bold', active ? 'bg-white/20 text-white' : 'bg-[#E2E8F0] text-[#475569]')}>
+                                    {t.count}
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {/* Real-time Audience Summary Badge */}
                   <div className="p-3 rounded-xl bg-[#F0FDF4] border border-[#BBF7D0] flex items-center justify-between text-xs">
                     <div className="flex items-center gap-2">
@@ -896,6 +1077,75 @@ function ComposerModal({ onClose, onCreated, contactLists = [], templates = [] }
                         {audienceCount.duplicates > 0 && (
                           <p className="text-[11px] text-[#15803D] mt-0.5">
                             Auto-deduplicated: <strong>{audienceCount.duplicates}</strong> overlapping contact(s) across selected groups removed automatically.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#DCFCE7] text-[#15803D] border border-[#86EFAC] shrink-0">
+                      ✓ No Double Messages
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Mode B: Target By Tags */}
+              {audienceType === 'tags' && (
+                <div className="space-y-3">
+                  {availableTags.length === 0 ? (
+                    <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800 space-y-1">
+                      <p className="font-bold">No Contact Tags Found</p>
+                      <p className="text-[11px] leading-relaxed">
+                        No tags have been assigned to contacts yet. You can assign tags (such as <em>VIP, Member, Lead, Inquiry</em>) in the <strong>Contacts</strong> directory to target them directly here.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="max-h-44 overflow-y-auto space-y-1.5 pr-1 border border-[#E2E8F0] rounded-xl p-2.5 bg-[#F8FAFC]">
+                      {availableTags.map((t) => {
+                        const isChecked = selectedTags.includes(t.tag);
+                        return (
+                          <label
+                            key={t.tag}
+                            className={clsx(
+                              'flex items-center justify-between p-2 rounded-lg cursor-pointer transition-colors border',
+                              isChecked
+                                ? 'bg-white border-[#534AB7]/40 shadow-xs'
+                                : 'bg-transparent border-transparent hover:bg-white/60'
+                            )}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={() => toggleTag(t.tag)}
+                                className="w-4 h-4 rounded text-[#534AB7] focus:ring-[#534AB7] border-[#CBD5E1]"
+                              />
+                              <span className="text-xs font-semibold text-[#0F172A] truncate flex items-center gap-1.5">
+                                <span className="text-[#534AB7]">🏷️</span>
+                                <span>{t.tag}</span>
+                              </span>
+                            </div>
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#EDE9FE] text-[#534AB7] shrink-0 border border-[#DDD6FE]">
+                              {t.count} contacts
+                            </span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Real-time Audience Summary Badge for Tags */}
+                  <div className="p-3 rounded-xl bg-[#F0FDF4] border border-[#BBF7D0] flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2">
+                      <span className="text-base">🎯</span>
+                      <div>
+                        <div className="font-bold text-[#166534]">
+                          {loadingAudienceCount
+                            ? 'Calculating deduplicated tag audience…'
+                            : `Total Audience: ${audienceCount.uniqueContacts} unique contacts`}
+                        </div>
+                        {selectedTags.length > 1 && audienceCount.duplicates > 0 && (
+                          <p className="text-[11px] text-[#15803D] mt-0.5">
+                            Auto-deduplicated: <strong>{audienceCount.duplicates}</strong> overlapping contact(s) with multiple tags will only receive 1 message.
                           </p>
                         )}
                       </div>
