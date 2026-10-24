@@ -25,10 +25,31 @@ const logger = require('../src/utils/logger');
 
 const IS_SEND_MODE = process.argv.includes('--send');
 
-// ── Official Facility Timings (Compact & Elegant — No 'Read More') ─────────────
-const FACILITY_TIMINGS_TEXT = `🏊 *SMR SWIMMING POOL & HEALTH CLUB*
+function formatProperCase(str) {
+  if (!str || typeof str !== 'string') return '';
+  const trimmed = str.trim();
+  if (!trimmed) return '';
+  if (trimmed === trimmed.toUpperCase() || trimmed === trimmed.toLowerCase()) {
+    return trimmed
+      .toLowerCase()
+      .split(/\s+/)
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ');
+  }
+  return trimmed;
+}
+
+// ── Official Facility Timings (Personalized & Compact — No 'Read More') ─────────────
+function buildFacilityTimingsText(contactName) {
+  const greeting = (contactName && contactName !== 'Member')
+    ? `Hello ${contactName}, thank you for reaching out!`
+    : `Hello, thank you for reaching out!`;
+
+  return `🏊 *SMR SWIMMING POOL & HEALTH CLUB*
 ━━━━━━━━━━━━━━━━━━
-*Facility Timings*
+${greeting}
+
+Here are our official *Facility Timings*:
 
 🏊 *Swimming Pool*
 • 06:00 AM – 10:00 AM (General)
@@ -45,21 +66,26 @@ const FACILITY_TIMINGS_TEXT = `🏊 *SMR SWIMMING POOL & HEALTH CLUB*
 • 05:00 PM – 08:00 PM (General)
 ━━━━━━━━━━━━━━━━━━
 _Reply here for bookings or any assistance._`;
+}
 
-// ── Generic Membership Inquiry Response (Compact & Elegant — No 'Read More') ────
-const GENERIC_MEMBERSHIP_TEXT = `🏊 *SMR SWIMMING POOL & HEALTH CLUB*
+// ── Generic Membership Inquiry Response (Personalized & Compact — No 'Read More') ────
+function buildGenericMembershipText(contactName) {
+  const greeting = (contactName && contactName !== 'Member')
+    ? `Hello ${contactName}, thank you for reaching out!`
+    : `Hello, thank you for reaching out!`;
+
+  return `🏊 *SMR SWIMMING POOL & HEALTH CLUB*
 ━━━━━━━━━━━━━━━━━━
-*Membership Desk*
-
-Hello! Thank you for inquiring about SMR memberships.
+${greeting}
 
 We offer *Individual & Family Plans* with access to:
 • Swimming Pool & Coaching
 • Badminton Courts & Gymnasium
 
-For more details and assistance, please visit our *Club Reception Desk* during operational hours.
+For membership details and assistance, please visit our *Club Reception Desk* during operational hours.
 ━━━━━━━━━━━━━━━━━━
 _Our team is delighted to assist you!_`;
+}
 
 // ── Opt-Out Formatter (Clean & Compact) ───────────────────────
 const OPT_OUT_TEXT = `You have been unsubscribed from promotional updates from SMR Swimming Pool & Health Club. Reply START anytime to re-enable.`;
@@ -160,15 +186,24 @@ async function main() {
            NULL
          ) AS group_name
        FROM contacts c
-       WHERE c.tenant_id = $1 AND c.phone_e164 = $2
+       WHERE c.tenant_id = $1 
+         AND (c.phone_e164 = $2 OR RIGHT(c.phone_e164, 10) = RIGHT($2, 10))
+       ORDER BY (c.phone_e164 = $2) DESC
        LIMIT 1`,
       [tenant.id, phone]
     );
 
     const contact = contacts[0] || null;
-    const cleanName = contact
-      ? `${contact.first_name || ''} ${contact.last_name || ''}`.trim() || contact.first_name || inbound.display_name
-      : inbound.display_name || 'Member';
+    let cleanName = '';
+    if (contact) {
+      const fn = (contact.first_name || '').trim();
+      const ln = (contact.last_name || '').trim();
+      const rawName = (fn && ln) ? `${fn} ${ln}` : (fn || ln || contact.custom_vars?.Name || contact.custom_vars?.name || contact.custom_vars?.full_name || '');
+      cleanName = formatProperCase(rawName);
+    }
+    if (!cleanName && inbound.display_name && inbound.display_name !== phone && !inbound.display_name.startsWith('+')) {
+      cleanName = formatProperCase(inbound.display_name);
+    }
 
     // Determine membership plan & ID
     let membershipPlan = 'Club Member';
@@ -270,7 +305,7 @@ async function main() {
       rawInbound.includes('schedule')
     ) {
       category = 'TIMINGS';
-      replyText = FACILITY_TIMINGS_TEXT;
+      replyText = buildFacilityTimingsText(cleanName);
     } else if (
       rawInbound === 'membership info' ||
       rawInbound.includes('membership') ||
@@ -278,7 +313,7 @@ async function main() {
       rawInbound.includes('plan')
     ) {
       category = 'MEMBERSHIP';
-      replyText = GENERIC_MEMBERSHIP_TEXT;
+      replyText = buildGenericMembershipText(cleanName);
     } else if (
       rawInbound === 'stop' ||
       rawInbound === 'unsubscribe' ||
