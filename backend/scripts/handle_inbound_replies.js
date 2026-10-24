@@ -180,7 +180,7 @@ async function main() {
 
     // Also check campaign_messages for this recipient to see variables stored during upload/launch
     const { rows: campRows } = await query(
-      `SELECT cm.template_vars, cm.custom_vars, camp.name AS camp_name
+      `SELECT cm.template_vars, camp.name AS camp_name
        FROM campaign_messages cm
        JOIN campaigns camp ON camp.id = cm.campaign_id
        WHERE cm.phone_e164 = $1
@@ -224,9 +224,9 @@ async function main() {
       }
     }
 
-    // Source 2: Check campaign_messages template_vars & custom_vars
+    // Source 2: Check campaign_messages template_vars
     if (!memberId && campMsg) {
-      const vars = { ...(campMsg.custom_vars || {}), ...(campMsg.template_vars || {}) };
+      const vars = campMsg.template_vars || {};
       for (const [k, v] of Object.entries(vars)) {
         const lk = k.toLowerCase().replace(/[^a-z0-9]/g, '');
         if (

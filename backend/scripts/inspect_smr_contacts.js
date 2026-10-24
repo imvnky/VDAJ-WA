@@ -46,7 +46,7 @@ async function inspect() {
 
   // Also check campaign_messages template_vars
   const { rows: campMsgs } = await query(
-    `SELECT cm.phone_e164, cm.template_vars, cm.custom_vars
+    `SELECT cm.phone_e164, cm.template_vars
      FROM campaign_messages cm
      JOIN campaigns c ON c.id = cm.campaign_id
      WHERE c.tenant_id = $1
@@ -55,7 +55,7 @@ async function inspect() {
   );
   console.log('\nSample campaign_messages vars:');
   campMsgs.forEach((cm, idx) => {
-    console.log(`[${idx + 1}] ${cm.phone_e164} -> template_vars:`, JSON.stringify(cm.template_vars), 'custom_vars:', JSON.stringify(cm.custom_vars));
+    console.log(`[${idx + 1}] ${cm.phone_e164} -> template_vars:`, JSON.stringify(cm.template_vars));
   });
 
   await pool.end();
