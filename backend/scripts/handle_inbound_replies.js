@@ -276,8 +276,8 @@ async function main() {
       rawInbound.includes('member info') ||
       rawInbound.includes('plan')
     ) {
-      category = 'MEMBERSHIP';
-      replyText = buildMembershipText(cleanName, membershipPlan, memberId);
+      category = 'MEMBERSHIP_ON_HOLD';
+      replyText = null; // ⏸️ ON HOLD: Kept pending approval. Will NOT be sent.
     } else if (
       rawInbound === 'stop' ||
       rawInbound === 'unsubscribe' ||
@@ -324,14 +324,10 @@ async function main() {
     console.log(`     Customer Message: "${item.inboundBody}"`);
     console.log(`     Category: ${item.category}`);
 
-    if (item.category === 'MEMBERSHIP') {
-      console.log(`     Detected Plan: ${item.membershipPlan} | ID: ${item.memberId || 'N/A'}`);
-      if (!item.memberId) {
-        console.log(`     [Debug Data] custom_vars: ${JSON.stringify(item.rawCustomVars)} | camp_vars: ${JSON.stringify(item.rawCampVars)} | tags: ${JSON.stringify(item.rawTags)}`);
-      }
-    }
-
-    if (item.replyText) {
+    if (item.category === 'MEMBERSHIP_ON_HOLD') {
+      console.log(`     ⏸️ [ON HOLD] Membership inquiry held pending client approval. (Detected Plan: ${item.membershipPlan} | ID: ${item.memberId || 'N/A'})`);
+      console.log(`     👉 Status: Will NOT be sent.`);
+    } else if (item.replyText) {
       autoCount++;
       console.log(`     👉 Proposed Reply:\n${item.replyText.split('\n').map(l => '        ' + l).join('\n')}`);
     } else {
@@ -342,7 +338,7 @@ async function main() {
   });
 
   console.log('---------------------------------------------------------------');
-  console.log(`Summary: ${autoCount} automated replies ready | ${manualCount} custom queries for manual inbox review.`);
+  console.log(`Summary: ${autoCount} Timings/Opt-out replies ready to send | ${pendingReplies.filter(p => p.category === 'MEMBERSHIP_ON_HOLD').length} Membership inquiries on HOLD | ${manualCount} Custom queries.`);
   console.log('---------------------------------------------------------------\n');
 
   if (!IS_SEND_MODE) {
