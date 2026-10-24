@@ -25,42 +25,44 @@ const logger = require('../src/utils/logger');
 
 const IS_SEND_MODE = process.argv.includes('--send');
 
-// ── Official Facility Timings (Clean & Professional) ─────────────
-const FACILITY_TIMINGS_TEXT = `*SMR Swimming Pool & Health Club — Facility Timings*
+// ── Official Facility Timings (Compact & Elegant — No 'Read More') ─────────────
+const FACILITY_TIMINGS_TEXT = `🏊 *SMR SWIMMING POOL & HEALTH CLUB*
+━━━━━━━━━━━━━━━━━━
+*Facility Timings*
 
-*Swimming Pool:*
-• 06:00 AM – 10:00 AM : General (All)
-• 04:00 PM – 05:00 PM : Women Only
-• 05:00 PM – 06:45 PM : General (All)
-• 06:45 PM – 08:00 PM : Members Only
+🏊 *Swimming Pool*
+• 06:00 AM – 10:00 AM (General)
+• 04:00 PM – 05:00 PM (Women Only)
+• 05:00 PM – 06:45 PM (General)
+• 06:45 PM – 08:00 PM (Members Only)
 
-*Badminton Court:*
-• 06:00 AM – 10:00 AM
-• 04:00 PM – 09:00 PM
+🏸 *Badminton Court*
+• 06:00 AM – 10:00 AM | 04:00 PM – 09:00 PM
 
-*Gymnasium:*
-• 06:00 AM – 10:00 AM : General
-• 04:00 PM – 05:00 PM : Women Only
-• 05:00 PM – 08:00 PM : General
+🏋️ *Gymnasium*
+• 06:00 AM – 10:00 AM (General)
+• 04:00 PM – 05:00 PM (Women Only)
+• 05:00 PM – 08:00 PM (General)
+━━━━━━━━━━━━━━━━━━
+_Reply here for bookings or any assistance._`;
 
-For facility bookings or any queries, please feel free to reply directly to this message.`;
+// ── Generic Membership Inquiry Response (Compact & Elegant — No 'Read More') ────
+const GENERIC_MEMBERSHIP_TEXT = `🏊 *SMR SWIMMING POOL & HEALTH CLUB*
+━━━━━━━━━━━━━━━━━━
+*Membership Desk*
 
-// ── Generic Membership Inquiry Response (Clean & Professional) ────
-const GENERIC_MEMBERSHIP_TEXT = `*SMR Swimming Pool & Health Club — Membership Desk*
+Hello! Thank you for inquiring about SMR memberships.
 
-Hello, thank you for reaching out regarding membership at SMR.
+We offer *Individual & Family Plans* with access to:
+• Swimming Pool & Coaching
+• Badminton Courts & Gymnasium
 
-We offer comprehensive *Individual & Family Membership Plans* covering:
-• Swimming Pool & Professional Coaching
-• Badminton Courts
-• Modern Gymnasium & Fitness Center
+For card renewals, member details, or new additions, please visit our *Club Reception Desk* during operational hours.
+━━━━━━━━━━━━━━━━━━
+_Our team is delighted to assist you!_`;
 
-To check your specific membership status, renewal details, or to enroll a family member, please visit our *Club Reception Desk* or speak with our front desk staff during operational hours.
-
-Our team will be delighted to assist you.`;
-
-// ── Opt-Out Formatter (Clean & Professional) ───────────────────────
-const OPT_OUT_TEXT = `You have been successfully unsubscribed from promotional updates from SMR Swimming Pool & Health Club. You will not receive further broadcast messages. Reply START anytime to re-enable.`;
+// ── Opt-Out Formatter (Clean & Compact) ───────────────────────
+const OPT_OUT_TEXT = `You have been unsubscribed from promotional updates from SMR Swimming Pool & Health Club. Reply START anytime to re-enable.`;
 
 async function main() {
   console.log('===============================================================');
