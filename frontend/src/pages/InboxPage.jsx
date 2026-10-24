@@ -423,14 +423,28 @@ function getMessageTemplateInfo(msg, templates = []) {
 
   // 1. Direct metadata from DB if available
   if (msg.metadata && (msg.metadata.buttons || msg.metadata.template_name || msg.metadata.header_text || msg.metadata.header_sample_url)) {
-    const metaHeaderUrl = msg.metadata.header_sample_url || msg.metadata.header_url || msg.media_url;
+    const templateName = msg.metadata.template_name;
+    const matchingT = templates.find((t) => t && (t.name === templateName || t.id === templateName));
+
+    const metaButtons = (Array.isArray(msg.metadata.buttons) && msg.metadata.buttons.length > 0)
+      ? msg.metadata.buttons
+      : (matchingT ? (Array.isArray(matchingT.buttons) ? matchingT.buttons : (typeof matchingT.buttons === 'string' ? JSON.parse(matchingT.buttons || '[]') : [])) : []);
+
+    const metaHeaderUrl = msg.metadata.header_sample_url || msg.metadata.header_url || (matchingT?.header_sample_url || matchingT?.header_url) || msg.media_url;
+    const metaHeaderText = msg.metadata.header_text || matchingT?.header_text;
+    const metaFooterText = msg.metadata.footer_text || msg.metadata.footer || matchingT?.footer_text;
+    const metaHeaderType = String(
+      msg.metadata.header_type || (matchingT ? matchingT.header_type : '') || (metaHeaderUrl ? 'IMAGE' : metaHeaderText ? 'TEXT' : 'NONE')
+    ).toUpperCase();
+
     return {
-      name: msg.metadata.template_name,
-      buttons: Array.isArray(msg.metadata.buttons) ? msg.metadata.buttons : [],
-      footerText: msg.metadata.footer_text || msg.metadata.footer,
-      headerText: msg.metadata.header_text,
-      headerType: String(msg.metadata.header_type || (metaHeaderUrl ? 'IMAGE' : msg.metadata.header_text ? 'TEXT' : 'NONE')).toUpperCase(),
+      name: templateName,
+      buttons: metaButtons,
+      footerText: metaFooterText,
+      headerText: metaHeaderText,
+      headerType: metaHeaderType,
       headerUrl: metaHeaderUrl,
+      bodyText: matchingT?.body_text,
     };
   }
 
@@ -447,8 +461,12 @@ function getMessageTemplateInfo(msg, templates = []) {
     const resolvedHeaderUrl = t.header_sample_url || t.header_url || (t.header_type === 'IMAGE' ? t.header_sample_url : null) || msg.media_url;
     const resolvedHeaderType = String(t.header_type || (resolvedHeaderUrl ? 'IMAGE' : t.header_text ? 'TEXT' : 'NONE')).toUpperCase();
 
-    // A. Check if body explicitly states "Template: <name>"
-    if (trimmedBody === `Template: ${t.name}` || trimmedBody === t.name) {
+    // A. Check if body explicitly states "Template: <name>" or starts with it
+    if (
+      trimmedBody === `Template: ${t.name}` ||
+      trimmedBody === t.name ||
+      trimmedBody.startsWith(`Template: ${t.name}`)
+    ) {
       return {
         name: t.name,
         buttons: tButtons,
@@ -477,6 +495,7 @@ function getMessageTemplateInfo(msg, templates = []) {
           headerText: t.header_text,
           headerType: resolvedHeaderType,
           headerUrl: resolvedHeaderUrl,
+          bodyText: t.body_text,
         };
       }
     } catch (_) {}
@@ -495,6 +514,7 @@ function getMessageTemplateInfo(msg, templates = []) {
         headerText: t.header_text,
         headerType: resolvedHeaderType,
         headerUrl: resolvedHeaderUrl,
+        bodyText: t.body_text,
       };
     }
   }
@@ -503,7 +523,7 @@ function getMessageTemplateInfo(msg, templates = []) {
 }
 
 // ── Message Bubble ────────────────────────────────────────────
-function MessageBubble({ msg, templates = [] }) {
+function MessageBubble({ msg, templates = [], contactName = '' }) {
   const isOut = msg.direction === 'outbound';
   const formattedDateTime = formatMessageTime(msg.created_at);
   const fullDateTime = msg.created_at ? new Date(msg.created_at).toLocaleString() : '';
@@ -517,9 +537,18 @@ function MessageBubble({ msg, templates = [] }) {
   const headerUrl = templateInfo?.headerUrl || msg.media_url;
 
   // If body is just "Template: name" but we found template body, show full rich text
-  const displayBody = (templateInfo?.bodyText && (msg.body === `Template: ${templateInfo.name}` || msg.body === templateInfo.name))
-    ? templateInfo.bodyText
-    : msg.body;
+  let displayBody = msg.body;
+  if (
+    templateInfo?.bodyText &&
+    (!msg.body ||
+      msg.body === `Template: ${templateInfo.name}` ||
+      msg.body === templateInfo.name ||
+      msg.body.startsWith('Template:'))
+  ) {
+    const rawTemplateBody = templateInfo.bodyText;
+    const nameToUse = contactName?.trim() || 'Member';
+    displayBody = rawTemplateBody.replace(/\{\{\s*\w+\s*\}\}/g, nameToUse);
+  }
 
   return (
     <div className={clsx('flex w-full', isOut ? 'justify-end' : 'justify-start')}>
@@ -1502,7 +1531,7 @@ export default function InboxPage() {
                         </span>
                       </div>
                     )}
-                    <MessageBubble msg={m} templates={templates} />
+                    <MessageBubble msg={m} templates={templates} contactName={activeConv?.display_name} />
                   </React.Fragment>
                 );
               })

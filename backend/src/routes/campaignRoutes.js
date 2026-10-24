@@ -679,7 +679,10 @@ router.post('/:id/retry-failed', uuidParamValidator('id'), validate, catchAsync(
     // 1. Fetch and lock campaign + tenant credentials
     const { rows: [campaign] } = await client.query(
       `SELECT c.*, t.meta_system_token, t.phone_number_id,
-              mt.name AS template_name, mt.language AS template_language
+              mt.name AS template_name, mt.language AS template_language,
+              mt.body_text AS template_body, mt.buttons AS template_buttons,
+              mt.footer_text AS template_footer, mt.header_text AS template_header,
+              mt.header_sample_url AS template_header_url
        FROM campaigns c
        JOIN tenants t ON t.id = c.tenant_id
        JOIN message_templates mt ON mt.id = c.template_id
@@ -695,8 +698,10 @@ router.post('/:id/retry-failed', uuidParamValidator('id'), validate, catchAsync(
     // 2. Fetch all failed, dead-lettered, or stuck un-sent recipients
     // Exclude messages that were already successfully sent, delivered, or read
     const { rows: failedMessages } = await client.query(
-      `SELECT cm.id, cm.phone_e164, cm.template_vars, cm.status
+      `SELECT cm.id, cm.phone_e164, cm.template_vars, cm.status,
+              COALESCE(NULLIF(TRIM(COALESCE(c.first_name || ' ' || COALESCE(c.last_name, ''), c.first_name, '')), ''), cm.template_vars->>'contact_name', cm.template_vars->>'name') AS contact_name
        FROM campaign_messages cm
+       LEFT JOIN contacts c ON c.id = cm.contact_id
        WHERE cm.campaign_id = $1
          AND cm.status NOT IN ('sent', 'delivered', 'read')
        FOR UPDATE`,
@@ -779,7 +784,10 @@ router.post('/:id/resend', uuidParamValidator('id'), validate, catchAsync(async 
     // 1. Fetch and lock campaign + tenant credentials
     const { rows: [campaign] } = await client.query(
       `SELECT c.*, t.meta_system_token, t.phone_number_id,
-              mt.name AS template_name, mt.language AS template_language
+              mt.name AS template_name, mt.language AS template_language,
+              mt.body_text AS template_body, mt.buttons AS template_buttons,
+              mt.footer_text AS template_footer, mt.header_text AS template_header,
+              mt.header_sample_url AS template_header_url
        FROM campaigns c
        JOIN tenants t ON t.id = c.tenant_id
        JOIN message_templates mt ON mt.id = c.template_id
