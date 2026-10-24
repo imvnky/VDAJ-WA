@@ -20,7 +20,7 @@ const { sendSuccess, catchAsync } = require('../middleware/responseHandler');
 const { authenticate } = require('../middleware/authMiddleware');
 const { requireTenant } = require('../middleware/tenantMiddleware');
 const AppError = require('../utils/AppError');
-const { sendWhatsAppMessage } = require('../services/metaApiService');
+const { sendWhatsAppMessage, markWhatsAppMessageAsRead } = require('../services/metaApiService');
 
 // All inbox routes require auth + tenant
 router.use(authenticate, requireTenant);
@@ -167,11 +167,35 @@ router.get('/conversations/:id/messages', catchAsync(async (req, res) => {
   );
   if (!convCheck.rows.length) throw new AppError('Conversation not found.', 404, 'ERR_INBOX_001');
 
-  // Mark as read
+  // Mark as read in local database
   await query(
     'UPDATE inbox_conversations SET unread_count = 0, updated_at = NOW() WHERE id = $1',
     [req.params.id]
   );
+
+  // Send read receipt to Meta so the customer sees double blue ticks on their phone!
+  setImmediate(async () => {
+    try {
+      const { rows: latestInbound } = await query(
+        `SELECT m.wa_message_id, t.phone_number_id, t.meta_system_token
+         FROM inbox_messages m
+         JOIN tenants t ON t.id = m.tenant_id
+         WHERE m.conversation_id = $1 AND m.direction = 'inbound' AND m.wa_message_id IS NOT NULL
+         ORDER BY m.created_at DESC LIMIT 1`,
+        [req.params.id]
+      );
+      if (latestInbound.length && latestInbound[0].wa_message_id) {
+        const { wa_message_id, phone_number_id, meta_system_token } = latestInbound[0];
+        await markWhatsAppMessageAsRead({
+          phoneNumberId: phone_number_id,
+          accessToken: meta_system_token,
+          messageId: wa_message_id,
+        });
+      }
+    } catch (readErr) {
+      // Non-blocking best effort read receipt
+    }
+  });
 
   const { rows } = await query(
     `SELECT m.*, u.first_name AS sender_name
@@ -341,6 +365,28 @@ router.patch('/conversations/:id/read', catchAsync(async (req, res) => {
      WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL`,
     [req.params.id, req.user.tenantId]
   );
+
+  setImmediate(async () => {
+    try {
+      const { rows: latestInbound } = await query(
+        `SELECT m.wa_message_id, t.phone_number_id, t.meta_system_token
+         FROM inbox_messages m
+         JOIN tenants t ON t.id = m.tenant_id
+         WHERE m.conversation_id = $1 AND m.direction = 'inbound' AND m.wa_message_id IS NOT NULL
+         ORDER BY m.created_at DESC LIMIT 1`,
+        [req.params.id]
+      );
+      if (latestInbound.length && latestInbound[0].wa_message_id) {
+        const { wa_message_id, phone_number_id, meta_system_token } = latestInbound[0];
+        await markWhatsAppMessageAsRead({
+          phoneNumberId: phone_number_id,
+          accessToken: meta_system_token,
+          messageId: wa_message_id,
+        });
+      }
+    } catch (readErr) {}
+  });
+
   return sendSuccess(res, null, 'Conversation marked as read.');
 }));
 

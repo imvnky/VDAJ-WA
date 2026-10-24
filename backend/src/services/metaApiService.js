@@ -252,6 +252,37 @@ const sendWhatsAppMessage = async ({
 const sendFreeText = ({ phoneNumberId, accessToken, to, body }) =>
   sendWhatsAppMessage({ phoneNumberId, accessToken, to, body });
 
+/**
+ * Mark an inbound message as read on Meta Cloud API.
+ * This sends a read receipt to Meta so the customer sees double blue ticks on their phone!
+ *
+ * @param {object} opts
+ * @param {string} opts.phoneNumberId
+ * @param {string} opts.accessToken
+ * @param {string} opts.messageId     — wamid of the inbound customer message
+ * @returns {Promise<object>}
+ */
+const markWhatsAppMessageAsRead = async ({ phoneNumberId, accessToken, messageId }) => {
+  const token = getEffectiveToken(accessToken);
+  if (!token || !phoneNumberId || !messageId) return null;
+
+  try {
+    return await callMetaApi({
+      method:      'POST',
+      path:        `${phoneNumberId}/messages`,
+      accessToken: token,
+      body: {
+        messaging_product: 'whatsapp',
+        status:            'read',
+        message_id:        messageId,
+      },
+    });
+  } catch (err) {
+    logger.warn('Failed to send read receipt to Meta', { messageId, error: err.message });
+    return null;
+  }
+};
+
 
 // ─────────────────────────────────────────────────────────────────
 // createMetaTemplate — Submit a new template to Meta for approval
@@ -744,6 +775,7 @@ const resolveMediaUrl = async (mediaId, accessToken) => {
 module.exports = {
   sendWhatsAppMessage,
   sendFreeText,
+  markWhatsAppMessageAsRead,
   resolveMediaUrl,
   createMetaTemplate,
   deleteMetaTemplate,
