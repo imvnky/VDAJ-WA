@@ -178,12 +178,93 @@ async function main() {
       if (planTag) membershipPlan = planTag;
     }
 
-    const memberId =
-      contact?.custom_vars?.id ||
-      contact?.custom_vars?.member_id ||
-      contact?.custom_vars?.membership_id ||
-      contact?.custom_vars?.membershipId ||
-      null;
+    // Also check campaign_messages for this recipient to see variables stored during upload/launch
+    const { rows: campRows } = await query(
+      `SELECT cm.template_vars, cm.custom_vars, camp.name AS camp_name
+       FROM campaign_messages cm
+       JOIN campaigns camp ON camp.id = cm.campaign_id
+       WHERE cm.phone_e164 = $1
+       ORDER BY cm.created_at DESC
+       LIMIT 1`,
+      [phone]
+    );
+    const campMsg = campRows[0] || null;
+
+    // Deep search for Member ID across all possible sources
+    let memberId = null;
+
+    // Source 1: Check contact custom_vars with all common key variations
+    if (contact?.custom_vars && typeof contact.custom_vars === 'object') {
+      const cv = contact.custom_vars;
+      for (const [k, v] of Object.entries(cv)) {
+        const lk = k.toLowerCase().replace(/[^a-z0-9]/g, '');
+        if (
+          lk.includes('id') ||
+          lk.includes('no') ||
+          lk.includes('sr') ||
+          lk.includes('member') ||
+          lk.includes('card') ||
+          lk.includes('reg') ||
+          lk.includes('code')
+        ) {
+          if (v && String(v).trim()) {
+            memberId = String(v).trim();
+            break;
+          }
+        }
+      }
+      // If still null and there's any non-empty value in custom_vars
+      if (!memberId) {
+        for (const [k, v] of Object.entries(cv)) {
+          if (v && String(v).trim()) {
+            memberId = String(v).trim();
+            break;
+          }
+        }
+      }
+    }
+
+    // Source 2: Check campaign_messages template_vars & custom_vars
+    if (!memberId && campMsg) {
+      const vars = { ...(campMsg.custom_vars || {}), ...(campMsg.template_vars || {}) };
+      for (const [k, v] of Object.entries(vars)) {
+        const lk = k.toLowerCase().replace(/[^a-z0-9]/g, '');
+        if (
+          lk.includes('id') ||
+          lk.includes('no') ||
+          lk.includes('sr') ||
+          lk.includes('member') ||
+          lk.includes('card') ||
+          lk.includes('reg') ||
+          lk.includes('code')
+        ) {
+          if (v && String(v).trim()) {
+            memberId = String(v).trim();
+            break;
+          }
+        }
+      }
+    }
+
+    // Source 3: Check tags for ID pattern (e.g. SMR-123, FM-101, or pure alphanumeric codes)
+    if (!memberId && Array.isArray(contact?.tags)) {
+      for (const t of contact.tags) {
+        const str = String(t).trim();
+        if (/\d+/.test(str) && !/membership|member|pool|health/i.test(str)) {
+          memberId = str;
+          break;
+        }
+      }
+    }
+
+    // Determine membership plan if still default
+    if (membershipPlan === 'Club Member' && campMsg?.camp_name) {
+      if (/family/i.test(campMsg.camp_name)) {
+        membershipPlan = 'Family Membership';
+      } else if (/individual/i.test(campMsg.camp_name)) {
+        membershipPlan = 'Individual Membership';
+      }
+    }
 
     const rawInbound = (inbound.body || '').trim().toLowerCase();
     let category = 'CUSTOM';
@@ -227,6 +308,9 @@ async function main() {
       membershipPlan,
       memberId,
       replyText,
+      rawCustomVars: contact?.custom_vars,
+      rawCampVars: campMsg?.template_vars,
+      rawTags: contact?.tags,
     });
   }
 
@@ -250,6 +334,9 @@ async function main() {
 
     if (item.category === 'MEMBERSHIP') {
       console.log(`     Detected Plan: ${item.membershipPlan} | ID: ${item.memberId || 'N/A'}`);
+      if (!item.memberId) {
+        console.log(`     [Debug Data] custom_vars: ${JSON.stringify(item.rawCustomVars)} | camp_vars: ${JSON.stringify(item.rawCampVars)} | tags: ${JSON.stringify(item.rawTags)}`);
+      }
     }
 
     if (item.replyText) {
