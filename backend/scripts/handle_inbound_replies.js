@@ -119,7 +119,7 @@ async function main() {
     return;
   }
 
-  // 2. Query all inbound messages received in the last 24 hours
+  // 2. Query all inbound messages received in the last 48 hours
   const { rows: inbounds } = await query(
     `SELECT 
        ic.id AS conv_id,
@@ -134,29 +134,34 @@ async function main() {
      JOIN inbox_conversations ic ON ic.id = im.conversation_id
      WHERE ic.tenant_id = $1
        AND im.direction = 'inbound'
-       AND im.created_at >= NOW() - INTERVAL '24 hours'
+       AND im.created_at >= NOW() - INTERVAL '48 hours'
      ORDER BY ic.phone_e164, im.created_at ASC`,
     [tenant.id]
   );
 
   if (inbounds.length === 0) {
-    console.log('ℹ️ No inbound customer messages received in the last 24 hours.');
+    console.log('ℹ️ No inbound customer messages received in the last 48 hours.');
     await pool.end();
     return;
   }
 
-  // Group by phone number (taking the latest inbound message per customer)
+  // Group by phone number (collecting all inbound messages per customer)
   const convMap = new Map();
   for (const row of inbounds) {
-    convMap.set(row.phone_e164, row);
+    if (!convMap.has(row.phone_e164)) {
+      convMap.set(row.phone_e164, []);
+    }
+    convMap.get(row.phone_e164).push(row);
   }
 
-  console.log(`Found ${convMap.size} unique customer conversation(s) with inbound replies in the last 24 hours.\n`);
+  console.log(`Found ${convMap.size} unique customer conversation(s) with inbound messages in the last 48 hours.\n`);
 
   const pendingReplies = [];
 
-  for (const [phone, inbound] of convMap.entries()) {
-    // Check if an outbound message has already been sent AFTER this inbound message
+  for (const [phone, msgs] of convMap.entries()) {
+    const latestInbound = msgs[msgs.length - 1];
+
+    // Check if an outbound message has already been sent AFTER the latest inbound message
     const { rows: outboundAfter } = await query(
       `SELECT id, body, created_at
        FROM inbox_messages
@@ -165,13 +170,18 @@ async function main() {
          AND created_at > $2
        ORDER BY created_at DESC
        LIMIT 1`,
-      [inbound.conv_id, inbound.inbound_at]
+      [latestInbound.conv_id, latestInbound.inbound_at]
     );
 
     if (outboundAfter.length > 0) {
-      console.log(`⏩ [ALREADY REPLIED] ${phone} (${inbound.display_name || 'Customer'}): Replied at ${outboundAfter[0].created_at.toLocaleString()}`);
+      console.log(`⏩ [ALREADY REPLIED] ${phone} (${latestInbound.display_name || 'Customer'}): Replied at ${outboundAfter[0].created_at.toLocaleString()}`);
       continue;
     }
+
+    // Check 24-hour customer service window
+    const hoursSinceLastInbound = (Date.now() - new Date(latestInbound.inbound_at).getTime()) / (1000 * 60 * 60);
+    const windowHoursRemaining = Math.max(0, 24 - hoursSinceLastInbound);
+    const isWindowActive = hoursSinceLastInbound <= 24;
 
     // Fetch contact details from contacts table
     const { rows: contacts } = await query(
@@ -201,8 +211,8 @@ async function main() {
       const rawName = (fn && ln) ? `${fn} ${ln}` : (fn || ln || contact.custom_vars?.Name || contact.custom_vars?.name || contact.custom_vars?.full_name || '');
       cleanName = formatProperCase(rawName);
     }
-    if (!cleanName && inbound.display_name && inbound.display_name !== phone && !inbound.display_name.startsWith('+')) {
-      cleanName = formatProperCase(inbound.display_name);
+    if (!cleanName && latestInbound.display_name && latestInbound.display_name !== phone && !latestInbound.display_name.startsWith('+')) {
+      cleanName = formatProperCase(latestInbound.display_name);
     }
 
     // Determine membership plan & ID
@@ -294,33 +304,36 @@ async function main() {
       }
     }
 
-    const rawInbound = (inbound.body || '').trim().toLowerCase();
+    // Scan all unreplied messages from this customer to detect button clicks or inquiries
+    const allInboundTexts = msgs.map((m) => (m.body || '').trim().toLowerCase());
+    const combinedInboundText = allInboundTexts.join(' ');
+
     let category = 'CUSTOM';
     let replyText = null;
 
-    if (
-      rawInbound === 'view timings' ||
-      rawInbound.includes('timing') ||
-      rawInbound.includes('time') ||
-      rawInbound.includes('schedule')
-    ) {
-      category = 'TIMINGS';
-      replyText = buildFacilityTimingsText(cleanName);
-    } else if (
-      rawInbound === 'membership info' ||
-      rawInbound.includes('membership') ||
-      rawInbound.includes('member info') ||
-      rawInbound.includes('plan')
-    ) {
-      category = 'MEMBERSHIP';
-      replyText = buildGenericMembershipText(cleanName);
-    } else if (
-      rawInbound === 'stop' ||
-      rawInbound === 'unsubscribe' ||
-      rawInbound === 'cancel'
-    ) {
+    const hasTimings = allInboundTexts.some((t) =>
+      t === 'view timings' || t.includes('timing') || t.includes('time') || t.includes('schedule')
+    );
+    const hasMembership = allInboundTexts.some((t) =>
+      t === 'membership info' || t.includes('membership') || t.includes('member info') || t.includes('plan')
+    );
+    const hasOptOut = allInboundTexts.some((t) =>
+      t === 'stop' || t === 'unsubscribe' || t === 'cancel'
+    );
+
+    if (hasOptOut) {
       category = 'OPT_OUT';
       replyText = OPT_OUT_TEXT;
+    } else if (hasTimings && !hasMembership) {
+      category = 'TIMINGS';
+      replyText = buildFacilityTimingsText(cleanName);
+    } else if (hasMembership && !hasTimings) {
+      category = 'MEMBERSHIP';
+      replyText = buildGenericMembershipText(cleanName);
+    } else if (hasTimings && hasMembership) {
+      // If customer requested both, send timings (facility schedule)
+      category = 'TIMINGS';
+      replyText = buildFacilityTimingsText(cleanName);
     } else {
       category = 'CUSTOM_MANUAL';
       replyText = null; // Left for manual review in inbox
@@ -328,10 +341,14 @@ async function main() {
 
     pendingReplies.push({
       phone,
-      convId: inbound.conv_id,
-      inboundMsgId: inbound.message_id,
+      convId: latestInbound.conv_id,
+      inboundMsgId: latestInbound.message_id,
       contactName: cleanName,
-      inboundBody: inbound.body,
+      inboundBody: msgs.map((m) => m.body).join(' | '),
+      inboundAt: latestInbound.inbound_at,
+      hoursSinceLastInbound,
+      windowHoursRemaining,
+      isWindowActive,
       category,
       membershipPlan,
       memberId,
@@ -356,7 +373,11 @@ async function main() {
   let manualCount = 0;
 
   pendingReplies.forEach((item, idx) => {
-    console.log(`[#${idx + 1}] Contact: ${item.contactName} (${item.phone})`);
+    const windowBadge = item.isWindowActive
+      ? `🟢 24h Window Active (${item.windowHoursRemaining.toFixed(1)} hrs left)`
+      : `🔴 24h Window Expired (${item.hoursSinceLastInbound.toFixed(1)} hrs ago)`;
+
+    console.log(`[#${idx + 1}] Contact: ${item.contactName} (${item.phone}) — ${windowBadge}`);
     console.log(`     Customer Message: "${item.inboundBody}"`);
     console.log(`     Category: ${item.category}`);
 
@@ -393,6 +414,12 @@ async function main() {
 
   for (const item of pendingReplies) {
     if (!item.replyText) continue;
+
+    if (!item.isWindowActive) {
+      console.warn(`   ⚠️ Skipping ${item.phone} (${item.contactName}): 24-hour customer window has expired.`);
+      failCount++;
+      continue;
+    }
 
     try {
       console.log(`Sending to ${item.contactName} (${item.phone})...`);
