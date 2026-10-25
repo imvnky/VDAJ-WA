@@ -65,6 +65,24 @@ router.post('/', catchAsync(async (req, res) => {
     }
   }
 
+  // ── Meta Header Validation: No emojis, line breaks, or markdown formatting ──
+  if (resolvedHeaderType === 'TEXT' && headerText) {
+    const EMOJI_REGEX = /\p{Extended_Pictographic}/u;
+    if (EMOJI_REGEX.test(headerText)) {
+      throw new AppError(
+        'Meta does not allow emojis in the message header. Please remove emojis from the header (you can still use emojis in the message body).',
+        400,
+        'ERR_HEADER_EMOJI'
+      );
+    }
+    if (/[\n\r]/.test(headerText)) {
+      throw new AppError('Message header cannot contain line breaks.', 400, 'ERR_HEADER_NEWLINE');
+    }
+    if (/[*~_`]/.test(headerText)) {
+      throw new AppError('Meta does not allow formatting characters (*, _, ~, `) in the message header.', 400, 'ERR_HEADER_FORMATTING');
+    }
+  }
+
   // Insert local record first (status = 'pending')
   const { rows: [template] } = await query(
     `INSERT INTO message_templates

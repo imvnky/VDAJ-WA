@@ -298,6 +298,23 @@ function CreateTemplateModal({ onClose, onCreated, prefill = null }) {
       }
     }
 
+    // Meta policy check for header text (No emojis, newlines, or formatting characters)
+    if (form.headerType === 'TEXT' && form.headerText) {
+      const EMOJI_REGEX = /\p{Extended_Pictographic}/u;
+      if (EMOJI_REGEX.test(form.headerText)) {
+        showError('Meta does not allow emojis in the message header. Please remove emojis from the header (you can still use emojis in the message body!).', 'ERR_HEADER_EMOJI');
+        return;
+      }
+      if (/[\n\r]/.test(form.headerText)) {
+        showError('Message header cannot contain line breaks.', 'ERR_HEADER_NEWLINE');
+        return;
+      }
+      if (/[*~_`]/.test(form.headerText)) {
+        showError('Meta does not allow formatting characters (*, _, ~, `) in the message header.', 'ERR_HEADER_FORMATTING');
+        return;
+      }
+    }
+
     setLoading(true);
     try {
       const payload = {
@@ -515,7 +532,10 @@ function CreateTemplateModal({ onClose, onCreated, prefill = null }) {
                     onChange={(e) => set('headerText', e.target.value)}
                     className="w-full px-3.5 py-2 text-xs bg-[#FFFFFF] border border-[#CBD5E1] rounded-xl text-[#0F172A] placeholder-[#94A3B8] focus:border-[#534AB7] focus:outline-none"
                   />
-                  <p className="text-[11px] text-[#64748B] mt-1">Max 60 characters.</p>
+                  <div className="flex items-center justify-between mt-1 text-[11px]">
+                    <span className="text-[#64748B]">Max 60 characters.</span>
+                    <span className="text-amber-600 font-medium">Plain text only (no emojis or asterisks)</span>
+                  </div>
                 </div>
               )}
 
