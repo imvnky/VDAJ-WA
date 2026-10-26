@@ -87,6 +87,38 @@ For membership details and assistance, please visit our *Club Reception Desk* du
 _Our team is delighted to assist you!_`;
 }
 
+// ── Combined Timings & Membership Inquiry Response (Personalized & Compact — No 'Read More') ────
+function buildCombinedTimingsAndMembershipText(contactName) {
+  const greeting = (contactName && contactName !== 'Member')
+    ? `Hello ${contactName}, thank you for reaching out!`
+    : `Hello, thank you for reaching out!`;
+
+  return `🏊 *SMR SWIMMING POOL & HEALTH CLUB*
+━━━━━━━━━━━━━━━━━━
+${greeting}
+
+Here is our *Facility Schedule & Membership Overview*:
+
+🏊 *Swimming Pool*
+• 06:00 AM – 10:00 AM (General)
+• 04:00 PM – 05:00 PM (Women Only)
+• 05:00 PM – 06:45 PM (General)
+• 06:45 PM – 08:00 PM (Members Only)
+
+🏸 *Badminton Court*
+• 06:00 AM – 10:00 AM | 04:00 PM – 09:00 PM
+
+🏋️ *Gymnasium*
+• 06:00 AM – 10:00 AM (General)
+• 04:00 PM – 05:00 PM (Women Only)
+• 05:00 PM – 08:00 PM (General)
+
+📋 *Membership Desk*
+We offer *Individual & Family Plans* with full facility access. For enrollment and details, please visit our *Club Reception Desk* during operational hours.
+━━━━━━━━━━━━━━━━━━
+_Reply here for bookings or any assistance._`;
+}
+
 // ── Opt-Out Formatter (Clean & Compact) ───────────────────────
 const OPT_OUT_TEXT = `You have been unsubscribed from promotional updates from SMR Swimming Pool & Health Club. Reply START anytime to re-enable.`;
 
@@ -119,7 +151,7 @@ async function main() {
     return;
   }
 
-  // 2. Query all inbound messages received in the last 48 hours
+  // 2. Query all inbound messages received since campaign launch (last 7 days)
   const { rows: inbounds } = await query(
     `SELECT 
        ic.id AS conv_id,
@@ -134,13 +166,13 @@ async function main() {
      JOIN inbox_conversations ic ON ic.id = im.conversation_id
      WHERE ic.tenant_id = $1
        AND im.direction = 'inbound'
-       AND im.created_at >= NOW() - INTERVAL '48 hours'
+       AND im.created_at >= NOW() - INTERVAL '7 days'
      ORDER BY ic.phone_e164, im.created_at ASC`,
     [tenant.id]
   );
 
   if (inbounds.length === 0) {
-    console.log('ℹ️ No inbound customer messages received in the last 48 hours.');
+    console.log('ℹ️ No inbound customer messages received in the last 7 days.');
     await pool.end();
     return;
   }
@@ -154,32 +186,39 @@ async function main() {
     convMap.get(row.phone_e164).push(row);
   }
 
-  console.log(`Found ${convMap.size} unique customer conversation(s) with inbound messages in the last 48 hours.\n`);
+  console.log(`Found ${convMap.size} unique customer conversation(s) with inbound messages in the last 7 days.\n`);
 
   const pendingReplies = [];
 
   for (const [phone, msgs] of convMap.entries()) {
     const latestInbound = msgs[msgs.length - 1];
 
-    // Check if an outbound message has already been sent AFTER the latest inbound message
-    const { rows: outboundAfter } = await query(
+    // 1. Find the latest outbound reply for this conversation (if any)
+    const { rows: lastOutboundRows } = await query(
       `SELECT id, body, created_at
        FROM inbox_messages
        WHERE conversation_id = $1
          AND direction = 'outbound'
-         AND created_at > $2
        ORDER BY created_at DESC
        LIMIT 1`,
-      [latestInbound.conv_id, latestInbound.inbound_at]
+      [latestInbound.conv_id]
     );
+    const lastOutbound = lastOutboundRows[0] || null;
 
-    if (outboundAfter.length > 0) {
-      console.log(`⏩ [ALREADY REPLIED] ${phone} (${latestInbound.display_name || 'Customer'}): Replied at ${outboundAfter[0].created_at.toLocaleString()}`);
+    // Filter to only inbounds that arrived AFTER the last outbound reply
+    const unrepliedInbounds = lastOutbound
+      ? msgs.filter((m) => new Date(m.inbound_at) > new Date(lastOutbound.created_at))
+      : msgs;
+
+    if (unrepliedInbounds.length === 0) {
+      console.log(`⏩ [ALREADY REPLIED] ${phone} (${latestInbound.display_name || 'Customer'}): Replied at ${new Date(lastOutbound.created_at).toLocaleString()}`);
       continue;
     }
 
-    // Check 24-hour customer service window
-    const hoursSinceLastInbound = (Date.now() - new Date(latestInbound.inbound_at).getTime()) / (1000 * 60 * 60);
+    const currentLatestInbound = unrepliedInbounds[unrepliedInbounds.length - 1];
+
+    // Check 24-hour customer service window based on the latest unreplied message
+    const hoursSinceLastInbound = (Date.now() - new Date(currentLatestInbound.inbound_at).getTime()) / (1000 * 60 * 60);
     const windowHoursRemaining = Math.max(0, 24 - hoursSinceLastInbound);
     const isWindowActive = hoursSinceLastInbound <= 24;
 
@@ -305,7 +344,7 @@ async function main() {
     }
 
     // Scan all unreplied messages from this customer to detect button clicks or inquiries
-    const allInboundTexts = msgs.map((m) => (m.body || '').trim().toLowerCase());
+    const allInboundTexts = unrepliedInbounds.map((m) => (m.body || '').trim().toLowerCase());
     const combinedInboundText = allInboundTexts.join(' ');
 
     let category = 'CUSTOM';
@@ -324,16 +363,16 @@ async function main() {
     if (hasOptOut) {
       category = 'OPT_OUT';
       replyText = OPT_OUT_TEXT;
-    } else if (hasTimings && !hasMembership) {
+    } else if (hasTimings && hasMembership) {
+      // Customer clicked or requested BOTH Timings and Membership Info!
+      category = 'TIMINGS_AND_MEMBERSHIP';
+      replyText = buildCombinedTimingsAndMembershipText(cleanName);
+    } else if (hasTimings) {
       category = 'TIMINGS';
       replyText = buildFacilityTimingsText(cleanName);
-    } else if (hasMembership && !hasTimings) {
+    } else if (hasMembership) {
       category = 'MEMBERSHIP';
       replyText = buildGenericMembershipText(cleanName);
-    } else if (hasTimings && hasMembership) {
-      // If customer requested both, send timings (facility schedule)
-      category = 'TIMINGS';
-      replyText = buildFacilityTimingsText(cleanName);
     } else {
       category = 'CUSTOM_MANUAL';
       replyText = null; // Left for manual review in inbox
@@ -341,11 +380,11 @@ async function main() {
 
     pendingReplies.push({
       phone,
-      convId: latestInbound.conv_id,
-      inboundMsgId: latestInbound.message_id,
+      convId: currentLatestInbound.conv_id,
+      inboundMsgId: currentLatestInbound.message_id,
       contactName: cleanName,
-      inboundBody: msgs.map((m) => m.body).join(' | '),
-      inboundAt: latestInbound.inbound_at,
+      inboundBody: unrepliedInbounds.map((m) => m.body).join(' | '),
+      inboundAt: currentLatestInbound.inbound_at,
       hoursSinceLastInbound,
       windowHoursRemaining,
       isWindowActive,
@@ -393,10 +432,23 @@ async function main() {
 
   const timingsCount = pendingReplies.filter(p => p.category === 'TIMINGS').length;
   const membershipCount = pendingReplies.filter(p => p.category === 'MEMBERSHIP').length;
+  const bothCount = pendingReplies.filter(p => p.category === 'TIMINGS_AND_MEMBERSHIP').length;
   const optOutCount = pendingReplies.filter(p => p.category === 'OPT_OUT').length;
+  const activeWindowCount = pendingReplies.filter(p => p.replyText && p.isWindowActive).length;
+  const expiredWindowCount = pendingReplies.filter(p => p.replyText && !p.isWindowActive).length;
 
   console.log('---------------------------------------------------------------');
-  console.log(`Summary: ${autoCount} automated replies ready (${timingsCount} Timings, ${membershipCount} Membership Desk, ${optOutCount} Opt-Out) | ${manualCount} Custom inquiries for manual review.`);
+  console.log(`Summary: ${autoCount} automated replies identified:`);
+  console.log(`  • ${timingsCount} Facility Timings inquiries`);
+  console.log(`  • ${membershipCount} Membership Desk inquiries`);
+  console.log(`  • ${bothCount} Multiple Quick Replies (Both Timings + Membership combined)`);
+  console.log(`  • ${optOutCount} Opt-Out requests`);
+  console.log(`  • ${manualCount} Custom inquiries for manual review in Live Inbox`);
+  console.log(`\nMeta 24h Customer Service Window Breakdown:`);
+  console.log(`  🟢 ${activeWindowCount} Inquiries with Active 24h Window (Safe to send immediately)`);
+  if (expiredWindowCount > 0) {
+    console.log(`  🔴 ${expiredWindowCount} Inquiries with Expired 24h Window (Skipped — Meta policy forbids free-text after 24h)`);
+  }
   console.log('---------------------------------------------------------------\n');
 
   if (!IS_SEND_MODE) {
@@ -461,8 +513,8 @@ async function main() {
       console.log(`   ✅ Sent successfully! (Meta ID: ${metaMsgId})`);
       successCount++;
 
-      // 500ms safety delay
-      await new Promise((r) => setTimeout(r, 500));
+      // 800ms safety delay between messages
+      await new Promise((r) => setTimeout(r, 800));
     } catch (sendErr) {
       console.error(`   ❌ Failed to send to ${item.phone}:`, sendErr.message);
       failCount++;
