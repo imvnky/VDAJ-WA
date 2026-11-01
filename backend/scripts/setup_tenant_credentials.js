@@ -15,7 +15,7 @@ async function main() {
   const slug = getArg('slug') || 'perfect-travels';
   const wabaId = getArg('waba') || '5443753085763554';
   const phoneId = getArg('phone') || '1470208946166204';
-  const token = getArg('token') || 'EAAeH1HyBQV4BS0JKIx0QbVIO2wM0MpqWsl6aRNOW330Y39P7FIhDzWkvubImLdsSiZAZBIx3cdgSCZB2hZB43BwkouiJtUdkV34OPclpUbHYUtCtvpZCWZBwDGZAL1olmD356ia36tB1Mn9fDXrPVOaBmIejo744tsc6ipAZBTZCXzcZA9DFec9sTNxd8F1KplqXQZDZD';
+  const token = getArg('token') || 'EAAeH1HyBQV4BS0JKIx0QbVIO2wM0MpqWsl6aRNOW330Y39P7FIhDzWkvublmLdsSiZAZBlx3cdgSCZB2hZB43BwkouiJtUdkV34OPcIpUbHYUtCtvpZCWZBwDGZAL1olmD356ia36tB1Mn9fDXrPVOaBmIejo744tsc6ipAZBTZCXZCZA9DFec9sTNxd8F1KplqXQZDZD';
 
   console.log(`\n================================================================`);
   console.log(`🔧 UPDATING TENANT CREDENTIALS FOR: ${slug}`);
@@ -41,6 +41,7 @@ async function main() {
     console.log(`   - Verified Name:  ${phoneData.verified_name} (${phoneData.name_status})`);
     console.log(`   - Display Phone:  ${phoneData.display_phone_number}`);
     console.log(`   - Quality Rating: ${phoneData.quality_rating}`);
+    console.log(`   - Messaging Tier: ${phoneData.messaging_limit_tier}`);
     console.log(`   - Account Status: ${phoneData.status}`);
 
     // 2. Subscribe WABA to Webhook Apps
@@ -59,7 +60,7 @@ async function main() {
     // 3. Update in PostgreSQL
     const displayPhone = phoneData.display_phone_number || '+91 91850 13345';
     const verifiedName = phoneData.verified_name || 'Perfect Travels';
-    const quality = phoneData.quality_rating || 'GREEN';
+    const quality = phoneData.quality_rating || 'UNKNOWN';
     const tier = phoneData.messaging_limit_tier || 'TIER_250';
 
     const updateRes = await query(
