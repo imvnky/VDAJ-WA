@@ -1,18 +1,19 @@
 /**
  * VDAJ Services — MetaOnboardingPage
- * Connect WhatsApp Business Account via Meta Embedded Signup SDK.
+ * Connect WhatsApp Business Account via Meta Embedded Signup SDK or Manual Credentials.
  *
  * Production Embedded Signup flow (Meta-documented):
- *  1. Load FB SDK
+ *  1. Load FB SDK with resilient polling + adblocker fallback
  *  2. Attach window 'message' listener BEFORE calling FB.login — receives
  *     the WABA ID + Phone Number ID from Meta's popup once the user completes
  *     the Embedded Signup flow (sessionInfoVersion: '2' required)
  *  3. Call FB.login with config_id and response_type:'code'
  *  4. On success, exchange the auth code server-side for a System User Token
- *  5. Store wabaId + phoneNumberId from the message event
+ *  5. Manual fallback modal available if AdBlockers block connect.facebook.net
  */
 
 import React, { useState, useEffect, useRef } from 'react';
+import { clsx } from 'clsx';
 import { authApi, tenantApi } from '../lib/api';
 import useAuthStore from '../store/authStore';
 import { showSuccess, showError } from '../components/atoms/Toast/Toast.jsx';
@@ -20,7 +21,7 @@ import { PrimaryButton } from '../components/atoms/Button/Button.jsx';
 
 const META_APP_ID = import.meta.env.VITE_META_APP_ID || '1447754957201480';
 const META_CONFIG_ID = import.meta.env.VITE_META_CONFIG_ID || '1098672846294128';
-const SDK_VERSION = 'v21.0'; // Must match backend META_API_VERSION
+const SDK_VERSION = 'v21.0';
 
 function StatusCard({ label, value, status, icon }) {
   const colors = {
@@ -44,31 +45,220 @@ function StatusCard({ label, value, status, icon }) {
   );
 }
 
+// ── Manual WABA Details Modal ─────────────────────────────────
+function EditWabaModal({ initialData, onClose, onUpdated }) {
+  const [form, setForm] = useState({
+    waba_id: initialData?.waba_id || '',
+    phone_number_id: initialData?.phone_number_id || '',
+    display_phone_number: initialData?.display_phone_number || '',
+    verified_name: initialData?.verified_name || '',
+    meta_system_token: '',
+  });
+  const [saving, setSaving] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      await tenantApi.updateAccount(form);
+      showSuccess('WhatsApp credentials connected successfully! ✅');
+      if (onUpdated) await onUpdated();
+      onClose();
+    } catch (err) {
+      showError(err?.response?.data?.message || err?.message || 'Failed to update details.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const inputClass = "w-full h-10 rounded-xl px-3 text-sm outline-none transition-all font-mono";
+  const inputStyle = { background: 'var(--bg-elevated)', border: '1px solid var(--bg-border)', color: 'var(--text-primary)' };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}>
+      <form onSubmit={handleSubmit} className="w-full max-w-md rounded-2xl overflow-hidden shadow-2xl"
+        style={{ background: 'var(--bg-card)', border: '1px solid var(--bg-border)' }}>
+        <div className="flex items-center justify-between px-6 py-4 border-b"
+          style={{ borderColor: 'var(--bg-border)', background: 'var(--bg-elevated)' }}>
+          <div className="flex items-center gap-2.5">
+            <span className="text-lg">💬</span>
+            <div>
+              <p className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Enter WhatsApp Credentials</p>
+              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>From Meta Business Suite → WhatsApp Accounts</p>
+            </div>
+          </div>
+          <button type="button" onClick={onClose}
+            className="w-8 h-8 rounded-xl flex items-center justify-center hover:opacity-70 transition-opacity"
+            style={{ background: 'var(--bg-card)', color: 'var(--text-muted)' }}>
+            ✕
+          </button>
+        </div>
+
+        <div className="p-6 space-y-4 text-xs">
+          <div>
+            <label className="block font-semibold mb-1" style={{ color: 'var(--text-secondary)' }}>
+              WhatsApp Business Account ID (WABA ID) *
+            </label>
+            <input
+              type="text"
+              required
+              value={form.waba_id}
+              onChange={(e) => setForm((p) => ({ ...p, waba_id: e.target.value.trim() }))}
+              placeholder="e.g. 110682885408990"
+              className={inputClass}
+              style={inputStyle}
+            />
+          </div>
+
+          <div>
+            <label className="block font-semibold mb-1" style={{ color: 'var(--text-secondary)' }}>
+              Phone Number ID *
+            </label>
+            <input
+              type="text"
+              required
+              value={form.phone_number_id}
+              onChange={(e) => setForm((p) => ({ ...p, phone_number_id: e.target.value.trim() }))}
+              placeholder="e.g. 1446611171861825"
+              className={inputClass}
+              style={inputStyle}
+            />
+          </div>
+
+          <div>
+            <label className="block font-semibold mb-1" style={{ color: 'var(--text-secondary)' }}>
+              Display Phone Number
+            </label>
+            <input
+              type="text"
+              value={form.display_phone_number}
+              onChange={(e) => setForm((p) => ({ ...p, display_phone_number: e.target.value }))}
+              placeholder="e.g. +91 99703 64001"
+              className={inputClass}
+              style={inputStyle}
+            />
+          </div>
+
+          <div>
+            <label className="block font-semibold mb-1" style={{ color: 'var(--text-secondary)' }}>
+              Verified Business Name
+            </label>
+            <input
+              type="text"
+              value={form.verified_name}
+              onChange={(e) => setForm((p) => ({ ...p, verified_name: e.target.value }))}
+              placeholder="e.g. Perfect Travels"
+              className={clsx(inputClass, 'font-sans')}
+              style={inputStyle}
+            />
+          </div>
+
+          <div>
+            <label className="block font-semibold mb-1" style={{ color: 'var(--text-secondary)' }}>
+              Meta System User Token (Optional / Permanent Token)
+            </label>
+            <input
+              type="password"
+              value={form.meta_system_token}
+              onChange={(e) => setForm((p) => ({ ...p, meta_system_token: e.target.value.trim() }))}
+              placeholder="Optional: EAA..."
+              className={inputClass}
+              style={inputStyle}
+            />
+          </div>
+        </div>
+
+        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t"
+          style={{ borderColor: 'var(--bg-border)', background: 'var(--bg-elevated)' }}>
+          <button type="button" onClick={onClose}
+            className="h-9 px-4 rounded-xl text-xs font-semibold hover:opacity-70 transition-opacity"
+            style={{ background: 'var(--bg-card)', border: '1px solid var(--bg-border)', color: 'var(--text-secondary)' }}>
+            Cancel
+          </button>
+          <button type="submit" disabled={saving}
+            className="h-9 px-5 rounded-xl text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50 transition-opacity"
+            style={{ background: '#534AB7' }}>
+            {saving ? 'Saving…' : 'Save & Connect'}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
 export default function MetaOnboardingPage() {
   const { tenant, setAuth, user } = useAuthStore();
   const [sdkReady,   setSdkReady]   = useState(false);
+  const [sdkTimedOut, setSdkTimedOut] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [tenantData, setTenantData] = useState(tenant);
+  const [manualModalOpen, setManualModalOpen] = useState(false);
 
   // Capture WABA info from Meta's postMessage during Embedded Signup
   const sessionInfoRef = useRef({ wabaId: null, phoneNumberId: null });
 
-  // ── Load Meta FB SDK ──────────────────────────────────────────
+  // ── Load Meta FB SDK with robust polling and timeout ──────────
   useEffect(() => {
-    if (window.FB && document.getElementById('fb-sdk')) {
-      setSdkReady(true);
-      return;
+    // 1. If FB already loaded
+    if (window.FB) {
+      try {
+        window.FB.init({ appId: META_APP_ID, autoLogAppEvents: true, xfbml: true, version: SDK_VERSION });
+        setSdkReady(true);
+        return;
+      } catch (err) {
+        console.warn('FB.init on window.FB:', err);
+      }
     }
+
+    // 2. Set callback before script loads
     window.fbAsyncInit = () => {
-      window.FB?.init({ appId: META_APP_ID, autoLogAppEvents: true, xfbml: true, version: SDK_VERSION });
-      setSdkReady(true);
+      try {
+        window.FB?.init({ appId: META_APP_ID, autoLogAppEvents: true, xfbml: true, version: SDK_VERSION });
+        setSdkReady(true);
+      } catch (err) {
+        console.warn('fbAsyncInit error:', err);
+      }
     };
-    const script   = document.createElement('script');
-    script.id      = 'fb-sdk';
-    script.src     = 'https://connect.facebook.net/en_US/sdk.js';
-    script.async   = true;
-    script.defer   = true;
-    document.body.appendChild(script);
+
+    // 3. Append script tag
+    let script = document.getElementById('fb-sdk');
+    if (!script) {
+      script = document.createElement('script');
+      script.id = 'fb-sdk';
+      script.src = 'https://connect.facebook.net/en_US/sdk.js';
+      script.async = true;
+      script.defer = true;
+      script.onerror = () => {
+        console.warn('Meta SDK failed to load. Likely blocked by browser extension.');
+        setSdkTimedOut(true);
+      };
+      document.body.appendChild(script);
+    }
+
+    // 4. Polling fallback check
+    const checkInterval = setInterval(() => {
+      if (window.FB) {
+        try {
+          window.FB.init({ appId: META_APP_ID, autoLogAppEvents: true, xfbml: true, version: SDK_VERSION });
+          setSdkReady(true);
+          clearInterval(checkInterval);
+        } catch {}
+      }
+    }, 400);
+
+    // 5. 3.5s timeout trigger
+    const timeoutTimer = setTimeout(() => {
+      clearInterval(checkInterval);
+      if (!window.FB) {
+        setSdkTimedOut(true);
+      }
+    }, 3500);
+
+    return () => {
+      clearInterval(checkInterval);
+      clearTimeout(timeoutTimer);
+    };
   }, []);
 
   // ── Reload tenant data (silent) ────────────────────────────────
@@ -77,11 +267,6 @@ export default function MetaOnboardingPage() {
   }, []);
 
   // ── Meta Embedded Signup message listener ──────────────────────
-  // Meta sends a postMessage from facebook.com when the business completes
-  // (or cancels) the Embedded Signup flow.
-  // Payload: { type: 'WA_EMBEDDED_SIGNUP', event: 'FINISH'|'CANCEL'|'ERROR',
-  //            data: { phone_number_id, waba_id } }
-  // Reference: https://developers.facebook.com/docs/whatsapp/embedded-signup
   useEffect(() => {
     function handleMetaMessage(event) {
       if (!['https://www.facebook.com', 'https://web.facebook.com'].includes(event.origin)) return;
@@ -96,8 +281,10 @@ export default function MetaOnboardingPage() {
         console.info('[VDAJ] Embedded Signup session info received:', { waba_id, phone_number_id });
       } else if (data.event === 'CANCEL') {
         console.info('[VDAJ] Embedded Signup cancelled by user.');
+        setConnecting(false);
       } else if (data.event === 'ERROR') {
         console.error('[VDAJ] Embedded Signup error:', data.data);
+        setConnecting(false);
       }
     }
     window.addEventListener('message', handleMetaMessage);
@@ -107,7 +294,8 @@ export default function MetaOnboardingPage() {
   // ── Trigger Meta Embedded Signup ───────────────────────────────
   const handleConnect = () => {
     if (!sdkReady || !window.FB) {
-      showError('Meta SDK not loaded. Check VITE_META_APP_ID in your .env file.', 'ERR_META_AUTH');
+      showError('Meta SDK is still loading or was blocked by an AdBlocker. You can use "Enter Credentials Manually" below.', 'ERR_META_AUTH');
+      setManualModalOpen(true);
       return;
     }
     if (!META_APP_ID) {
@@ -117,8 +305,14 @@ export default function MetaOnboardingPage() {
     sessionInfoRef.current = { wabaId: null, phoneNumberId: null };
     setConnecting(true);
 
+    // 45-second fallback timeout so button never spins infinitely
+    const safetyTimer = setTimeout(() => {
+      setConnecting(false);
+    }, 45000);
+
     window.FB.login(
       async (response) => {
+        clearTimeout(safetyTimer);
         if (response?.authResponse?.code) {
           const code = response.authResponse.code;
           const { wabaId, phoneNumberId } = sessionInfoRef.current;
@@ -155,7 +349,7 @@ export default function MetaOnboardingPage() {
         extras: {
           setup:              {},
           featureType:        '',
-          sessionInfoVersion: '2',   // Required — enables postMessage with WABA/phone IDs
+          sessionInfoVersion: '2',
         },
       }
     );
@@ -165,11 +359,24 @@ export default function MetaOnboardingPage() {
 
   return (
     <div style={{ maxWidth: 760, margin: '0 auto' }}>
+      {manualModalOpen && (
+        <EditWabaModal
+          initialData={tenantData}
+          onClose={() => setManualModalOpen(false)}
+          onUpdated={async () => {
+            const refreshed = await tenantApi.me();
+            const updated = refreshed?.data || tenantData;
+            setTenantData(updated);
+            setAuth(user, updated);
+          }}
+        />
+      )}
+
       {/* Header */}
       <div style={{ marginBottom: '2rem' }}>
         <h1 style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--text-primary)', margin: 0 }}>WhatsApp Setup</h1>
         <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 6 }}>
-          Connect your WhatsApp Business Account to start sending messages.
+          Connect your WhatsApp Business Account to start sending messages and receiving customer replies.
         </p>
       </div>
 
@@ -188,6 +395,25 @@ export default function MetaOnboardingPage() {
         </div>
       )}
 
+      {/* SDK Warning / Adblocker Banner */}
+      {sdkTimedOut && !sdkReady && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', padding: '1rem 1.25rem', borderRadius: 16, background: '#FEF3C7', border: '1px solid #FDE68A', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+          <div style={{ flex: 1 }}>
+            <p style={{ fontSize: 13, fontWeight: 700, color: '#92400E', margin: 0 }}>⚠️ Meta Facebook SDK Blocked or Loading Slowly</p>
+            <p style={{ fontSize: 12, color: '#78350F', marginTop: 3 }}>
+              An AdBlocker, Brave Shields, or privacy extension may be blocking <code>connect.facebook.net</code>. You can disable it, or simply enter your WABA & Phone ID manually below.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setManualModalOpen(true)}
+            style={{ height: 36, padding: '0 16px', borderRadius: 10, fontSize: 12, fontWeight: 700, background: '#534AB7', color: '#FFF', border: 'none', cursor: 'pointer' }}
+          >
+            Enter Credentials Manually →
+          </button>
+        </div>
+      )}
+
       {/* Status Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
         <StatusCard label="WhatsApp Business Account ID" value={tenantData?.waba_id} status={tenantData?.waba_id ? 'connected' : 'missing'}
@@ -203,10 +429,10 @@ export default function MetaOnboardingPage() {
         <h2 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 1rem 0' }}>How This Works</h2>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           {[
-            { num: '1', title: 'Click "Connect WhatsApp"', desc: 'A Meta popup opens. Log in with your Facebook Business account.' },
-            { num: '2', title: 'Complete the full Embedded Signup flow', desc: 'Select your WABA and phone number. Do NOT close the popup early — wait for it to complete.' },
-            { num: '3', title: 'Authorize VDAJ Services', desc: 'Grant permission to manage your WhatsApp account. We store only your System User Token.' },
-            { num: '4', title: 'Start Sending', desc: 'Account is linked. Go to Campaigns and launch your first message.' },
+            { num: '1', title: 'Connect with Meta Popup or Manual Credentials', desc: 'Use automatic Meta Embedded Signup or paste your WABA ID & Phone Number ID directly.' },
+            { num: '2', title: 'Select Phone Number & Business Portfolio', desc: 'Choose your verified business (e.g. Perfect Travels) and verify with a 6-digit OTP.' },
+            { num: '3', title: 'Authorize VDAJ Services', desc: 'Grants messaging permissions to send booking confirmations and sync live replies.' },
+            { num: '4', title: 'Start Sending Immediately', desc: 'Your account is linked. Double-check live status and send your first message.' },
           ].map((step) => (
             <div key={step.num} style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem' }}>
               <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#F3F2FD', border: '1px solid #E6E4F5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: '#534AB7', flexShrink: 0 }}>
@@ -221,7 +447,7 @@ export default function MetaOnboardingPage() {
         </div>
       </div>
 
-      {/* CTA */}
+      {/* CTA Box */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem', padding: '1.5rem', borderRadius: 20, border: '1px solid var(--bg-border)', background: 'var(--bg-card)' }}>
         <div style={{ flex: 1 }}>
           <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
@@ -229,14 +455,25 @@ export default function MetaOnboardingPage() {
           </p>
           <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
             {isConnected
-              ? 'Use this if your token has expired or you want to update the connected number.'
-              : 'Uses Meta Embedded Signup. Secure OAuth2 — your Facebook password is never shared with us.'}
+              ? 'Update your connected number or refresh credentials.'
+              : 'Choose automatic Meta login popup or enter your WABA credentials manually.'}
           </p>
         </div>
-        <PrimaryButton onClick={handleConnect} loading={connecting} disabled={!sdkReady} size="lg"
-          leftIcon={<svg style={{ width: 18, height: 18 }} fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347zM12.05 2.049C6.495 2.049 2 6.545 2 12.1c0 1.784.47 3.458 1.292 4.913L2 22l5.237-1.373A9.99 9.99 0 0012.05 22c5.554 0 10.05-4.495 10.05-10.05S17.604 2.049 12.05 2.049z" /></svg>}>
-          {!sdkReady ? 'Loading SDK…' : isConnected ? 'Reconnect WhatsApp' : 'Connect WhatsApp'}
-        </PrimaryButton>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <PrimaryButton onClick={handleConnect} loading={connecting} disabled={!sdkReady} size="lg"
+            leftIcon={<svg style={{ width: 18, height: 18 }} fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347zM12.05 2.049C6.495 2.049 2 6.545 2 12.1c0 1.784.47 3.458 1.292 4.913L2 22l5.237-1.373A9.99 9.99 0 0012.05 22c5.554 0 10.05-4.495 10.05-10.05S17.604 2.049 12.05 2.049z" /></svg>}>
+            {!sdkReady ? (sdkTimedOut ? 'SDK Blocked' : 'Loading SDK…') : isConnected ? 'Reconnect with Facebook' : 'Connect with Facebook'}
+          </PrimaryButton>
+
+          <button
+            type="button"
+            onClick={() => setManualModalOpen(true)}
+            className="h-11 px-5 rounded-xl text-xs font-bold text-[#0F172A] bg-white border border-[#CBD5E1] hover:bg-[#F1F5F9] transition-colors cursor-pointer shadow-xs"
+          >
+            ⚙️ Enter Credentials Manually
+          </button>
+        </div>
       </div>
 
       <p style={{ textAlign: 'center', fontSize: 11, color: 'var(--text-muted)', marginTop: '1rem' }}>

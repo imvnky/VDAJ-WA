@@ -79,8 +79,10 @@ app.use(
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc:  ["'self'", 'https://connect.facebook.net'],
-        frameSrc:   ["'self'", 'https://www.facebook.com'],
+        scriptSrc:  ["'self'", "'unsafe-inline'", "'unsafe-eval'", 'https://connect.facebook.net'],
+        connectSrc: ["'self'", 'https://*.facebook.com', 'https://*.facebook.net', 'https://graph.facebook.com', 'wss:', 'ws:'],
+        frameSrc:   ["'self'", 'https://www.facebook.com', 'https://web.facebook.com', 'https://*.facebook.com'],
+        imgSrc:     ["'self'", 'data:', 'blob:', 'https://*.facebook.com', 'https://*.fbcdn.net'],
       },
     },
     crossOriginEmbedderPolicy: false, // Required for Meta Embedded Signup iFrame
