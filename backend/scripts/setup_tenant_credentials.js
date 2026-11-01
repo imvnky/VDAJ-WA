@@ -60,8 +60,7 @@ async function main() {
     // 3. Update in PostgreSQL
     const displayPhone = phoneData.display_phone_number || '+91 91850 13345';
     const verifiedName = phoneData.verified_name || 'Perfect Travels';
-    const quality = phoneData.quality_rating || 'UNKNOWN';
-    const tier = phoneData.messaging_limit_tier || 'TIER_250';
+    const quality = phoneData.quality_rating && phoneData.quality_rating !== 'UNKNOWN' ? phoneData.quality_rating : 'GREEN';
 
     const updateRes = await query(
       `UPDATE tenants
@@ -71,12 +70,11 @@ async function main() {
            display_phone_number = $4,
            verified_name = $5,
            quality_rating = $6,
-           messaging_tier = $7,
-           waba_status = 'CONNECTED',
+           waba_health_synced_at = NOW(),
            updated_at = NOW()
-       WHERE slug = $8 OR id::text = $8
+       WHERE slug = $7 OR id::text = $7
        RETURNING id, name, slug, waba_id, phone_number_id, display_phone_number`,
-      [wabaId, phoneId, token, displayPhone, verifiedName, quality, tier, slug]
+      [wabaId, phoneId, token, displayPhone, verifiedName, quality, slug]
     );
 
     if (updateRes.rows.length === 0) {
