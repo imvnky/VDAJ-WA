@@ -42,6 +42,7 @@ const NAV_ITEMS = [
   {
     section: 'Management',
     items: [
+      { to: '/whatsapp-setup', label: 'WhatsApp Setup', icon: <WaIcon />,      badge: 'Setup' },
       { to: '/team',           label: 'Team',            icon: <UsersIcon /> },
       { to: '/compliance',     label: 'Compliance',      icon: <ComplianceIcon /> },
       { to: '/activity',       label: 'Audit Trail',     icon: <AuditIcon /> },

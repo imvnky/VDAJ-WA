@@ -583,4 +583,179 @@ router.post('/conversations/initiate', catchAsync(async (req, res) => {
   return sendSuccess(res, conv, 'Conversation ready.');
 }));
 
+// ── POST /inbox/send-template ─────────────────────────────────
+// External Booking / Integration API:
+// 1. Adds / updates guest in customer directory
+// 2. Upserts conversation in portal inbox
+// 3. Sends WhatsApp template via Meta Cloud API
+// 4. Inserts message into inbox_messages & broadcasts via WebSocket
+router.post('/send-template', catchAsync(async (req, res) => {
+  const {
+    to,
+    phone,
+    customerName,
+    name,
+    templateName,
+    template_name,
+    languageCode = 'en_US',
+    language,
+    parameters = {},
+    variables,
+    customVars = {}
+  } = req.body;
+
+  const rawPhone = to || phone;
+  const tplName = templateName || template_name;
+  const langCode = languageCode || language || 'en_US';
+  const effectiveName = customerName || name || null;
+  const effectiveParams = parameters || variables || {};
+
+  if (!rawPhone?.trim()) {
+    throw new AppError('Recipient phone number ("to" or "phone") is required.', 400, 'ERR_VDAJ_VAL_001');
+  }
+  if (!tplName?.trim()) {
+    throw new AppError('Template name ("templateName") is required.', 400, 'ERR_VDAJ_VAL_001');
+  }
+
+  // Format clean phone to E.164
+  let cleanDigits = rawPhone.replace(/\D/g, '');
+  if (cleanDigits.length === 10) cleanDigits = '91' + cleanDigits; // default to India if 10 digits
+  const formattedPhone = cleanDigits.startsWith('+') ? cleanDigits : `+${cleanDigits}`;
+
+  const tenantId = req.user.tenantId;
+
+  // 1. Get tenant Meta credentials
+  const { rows: tenantRows } = await query(
+    `SELECT id, name, phone_number_id, meta_system_token, waba_id FROM tenants WHERE id = $1`,
+    [tenantId]
+  );
+  if (!tenantRows.length) throw new AppError('Tenant not found.', 404, 'ERR_VDAJ_AUTH_005');
+
+  const tenant = tenantRows[0];
+  const effectiveToken = tenant.meta_system_token || process.env.META_ACCESS_TOKEN;
+  const effectivePhoneId = tenant.phone_number_id || process.env.META_PHONE_NUMBER_ID;
+
+  if (!effectiveToken || !effectivePhoneId) {
+    throw new AppError('WhatsApp is not connected for this workspace.', 409, 'ERR_META_NOT_CONNECTED');
+  }
+
+  // 2. Upsert Contact in Directory
+  let contactId = null;
+  const { rows: existingContacts } = await query(
+    `SELECT id, first_name, last_name FROM contacts
+     WHERE tenant_id = $1 AND (phone_e164 = $2 OR RIGHT(phone_e164, 10) = RIGHT($2, 10))
+     LIMIT 1`,
+    [tenantId, formattedPhone]
+  );
+
+  if (existingContacts.length) {
+    contactId = existingContacts[0].id;
+    if (effectiveName && !existingContacts[0].first_name) {
+      await query(
+        `UPDATE contacts SET first_name = $1, updated_at = NOW() WHERE id = $2`,
+        [effectiveName.trim(), contactId]
+      );
+    }
+  } else {
+    const { rows: [newContact] } = await query(
+      `INSERT INTO contacts
+         (tenant_id, first_name, phone_e164, custom_vars, tags, status, source)
+       VALUES ($1, $2, $3, $4, ARRAY['Booking'], 'active', 'booking_app')
+       RETURNING id`,
+      [tenantId, effectiveName ? effectiveName.trim() : null, formattedPhone, JSON.stringify(customVars)]
+    );
+    contactId = newContact?.id || null;
+  }
+
+  // 3. Check message template in DB if available
+  const { rows: tplRows } = await query(
+    `SELECT id, name, language, body_text FROM message_templates
+     WHERE tenant_id = $1 AND name = $2 AND deleted_at IS NULL LIMIT 1`,
+    [tenantId, tplName.trim()]
+  );
+  const dbTemplate = tplRows[0] || null;
+
+  // Format template parameters
+  let formattedTemplateVars = {};
+  if (Array.isArray(effectiveParams)) {
+    formattedTemplateVars.body = effectiveParams;
+  } else if (typeof effectiveParams === 'object') {
+    const keys = Object.keys(effectiveParams)
+      .filter((k) => /^\d+$/.test(k))
+      .sort((a, b) => Number(a) - Number(b));
+    if (keys.length > 0) {
+      formattedTemplateVars.body = keys.map((k) => effectiveParams[k]);
+    } else if (effectiveParams.body) {
+      formattedTemplateVars = effectiveParams;
+    }
+  }
+
+  // 4. Send via Meta API
+  const metaResponse = await sendWhatsAppMessage({
+    accessToken: effectiveToken,
+    phoneNumberId: effectivePhoneId,
+    to: formattedPhone,
+    templateName: tplName.trim(),
+    templateLanguage: langCode,
+    templateVars: formattedTemplateVars,
+  });
+
+  const waMessageId = metaResponse?.messages?.[0]?.id || null;
+
+  // Compute a readable preview for the inbox
+  let previewText = `[Template: ${tplName}]`;
+  if (formattedTemplateVars.body?.length) {
+    previewText = `[${tplName}] ${formattedTemplateVars.body.join(' | ')}`;
+  }
+
+  // 5. Upsert Conversation in Inbox
+  const displayName = effectiveName || formattedPhone;
+  const { rows: [conv] } = await query(
+    `INSERT INTO inbox_conversations
+       (tenant_id, phone_e164, display_name, contact_id, status, unread_count, last_message_at, last_message_preview)
+     VALUES ($1, $2, $3, $4, 'open', 0, NOW(), $5)
+     ON CONFLICT (tenant_id, phone_e164) DO UPDATE
+       SET display_name = COALESCE($3, inbox_conversations.display_name),
+           contact_id = COALESCE($4, inbox_conversations.contact_id),
+           last_message_at = NOW(),
+           last_message_preview = $5,
+           updated_at = NOW()
+     RETURNING *`,
+    [tenantId, formattedPhone, displayName, contactId, previewText.slice(0, 200)]
+  );
+
+  // 6. Record outbound message in inbox_messages
+  const { rows: [savedMsg] } = await query(
+    `INSERT INTO inbox_messages
+       (conversation_id, tenant_id, wa_message_id, direction, message_type, body, status, metadata)
+     VALUES ($1, $2, $3, 'outbound', 'template', $4, 'sent', $5)
+     RETURNING *`,
+    [
+      conv.id,
+      tenantId,
+      waMessageId,
+      previewText,
+      JSON.stringify({
+        template_id: dbTemplate?.id || null,
+        template_name: tplName,
+        language: langCode,
+        parameters: effectiveParams,
+      })
+    ]
+  );
+
+  // 7. Broadcast via WebSocket to portal users in this workspace
+  broadcastToTenant(req, 'NEW_MESSAGE', {
+    conversationId: conv.id,
+    message: savedMsg,
+  });
+
+  return sendSuccess(res, {
+    messageId: waMessageId,
+    conversationId: conv.id,
+    contactId,
+    status: 'sent',
+  }, 'Template message sent and recorded successfully.', 200);
+}));
+
 module.exports = router;

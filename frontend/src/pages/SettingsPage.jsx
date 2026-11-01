@@ -539,12 +539,23 @@ export default function SettingsPage() {
                   No WhatsApp Business Account is linked to this workspace yet.
                 </p>
                 {(user?.role === 'tenant_admin' || isSuperAdmin) && (
-                  <button
-                    onClick={() => setEditWabaOpen(true)}
-                    className="inline-flex items-center gap-2 h-10 px-5 rounded-xl text-xs font-bold text-white bg-[#534AB7]"
-                  >
-                    Configure WhatsApp Credentials
-                  </button>
+                  <div className="flex items-center justify-center gap-3">
+                    <button
+                      onClick={() => navigate('/whatsapp-setup')}
+                      className="inline-flex items-center gap-2 h-10 px-5 rounded-xl text-xs font-bold text-white bg-[#1877F2] hover:bg-[#166fe5] transition-colors"
+                    >
+                      <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                        <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                      </svg>
+                      Connect with Facebook
+                    </button>
+                    <button
+                      onClick={() => setEditWabaOpen(true)}
+                      className="inline-flex items-center gap-2 h-10 px-5 rounded-xl text-xs font-bold text-[#0F172A] bg-white border border-[#CBD5E1] hover:bg-[#F1F5F9] transition-colors"
+                    >
+                      Configure WhatsApp Credentials
+                    </button>
+                  </div>
                 )}
               </div>
             </Section>
@@ -569,16 +580,53 @@ export default function SettingsPage() {
                     </button>
 
                     {(user?.role === 'tenant_admin' || isSuperAdmin) && (
-                      <button
-                        onClick={() => setEditWabaOpen(true)}
-                        className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-semibold bg-white border border-[#CBD5E1] text-[#0F172A] hover:bg-[#F1F5F9] transition-colors"
-                      >
-                        Edit Credentials
-                      </button>
+                      <>
+                        <button
+                          onClick={() => navigate('/whatsapp-setup')}
+                          className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-semibold bg-[#1877F2] text-white hover:bg-[#166fe5] transition-colors shadow-xs"
+                          title="Connect via Meta Embedded Signup popup"
+                        >
+                          <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+                            <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                          </svg>
+                          Connect with Facebook
+                        </button>
+                        <button
+                          onClick={() => setEditWabaOpen(true)}
+                          className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-semibold bg-white border border-[#CBD5E1] text-[#0F172A] hover:bg-[#F1F5F9] transition-colors"
+                        >
+                          Edit Credentials
+                        </button>
+                      </>
                     )}
                   </div>
                 }
               >
+                {/* Embedded Signup Callout Banner when credentials are not yet set */}
+                {(!waba.phone_number_id || waba.phone_number_id === '-' || !waba.waba_id || waba.waba_id === '-') && (
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-2xl border border-[#1877F2]/30 bg-gradient-to-r from-[#F0F6FF] to-[#E6F0FF] mb-5 shadow-xs">
+                    <div className="flex items-center gap-3.5">
+                      <div className="w-11 h-11 rounded-2xl bg-[#1877F2] text-white flex items-center justify-center shrink-0 shadow-sm">
+                        <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24">
+                          <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                        </svg>
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-bold text-[#0F172A]">Connect WhatsApp Business with Meta</h4>
+                        <p className="text-xs text-[#475569] mt-0.5">
+                          Link your WhatsApp phone number and Business Portfolio via Meta Embedded Signup popup in 1 click.
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => navigate('/whatsapp-setup')}
+                      className="inline-flex items-center justify-center gap-2 h-10 px-5 rounded-xl text-xs font-bold text-white bg-[#1877F2] hover:bg-[#166fe5] transition-all shrink-0 shadow-sm hover:shadow cursor-pointer"
+                    >
+                      Connect with Facebook →
+                    </button>
+                  </div>
+                )}
+
                 {/* Meta Identifiers & Live Status */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 p-4 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] mb-5">
                   <div>
