@@ -76,6 +76,29 @@
 
 @layer components {
 
+  /* ── VDAJ BRAND IDENTITY UTILITIES ── */
+  .brand-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2px;
+  }
+  .sidebar-transition {
+    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .metric-card-hover {
+    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .metric-card-hover:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 24px -10px rgba(91, 75, 138, 0.15);
+  }
+  .nav-item-active {
+    background: linear-gradient(90deg, #F8F7FF 0%, rgba(248, 247, 255, 0) 100%);
+    border-left: 3px solid #5B4B8A;
+    color: #5B4B8A;
+    font-weight: 600;
+  }
+
   /* ── GLASS / SURFACE CARDS ── */
   .card {
     background: var(--bg-card);

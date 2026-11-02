@@ -5,10 +5,19 @@ export default {
   theme: {
     extend: {
       colors: {
-        // VDAJ Brand Kit
-        'vdaj-purple':  '#534AB7',
+        // VDAJ Official Brand Identity Kit
+        vdaj: {
+          purple: '#5B4B8A',
+          aura: '#E8A6FF',
+          teal: '#17C975',
+          black: '#0F0F0F',
+          white: '#F8F7FF',
+        },
+
+        // Brand Kit aliases
+        'vdaj-purple':  '#5B4B8A',
         'soft-aura':    '#AFA9EC',
-        'signal-teal':  '#1D9E75',
+        'signal-teal':  '#17C975',
         'deep-black':   '#0F0F0F',
         'aura-white':   '#F8F7FF',
 

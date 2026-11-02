@@ -49,33 +49,22 @@ export default function UserProfileDropdown() {
       <button
         onClick={() => setOpen(!open)}
         className={clsx(
-          "flex items-center gap-2.5 pl-1.5 pr-3 py-1 rounded-full border transition-all cursor-pointer select-none",
-          open
-            ? "bg-[#F3F2FD] border-[#534AB7]/40 shadow-sm"
-            : "bg-white border-[#E6E4F5] hover:bg-[#F8F7FF] hover:border-[#D4D2E6]"
+          "flex items-center space-x-3 cursor-pointer group p-1 rounded-xl transition-all select-none text-left",
+          open ? "bg-vdaj-aura/10" : "hover:bg-vdaj-aura/5"
         )}
         title="Account & Profile"
       >
-        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#534AB7] to-[#3B3499] text-white flex items-center justify-center text-xs font-bold shadow-xs">
+        <div className="text-right hidden sm:block">
+          <p className="text-sm font-bold text-vdaj-black group-hover:text-vdaj-purple transition-colors truncate max-w-[130px]">
+            {user?.firstName || fullName}
+          </p>
+          <p className="text-[10px] text-vdaj-purple/40 uppercase tracking-tighter">
+            {roleLabel}
+          </p>
+        </div>
+        <div className="w-10 h-10 bg-vdaj-purple rounded-full flex items-center justify-center text-white font-bold shadow-md shadow-vdaj-purple/20 shrink-0">
           {initial}
         </div>
-        <div className="hidden sm:flex flex-col text-left leading-tight">
-          <span className="text-xs font-bold text-[#0F0F0F] max-w-[120px] truncate">
-            {user?.firstName || fullName}
-          </span>
-          <span className="text-[10px] text-[#9494A8] font-semibold uppercase tracking-wider">
-            {roleLabel}
-          </span>
-        </div>
-        <svg
-          className={clsx("w-3.5 h-3.5 text-[#9494A8] transition-transform duration-200", open && "rotate-180")}
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          strokeWidth={2}
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-        </svg>
       </button>
 
       {/* Dropdown Menu */}
