@@ -53,7 +53,7 @@ export default function WorkspaceSwitcher() {
           const list = Array.isArray(res.data) ? res.data : (res.data?.tenants || []);
           setTenants(list);
         })
-        .catch(() => { })
+        .catch(() => {})
         .finally(() => setLoadingTenants(false));
     }
   }, [isSuperAdmin, open, tenants.length]);
