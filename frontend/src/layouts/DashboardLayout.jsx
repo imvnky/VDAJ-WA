@@ -89,12 +89,12 @@ export default function DashboardLayout() {
 
   const sidebarStyle = {
     background: '#FFFFFF',
-    borderRight: '1px solid rgba(232, 166, 255, 0.15)',
+    borderRight: '1px solid #E6E4F5',
   };
 
   const topbarStyle = {
-    background: 'rgba(255, 255, 255, 0.90)',
-    borderBottom: '1px solid rgba(232, 166, 255, 0.15)',
+    background: 'rgba(255, 255, 255, 0.95)',
+    borderBottom: '1px solid #E6E4F5',
     backdropFilter: 'blur(12px)',
   };
 
@@ -102,7 +102,7 @@ export default function DashboardLayout() {
     <>
       <UpdateBanner />
       <ImpersonationBanner />
-      <div className="flex h-screen overflow-hidden bg-vdaj-white">
+      <div className="flex h-screen overflow-hidden" style={{ background: '#F8F7FF' }}>
       {/* Mobile overlay */}
       {mobileOpen && (
         <div
@@ -114,28 +114,19 @@ export default function DashboardLayout() {
       {/* ── SIDEBAR ── */}
       <aside
         className={clsx(
-          'sidebar-transition fixed lg:relative z-40 h-full w-64 flex flex-col',
+          'fixed lg:relative z-40 h-full w-64 flex flex-col transition-transform duration-300',
           mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         )}
         style={sidebarStyle}
       >
-        {/* Brand Logo */}
-        <div className="h-20 flex items-center px-6 border-b border-vdaj-aura/10 shrink-0">
-          <div className="brand-grid w-8 h-8 mr-3 shrink-0">
-            <div className="bg-vdaj-purple rounded-sm"></div>
-            <div className="bg-vdaj-aura rounded-sm"></div>
-            <div className="bg-vdaj-aura rounded-sm"></div>
-            <div className="bg-vdaj-teal rounded-sm"></div>
-          </div>
-          <div className="flex flex-col leading-none">
-            <span className="font-bold text-vdaj-black tracking-tight text-lg">VDAJ</span>
-            <span className="text-[10px] text-vdaj-purple/60 font-semibold tracking-wider leading-none mt-0.5">SERVICES LLP</span>
-          </div>
-          <button className="ml-auto lg:hidden text-vdaj-purple/60 hover:text-vdaj-purple p-1" onClick={() => setMobileOpen(false)}>✕</button>
+        {/* Logo Area */}
+        <div className="flex items-center gap-3 px-5 py-5 shrink-0 border-b border-[#E6E4F5]/60">
+          <Logo size={36} />
+          <button className="ml-auto lg:hidden text-[#9494A8] hover:text-[#0F0F0F]" onClick={() => setMobileOpen(false)}>✕</button>
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 overflow-y-auto px-3 py-6 space-y-6 no-scrollbar">
+        <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-5 no-scrollbar">
           {NAV_ITEMS.map((section) => {
             const isPlatformMode = user?.role === 'super_admin' && !isImpersonating;
 
@@ -157,102 +148,98 @@ export default function DashboardLayout() {
               return true;
             });
             if (visibleItems.length === 0) return null;
-
             return (
-              <div key={section.section} className="px-1">
-                <h3 className="px-4 text-[11px] font-bold text-vdaj-purple/40 uppercase tracking-widest mb-2.5">
+              <div key={section.section}>
+                <p className="px-3 mb-1.5 text-2xs font-bold uppercase tracking-wider text-[#9494A8]">
                   {section.section}
-                </h3>
-                <div className="space-y-1">
-                  {visibleItems.map((item) => (
-                    <NavLink
-                      key={item.to}
-                      to={item.to}
-                      onClick={() => setMobileOpen(false)}
-                      className={({ isActive }) => clsx(
-                        'flex items-center px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 group',
-                        isActive
-                          ? 'nav-item-active rounded-r-lg font-semibold'
-                          : 'text-vdaj-purple/60 hover:text-vdaj-purple hover:bg-vdaj-aura/5'
-                      )}
-                    >
-                      <span className="w-5 h-5 shrink-0 mr-3 flex items-center justify-center opacity-90">{item.icon}</span>
-                      <span className="flex-1">{item.label}</span>
-                      {item.badge && (
-                        <span className={clsx(
-                          'text-[10px] px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wide',
-                          item.badge === 'Live' ? 'bg-vdaj-teal/10 text-vdaj-teal' : 'bg-vdaj-purple/10 text-vdaj-purple'
-                        )}>
-                          {item.badge}
-                        </span>
-                      )}
-                    </NavLink>
-                  ))}
-                </div>
+                </p>
+                {visibleItems.map((item) => (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    onClick={() => setMobileOpen(false)}
+                    className={({ isActive }) => clsx(
+                      'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 mb-0.5',
+                      isActive
+                        ? 'bg-[#F3F2FD] text-[#534AB7] font-bold shadow-sm'
+                        : 'text-[#5A5A6E] hover:bg-[#F8F7FF] hover:text-[#0F0F0F]'
+                    )}
+                  >
+                    <span className="w-4 h-4 shrink-0 opacity-90">{item.icon}</span>
+                    <span className="flex-1">{item.label}</span>
+                    {item.badge && (
+                      <span className={clsx(
+                        'text-2xs px-1.5 py-0.5 rounded-md font-bold',
+                        item.badge === 'Live' ? 'bg-[#E8F9F4] text-[#1D9E75]' : 'bg-[#F3F2FD] text-[#534AB7]'
+                      )}>
+                        {item.badge}
+                      </span>
+                    )}
+                  </NavLink>
+                ))}
               </div>
             );
           })}
         </nav>
 
         {/* Legal Footer */}
-        <div className="p-6 border-t border-vdaj-aura/10 text-[11px] text-vdaj-purple/40 flex flex-wrap gap-2 mt-auto">
-          <a
-            href="/legal/privacy"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="hover:text-vdaj-purple transition-colors"
-          >
-            Privacy
-          </a>
-          <span>•</span>
-          <a
-            href="/legal/terms"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="hover:text-vdaj-purple transition-colors"
-          >
-            Terms
-          </a>
-          <span>•</span>
-          <span>© 2024 VDAJ Services</span>
+        <div className="px-4 py-4 shrink-0 border-t border-[#E6E4F5]/60 mt-auto">
+          <div className="flex items-center gap-2 flex-wrap text-2xs text-[#9494A8]">
+            <a
+              href="/legal/privacy"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-[#534AB7] transition-colors"
+            >
+              Privacy
+            </a>
+            <span>·</span>
+            <a
+              href="/legal/terms"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-[#534AB7] transition-colors"
+            >
+              Terms
+            </a>
+            <span>·</span>
+            <span>VDAJ Services LLP</span>
+          </div>
         </div>
       </aside>
 
       {/* ── MAIN CONTENT ── */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Topbar */}
-        <header className="h-20 bg-white/90 backdrop-blur-md border-b border-vdaj-aura/10 flex items-center justify-between px-6 sm:px-8 sticky top-0 z-40 shrink-0">
-          <div className="flex items-center gap-3">
-            <button className="lg:hidden text-vdaj-purple/60 hover:text-vdaj-purple p-1" onClick={() => setMobileOpen(true)}>
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-            </button>
+        <header className="flex items-center gap-3 sm:gap-4 px-4 sm:px-6 h-16 shrink-0 z-20" style={topbarStyle}>
+          <button className="lg:hidden text-[#5A5A6E] hover:text-[#0F0F0F]" onClick={() => setMobileOpen(true)}>
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
 
-            {/* Workspace Switcher */}
-            <WorkspaceSwitcher />
-          </div>
+          {/* Workspace Switcher */}
+          <WorkspaceSwitcher />
 
-          <div className="flex items-center space-x-6">
-            <div className="flex items-center space-x-4 pr-6 border-r border-vdaj-aura/10">
-              <NotificationBell />
+          <div className="flex-1" />
 
-              {/* Live badge */}
-              <div className="flex items-center space-x-2 bg-vdaj-teal/10 text-vdaj-teal px-3 py-1 rounded-full text-xs font-semibold">
-                <span className="w-2 h-2 bg-vdaj-teal rounded-full animate-pulse"></span>
-                <span>{user?.role === 'super_admin' && !isImpersonating ? 'Platform Owner' : (tenant?.status === 'active' ? 'Active' : 'Live')}</span>
-              </div>
-            </div>
+          <NotificationBell />
 
-            {/* User Profile Dropdown */}
-            <UserProfileDropdown />
-          </div>
+          {/* Subscription / Plan badge */}
+          <span className="hidden sm:flex items-center gap-1.5 h-7 px-3 rounded-full text-2xs font-semibold"
+            style={{ background: '#E8F9F4', color: '#148059', border: '1px solid #A3E4D0' }}>
+            <span className="w-1.5 h-1.5 rounded-full bg-[#1D9E75] animate-pulse" />
+            {user?.role === 'super_admin' && !isImpersonating ? 'Platform Owner' : (tenant?.status === 'active' ? 'Active' : 'Live')}
+          </span>
+
+          {/* User Profile Dropdown */}
+          <UserProfileDropdown />
         </header>
 
         {/* Page content */}
         <main className={clsx(
           "flex-1 min-h-0 flex flex-col",
-          isInbox ? "overflow-hidden p-2.5 sm:p-4 w-full" : "overflow-y-auto p-4 sm:p-6 lg:p-8 w-full min-w-0"
+          isInbox ? "overflow-hidden p-2.5 sm:p-4 w-full" : "overflow-y-auto p-4 sm:p-6 lg:px-8 lg:py-7 w-full min-w-0"
         )}>
           <PageErrorBoundary key={location.pathname}>
             <Outlet />

@@ -101,11 +101,9 @@ export default function WorkspaceSwitcher() {
   // Regular tenant user view (Non-super admin)
   if (!isSuperAdmin) {
     return (
-      <div className="flex items-center space-x-2 px-3 py-1.5 bg-vdaj-white border border-vdaj-aura/20 rounded-lg text-vdaj-purple text-sm font-medium">
-        <svg className="w-4 h-4 text-vdaj-purple shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-        </svg>
-        <span className="truncate max-w-[160px] font-semibold">{tenant?.name || 'Workspace'}</span>
+      <div className="flex items-center gap-2 h-9 px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-700">
+        <span>🏢</span>
+        <span className="truncate max-w-[160px]">{tenant?.name || 'Workspace'}</span>
       </div>
     );
   }
@@ -122,21 +120,24 @@ export default function WorkspaceSwitcher() {
         onClick={() => setOpen(!open)}
         disabled={switching}
         className={clsx(
-          'flex items-center space-x-2 px-3 py-1.5 bg-vdaj-white border rounded-lg text-sm font-medium hover:bg-vdaj-aura/5 transition-colors',
+          'flex items-center gap-2 h-9 px-3 rounded-xl text-xs font-bold transition-all border',
           isImpersonating
-            ? 'border-amber-300 text-amber-900 bg-amber-50/60 shadow-sm'
-            : 'border-vdaj-aura/20 text-vdaj-purple'
+            ? 'bg-amber-50 border-amber-300 text-amber-900 hover:bg-amber-100 shadow-sm'
+            : 'bg-[#F3F2FD] border-[#E6E4F5] text-[#534AB7] hover:bg-[#E8E6FA]'
         )}
       >
-        <svg className="w-4 h-4 text-vdaj-purple shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-        </svg>
-        <span className="truncate max-w-[140px] sm:max-w-[180px] font-semibold">
-          {currentTitle}
+        <span className="text-sm">
+          {isImpersonating ? '🏢' : '👑'}
         </span>
-        <svg className="w-3 h-3 text-vdaj-purple/40 ml-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-        </svg>
+        <div className="text-left flex flex-col justify-center leading-tight">
+          <span className="truncate max-w-[140px] sm:max-w-[180px]">
+            {currentTitle}
+          </span>
+          <span className="text-[9px] font-semibold uppercase opacity-60">
+            {isImpersonating ? 'Client Workspace' : 'Global Admin'}
+          </span>
+        </div>
+        <span className="text-[10px] opacity-50 ml-0.5">▼</span>
       </button>
 
       {/* Dropdown Menu */}
