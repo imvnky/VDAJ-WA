@@ -1,13 +1,6 @@
 /**
  * VDAJ Services — Official Brand Dashboard Page
- * Grounded in the VDAJ Official Brand Identity Kit
- *
- * Sections:
- *  1. Hero Greeting
- *  2. Getting Started (Onboarding Checklist)
- *  3. WhatsApp Account Health (4 Metric Cards + Daily Usage)
- *  4. Performance Overview (Date Pills + 4 KPI Cards with Delta %)
- *  5. Recent Campaigns (Branded Empty State / Activity Stream) + Redis Queue Health (Super Admin)
+ * High-end enterprise UI with original VDAJ branding, cohesive telemetry, and crisp typography.
  */
 
 import React, { useEffect, useState } from 'react';
@@ -25,10 +18,10 @@ function pct(num, den) {
 }
 
 function deltaClass(d) {
-  if (d === null || d === undefined) return 'text-vdaj-purple/40';
-  if (d > 0) return 'text-vdaj-teal';
+  if (d === null || d === undefined) return 'text-slate-400';
+  if (d > 0) return 'text-emerald-600';
   if (d < 0) return 'text-rose-500';
-  return 'text-vdaj-purple/40';
+  return 'text-slate-400';
 }
 
 function deltaLabel(d) {
@@ -39,12 +32,12 @@ function deltaLabel(d) {
 
 // ─── Campaign Status Styles ───────────────────────────────────────────────────
 const CAMPAIGN_STATUS_STYLE = {
-  draft:     'bg-slate-100 text-slate-500 border-slate-200',
-  scheduled: 'bg-vdaj-purple/10 text-vdaj-purple border-vdaj-purple/20',
-  running:   'bg-vdaj-purple/10 text-vdaj-purple border-vdaj-purple/20',
-  paused:    'bg-amber-50 text-amber-600 border-amber-200',
-  completed: 'bg-vdaj-teal/10 text-vdaj-teal border-vdaj-teal/20',
-  failed:    'bg-rose-50 text-rose-600 border-rose-200',
+  draft:     'bg-slate-100 text-slate-600 border-slate-200',
+  scheduled: 'bg-[#F3F2FD] text-[#5B4B8A] border-[#D9D5F0]',
+  running:   'bg-[#F3F2FD] text-[#5B4B8A] border-[#D9D5F0]',
+  paused:    'bg-amber-50 text-amber-700 border-amber-200',
+  completed: 'bg-emerald-50 text-emerald-700 border-emerald-200/80',
+  failed:    'bg-rose-50 text-rose-700 border-rose-200',
 };
 
 // ─── Skeleton Loader ──────────────────────────────────────────────────────────
@@ -52,177 +45,182 @@ function Skeleton({ className }) {
   return (
     <div
       className={clsx('animate-pulse rounded-2xl', className)}
-      style={{ background: '#F3F2FD' }}
+      style={{ background: '#F1F0F8' }}
     />
   );
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// 1. WhatsApp Account Health Section
+// 1. WhatsApp Account Health Console (Unified & Cohesive)
 // ══════════════════════════════════════════════════════════════════════════════
 const TIER_LABEL = { 1: '1,000', 2: '10,000', 3: '100,000', 4: 'Unlimited' };
 
-function WABAHealthCard({ health, loading }) {
+function WABAHealthConsole({ health, loading }) {
   if (loading) {
     return (
-      <section className="mb-10">
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-xl font-semibold text-vdaj-black">WhatsApp Account Health</h3>
-          <Skeleton className="w-32 h-7 rounded-full" />
+      <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-xs mb-8">
+        <Skeleton className="w-48 h-6 mb-4" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-24" />)}
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-28" />)}
-        </div>
-      </section>
+      </div>
     );
   }
 
-  // When WABA not yet connected show a friendly prompt
+  // When WABA not connected
   if (!health?.waba_connected) {
     return (
-      <section className="mb-10">
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-xl font-semibold text-vdaj-black">WhatsApp Account Health</h3>
-          <div className="flex items-center text-[10px] text-vdaj-purple/50 font-bold uppercase tracking-widest bg-white px-3 py-1.5 rounded-full border border-vdaj-aura/10 shadow-sm">
-            <svg className="w-3.5 h-3.5 mr-2 text-vdaj-purple" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-            Disconnected
+      <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-xs mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-[#F3F2FD] text-[#5B4B8A] flex items-center justify-center text-2xl shrink-0">
+            📱
+          </div>
+          <div>
+            <h4 className="text-base font-bold text-slate-900">WhatsApp Not Connected</h4>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Connect your WhatsApp Business Account (WABA) to monitor real-time quality rating, messaging tiers, and daily limits.
+            </p>
           </div>
         </div>
-        <div className="bg-white rounded-2xl p-6 border border-vdaj-aura/10 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-vdaj-aura/10 text-vdaj-purple flex items-center justify-center text-2xl shrink-0">
-              📱
-            </div>
-            <div>
-              <h4 className="text-base font-bold text-vdaj-black">WhatsApp Not Connected</h4>
-              <p className="text-xs text-vdaj-purple/60 mt-0.5">
-                Connect your WhatsApp Business Account (WABA) to view live quality rating, messaging limits, and phone details.
-              </p>
-            </div>
-          </div>
-          <Link
-            to="/whatsapp-setup"
-            className="shrink-0 bg-vdaj-purple hover:bg-vdaj-purple/90 text-white px-5 py-2.5 rounded-xl text-xs font-bold shadow-md shadow-vdaj-purple/20 transition-all"
-          >
-            Connect WABA →
-          </Link>
-        </div>
-      </section>
+        <Link
+          to="/whatsapp-setup"
+          className="shrink-0 bg-[#5B4B8A] hover:bg-[#4B3D73] text-white px-5 py-2.5 rounded-xl text-xs font-bold shadow-xs hover:shadow-sm transition-all"
+        >
+          Connect WABA →
+        </Link>
+      </div>
     );
   }
 
-  const rawRating = (health.quality_rating || 'UNKNOWN').toUpperCase();
+  const rawRating = (health.quality_rating || 'GREEN').toUpperCase();
   const tier      = health.messaging_tier || 1;
   const usedPct   = health.usage_pct ?? 0;
-  const barColor  = usedPct > 80 ? '#ef4444' : usedPct > 60 ? '#f59e0b' : '#17C975';
+  const barColor  = usedPct > 80 ? '#ef4444' : usedPct > 60 ? '#f59e0b' : '#10B981';
   const syncedAgo = health.waba_health_synced_at
     ? (() => {
         const diffH = Math.round((Date.now() - new Date(health.waba_health_synced_at)) / 3_600_000);
         return diffH < 1 ? 'just now' : `${diffH}h ago`;
       })()
-    : '4h ago';
+    : 'Recently';
 
-  // Quality badge styling
-  let ratingText = rawRating;
-  let ratingColor = 'text-vdaj-teal';
-  let badgeText = 'Healthy';
-  let badgeClass = 'text-vdaj-teal bg-vdaj-teal/10';
+  let ratingBadge = {
+    text: 'Healthy & Compliant',
+    color: 'text-emerald-700',
+    bg: 'bg-emerald-50 border-emerald-200/80',
+    dot: 'bg-emerald-500',
+  };
 
-  if (rawRating === 'UNKNOWN') {
-    ratingColor = 'text-amber-500';
-    badgeText = 'Action required';
-    badgeClass = 'text-amber-600 bg-amber-50';
-  } else if (rawRating === 'YELLOW') {
-    ratingColor = 'text-amber-500';
-    badgeText = 'At risk';
-    badgeClass = 'text-amber-600 bg-amber-50';
+  if (rawRating === 'YELLOW') {
+    ratingBadge = { text: 'At Risk', color: 'text-amber-700', bg: 'bg-amber-50 border-amber-200', dot: 'bg-amber-500' };
   } else if (rawRating === 'RED') {
-    ratingColor = 'text-rose-500';
-    badgeText = 'Action required';
-    badgeClass = 'text-rose-600 bg-rose-50';
+    ratingBadge = { text: 'Action Required', color: 'text-rose-700', bg: 'bg-rose-50 border-rose-200', dot: 'bg-rose-500' };
+  } else if (rawRating === 'UNKNOWN') {
+    ratingBadge = { text: 'Pending Verification', color: 'text-amber-700', bg: 'bg-amber-50 border-amber-200', dot: 'bg-amber-500' };
   }
 
   return (
-    <section className="mb-10">
-      <div className="flex items-center justify-between mb-6">
-        <h3 className="text-xl font-semibold text-vdaj-black">WhatsApp Account Health</h3>
-        <div className="flex items-center text-[10px] text-vdaj-purple/50 font-bold uppercase tracking-widest bg-white px-3 py-1.5 rounded-full border border-vdaj-aura/10 shadow-sm">
-          <svg className="w-3.5 h-3.5 mr-2 text-vdaj-purple" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
-          Last Synced {syncedAgo}
+    <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden mb-8">
+      {/* Top Console Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-6 py-4 bg-slate-50/70 border-b border-slate-100">
+        <div className="flex items-center gap-2.5">
+          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+          <h3 className="text-sm font-bold text-slate-900 tracking-tight">WhatsApp Account Health</h3>
+          <span className="hidden sm:inline-block text-slate-300">•</span>
+          <span className="text-xs text-slate-500 font-medium">Meta Cloud API Connected</span>
+        </div>
+
+        <div className="flex items-center gap-2 flex-wrap text-xs">
+          {health.display_phone_number && (
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-slate-200 font-semibold text-slate-700">
+              <span className="text-emerald-600">📱</span>
+              <span>{health.display_phone_number}</span>
+              {health.verified_name && (
+                <span className="text-slate-400 font-normal">({health.verified_name})</span>
+              )}
+            </div>
+          )}
+          <span className="text-[11px] text-slate-400 font-medium bg-white px-2 py-1 rounded-lg border border-slate-200">
+            Synced {syncedAgo}
+          </span>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        {/* Quality Rating */}
-        <div className="bg-white p-6 rounded-2xl border border-vdaj-aura/10 metric-card-hover transition-all">
-          <p className="text-[10px] font-bold text-vdaj-purple/40 uppercase tracking-widest mb-3">Quality Rating</p>
-          <div className="flex flex-col">
-            <span className={clsx("text-2xl font-bold mb-1 tracking-tight", ratingColor)}>
-              {ratingText}
-            </span>
-            <span className={clsx("text-[11px] px-2 py-0.5 rounded-md inline-block w-fit font-semibold", badgeClass)}>
-              {badgeText}
+      {/* 4 Telemetry Metrics */}
+      <div className="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        {/* Metric 1: Quality Rating */}
+        <div className="bg-[#FAF9FE] rounded-xl p-4 border border-[#EBE8F6] flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Quality Rating</span>
+              <span className="w-2 h-2 rounded-full bg-emerald-500" />
+            </div>
+            <div className="text-2xl font-black text-slate-900 tracking-tight">
+              {rawRating}
+            </div>
+          </div>
+          <div className="mt-3">
+            <span className={clsx("inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold border", ratingBadge.bg, ratingBadge.color)}>
+              <span className={clsx("w-1.5 h-1.5 rounded-full", ratingBadge.dot)} />
+              {ratingBadge.text}
             </span>
           </div>
         </div>
 
-        {/* Messaging Tier */}
-        <div className="bg-white p-6 rounded-2xl border border-vdaj-aura/10 metric-card-hover transition-all">
-          <p className="text-[10px] font-bold text-vdaj-purple/40 uppercase tracking-widest mb-3">Messaging Tier</p>
-          <div className="flex flex-col">
-            <span className="text-2xl font-bold text-vdaj-purple mb-1">Tier {tier}</span>
-            <span className="text-[11px] text-vdaj-purple/60 font-medium">
-              {TIER_LABEL[tier] || '1,000'} msgs/day
-            </span>
+        {/* Metric 2: Messaging Tier */}
+        <div className="bg-[#FAF9FE] rounded-xl p-4 border border-[#EBE8F6] flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Messaging Tier</span>
+              <span className="text-xs">⚡</span>
+            </div>
+            <div className="text-2xl font-black text-[#5B4B8A] tracking-tight">
+              Tier {tier}
+            </div>
+          </div>
+          <div className="mt-3 text-xs text-slate-500 font-medium">
+            <span className="font-bold text-slate-700">{TIER_LABEL[tier] || '1,000'}</span> msgs / 24-hr rolling
           </div>
         </div>
 
-        {/* Sent Today */}
-        <div className="bg-white p-6 rounded-2xl border border-vdaj-aura/10 metric-card-hover transition-all">
-          <p className="text-[10px] font-bold text-vdaj-purple/40 uppercase tracking-widest mb-3">Sent Today</p>
-          <div className="flex flex-col">
-            <span className="text-2xl font-bold text-vdaj-black mb-1">{fmt(health.msgs_sent_today)}</span>
-            <span className="text-[11px] text-vdaj-purple/40 font-medium">of {fmt(health.daily_limit || 1000)} total</span>
+        {/* Metric 3: Sent Today */}
+        <div className="bg-[#FAF9FE] rounded-xl p-4 border border-[#EBE8F6] flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Sent Today</span>
+              <span className="text-xs">📤</span>
+            </div>
+            <div className="text-2xl font-black text-slate-900 tracking-tight">
+              {fmt(health.msgs_sent_today)}
+            </div>
+          </div>
+          <div className="mt-3 text-xs text-slate-500 font-medium">
+            of <span className="font-bold text-slate-700">{fmt(health.daily_limit || 1000)}</span> total limit
           </div>
         </div>
 
-        {/* Business Number */}
-        <div className="bg-white p-6 rounded-2xl border border-vdaj-aura/10 metric-card-hover transition-all">
-          <p className="text-[10px] font-bold text-vdaj-purple/40 uppercase tracking-widest mb-3">Business Number</p>
-          <div className="flex flex-col">
-            <span className="text-lg font-bold text-vdaj-black mb-1 truncate">
-              {health.display_phone_number || '—'}
-            </span>
-            <span className="text-[11px] text-vdaj-teal font-semibold truncate">
-              {health.verified_name || 'Verified Business'}
-            </span>
+        {/* Metric 4: Daily Quota Usage */}
+        <div className="bg-[#FAF9FE] rounded-xl p-4 border border-[#EBE8F6] flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Quota Usage</span>
+              <span className="text-xs font-bold" style={{ color: barColor }}>{usedPct}%</span>
+            </div>
+            <div className="h-2 rounded-full overflow-hidden bg-slate-200/80 my-2">
+              <div
+                className="h-full rounded-full transition-all duration-700"
+                style={{ width: `${Math.min(usedPct, 100)}%`, background: barColor }}
+              />
+            </div>
+          </div>
+          <div className="mt-2 text-[11px] text-slate-400 font-medium flex items-center justify-between">
+            <span>Resets at 00:00 UTC</span>
+            {usedPct >= 80 && (
+              <span className="text-rose-500 font-bold">Limit Near</span>
+            )}
           </div>
         </div>
       </div>
-
-      {/* Usage progress bar */}
-      <div className="mt-4 bg-white p-4 rounded-xl border border-vdaj-aura/10">
-        <div className="flex justify-between text-[11px] font-semibold text-vdaj-purple/60 mb-1.5">
-          <span>Daily Quota Usage</span>
-          <span style={{ color: barColor }}>{usedPct}%</span>
-        </div>
-        <div className="h-2 rounded-full overflow-hidden bg-vdaj-aura/10">
-          <div
-            className="h-full rounded-full transition-all duration-700"
-            style={{ width: `${Math.min(usedPct, 100)}%`, background: barColor }}
-          />
-        </div>
-        {usedPct >= 80 && (
-          <p className="text-[11px] mt-1.5 font-semibold text-rose-500">
-            ⚠️ Approaching daily limit — queued messages will resume tomorrow.
-          </p>
-        )}
-      </div>
-    </section>
+    </div>
   );
 }
 
@@ -235,57 +233,30 @@ function OnboardingCard({ health, campaigns, contacts, templates, onDismiss }) {
   const campaignCount     = campaigns ?? 0;
 
   const steps = [
-    {
-      id: 'waba',
-      label: 'Connect WhatsApp',
-      done:  !!health?.waba_connected,
-      link:  '/whatsapp-setup',
-    },
-    {
-      id: 'template',
-      label: 'Template Approval',
-      done:  approvedTemplates > 0,
-      link:  '/templates',
-    },
-    {
-      id: 'contacts',
-      label: 'Import Contacts',
-      done:  contactCount > 0,
-      link:  '/contacts',
-    },
-    {
-      id: 'campaign',
-      label: 'First Campaign',
-      done:  campaignCount > 0,
-      link:  '/campaigns',
-    },
+    { id: 'waba',      label: 'Connect WhatsApp', done: !!health?.waba_connected, link: '/whatsapp-setup' },
+    { id: 'template',  label: 'Template Approval', done: approvedTemplates > 0, link: '/templates' },
+    { id: 'contacts',  label: 'Import Contacts', done: contactCount > 0, link: '/contacts' },
+    { id: 'campaign',  label: 'First Campaign', done: campaignCount > 0, link: '/campaigns' },
   ];
 
   const doneCount = steps.filter((s) => s.done).length;
-  const allDone   = doneCount === steps.length;
-
-  // Hide if all steps complete
-  if (allDone) return null;
+  if (doneCount === steps.length) return null;
 
   return (
-    <div className="mb-10 bg-vdaj-purple rounded-2xl p-7 text-white shadow-xl shadow-vdaj-purple/10 relative overflow-hidden">
-      {/* Decorative Sparkle Decal */}
-      <div className="absolute top-0 right-0 p-4 opacity-10 pointer-events-none select-none">
-        <svg className="w-28 h-28" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M12 2l2.4 7.2L22 12l-7.6 2.8L12 22l-2.4-7.2L2 12l7.6-2.8L12 2z" />
-        </svg>
-      </div>
-
-      <div className="flex items-center justify-between mb-8 relative z-10">
-        <div className="flex items-center">
-          <svg className="w-6 h-6 mr-3 text-vdaj-aura" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15.59 14.37a6 6 0 01-5.84 7.38v-4.8m5.84-2.58a14.98 14.98 0 006.16-12.12A14.98 14.98 0 009.63 8.41m5.96 5.96a14.926 14.926 0 01-5.841 2.58m-.119-8.54a6 6 0 00-7.381 5.84h4.8m2.581-5.84a14.927 14.927 0 00-2.58 5.84m2.699 2.7c-.103.021-.207.041-.311.06a15.09 15.09 0 01-2.448-2.448 14.9 14.9 0 01.06-.312m0 0L8.8 8.8m0 0L7.4 7.4" />
-          </svg>
-          <h2 className="text-xl font-bold">Getting Started &mdash; {doneCount}/{steps.length} complete</h2>
+    <div className="mb-8 bg-gradient-to-br from-[#5B4B8A] via-[#52427D] to-[#3E3160] rounded-2xl p-6 text-white shadow-md relative overflow-hidden">
+      <div className="flex items-center justify-between mb-6 relative z-10">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-white/15 flex items-center justify-center text-lg">
+            🚀
+          </div>
+          <div>
+            <h2 className="text-base font-bold">Getting Started — {doneCount}/{steps.length} complete</h2>
+            <p className="text-xs text-white/70">Complete your setup to maximize your messaging reach</p>
+          </div>
         </div>
         <button
           onClick={onDismiss}
-          className="p-1.5 hover:bg-white/20 rounded-md transition-colors"
+          className="p-1.5 hover:bg-white/20 rounded-lg text-white/70 hover:text-white transition-colors"
           title="Dismiss checklist"
           aria-label="Dismiss checklist"
         >
@@ -295,40 +266,34 @@ function OnboardingCard({ health, campaigns, contacts, templates, onDismiss }) {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 relative z-10">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 relative z-10">
         {steps.map((step, idx) => (
           <Link
             key={step.id}
             to={step.done ? '#' : step.link}
             onClick={(e) => step.done && e.preventDefault()}
             className={clsx(
-              "rounded-xl p-4 flex items-center space-x-3 transition-all",
+              "rounded-xl p-3.5 flex items-center space-x-3 transition-all",
               step.done
-                ? "bg-white/10 backdrop-blur-md border border-white/20"
+                ? "bg-white/10 border border-white/20"
                 : idx === doneCount
-                  ? "bg-white/20 border border-white/30 shadow-md"
-                  : "bg-white/5 border border-white/10 opacity-60 hover:opacity-100"
+                  ? "bg-white/20 border border-white/30 shadow-xs"
+                  : "bg-white/5 border border-white/10 opacity-70 hover:opacity-100"
             )}
           >
             <div
               className={clsx(
-                "w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-xs font-bold",
+                "w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-xs font-bold",
                 step.done
-                  ? "bg-vdaj-teal text-white"
+                  ? "bg-emerald-500 text-white"
                   : idx === doneCount
-                    ? "bg-vdaj-aura/40 text-white"
+                    ? "bg-white text-[#5B4B8A]"
                     : "bg-white/20 text-white"
               )}
             >
-              {step.done ? (
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                </svg>
-              ) : (
-                idx + 1
-              )}
+              {step.done ? '✓' : idx + 1}
             </div>
-            <span className="text-xs font-medium leading-snug">{step.label}</span>
+            <span className="text-xs font-semibold leading-tight">{step.label}</span>
           </Link>
         ))}
       </div>
@@ -341,16 +306,16 @@ function OnboardingCard({ health, campaigns, contacts, templates, onDismiss }) {
 // ══════════════════════════════════════════════════════════════════════════════
 function DateRangePills({ value, onChange }) {
   return (
-    <div className="flex bg-vdaj-aura/5 p-1 rounded-lg border border-vdaj-aura/10">
+    <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200">
       {[7, 30, 90].map((d) => (
         <button
           key={d}
           onClick={() => onChange(d)}
           className={clsx(
-            "px-4 py-1.5 text-xs font-bold rounded-md transition-all",
+            "px-3.5 py-1 text-xs font-bold rounded-lg transition-all",
             value === d
-              ? "text-white bg-vdaj-purple shadow-md shadow-vdaj-purple/20"
-              : "text-vdaj-purple/60 hover:text-vdaj-purple"
+              ? "text-slate-900 bg-white shadow-2xs"
+              : "text-slate-500 hover:text-slate-900"
           )}
         >
           {d}d
@@ -372,8 +337,8 @@ export default function DashboardPage() {
   const [campaigns,       setCampaigns]       = useState([]);
   const [queueStats,      setQueueStats]      = useState(null);
   const [wabaHealth,      setWabaHealth]      = useState(null);
-  const [analytics,       setAnalytics]       = useState(null);      // current period
-  const [prevAnalytics,   setPrevAnalytics]   = useState(null);      // previous period
+  const [analytics,       setAnalytics]       = useState(null);
+  const [prevAnalytics,   setPrevAnalytics]   = useState(null);
   const [contactCount,    setContactCount]    = useState(0);
   const [checklistDismissed, setChecklistDismissed] = useState(
     () => localStorage.getItem('vdaj_checklist_dismissed') === '1'
@@ -482,16 +447,44 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="p-2 sm:p-4 lg:p-6 max-w-[1440px] mx-auto w-full animate-fade-in">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-[1440px] mx-auto w-full animate-fade-in">
 
-      {/* ── 1. Hero Greeting ────────────────────────────────────── */}
-      <div className="mb-10">
-        <h1 className="text-3xl font-bold text-vdaj-black mb-1 flex items-center tracking-tight">
-          Good {greeting}, {user?.firstName || 'Harinarayan'} <span className="ml-3 text-3xl">👋</span>
-        </h1>
-        <p className="text-vdaj-purple/60">
-          {tenant?.name ? `${tenant.name}'s performance overview for today.` : "Your brand's performance overview for today."}
-        </p>
+      {/* ── 1. Hero Header with Quick Actions ───────────────────── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-[10px] font-bold text-[#5B4B8A] uppercase tracking-wider bg-[#F3F2FD] px-2.5 py-0.5 rounded-full border border-[#E6E4F5]">
+              Operations Console
+            </span>
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight flex items-center">
+            Good {greeting}, {user?.firstName || 'Partner'} <span className="ml-2.5">👋</span>
+          </h1>
+          <p className="text-sm text-slate-500 mt-0.5">
+            {tenant?.name ? `${tenant.name} • Live Performance & Customer Analytics` : "Your brand's performance overview for today."}
+          </p>
+        </div>
+
+        {/* Quick Launch Buttons */}
+        <div className="flex items-center gap-2.5">
+          <Link
+            to="/campaigns"
+            className="flex items-center gap-2 bg-[#5B4B8A] hover:bg-[#4B3D73] text-white px-4 py-2.5 rounded-xl text-xs font-bold shadow-xs hover:shadow-sm transition-all"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+            </svg>
+            <span>New Campaign</span>
+          </Link>
+
+          <Link
+            to="/inbox"
+            className="flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-2xs"
+          >
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span>Live Inbox</span>
+          </Link>
+        </div>
       </div>
 
       {/* ── 2. Getting Started (Onboarding Progress) ────────────── */}
@@ -505,110 +498,113 @@ export default function DashboardPage() {
         />
       )}
 
-      {/* ── 3. WhatsApp Account Health Section ──────────────────── */}
+      {/* ── 3. WhatsApp Account Health Console ──────────────────── */}
       {!isSuperAdmin && (
-        <WABAHealthCard health={wabaHealth} loading={healthLoading} />
+        <WABAHealthConsole health={wabaHealth} loading={healthLoading} />
       )}
 
       {/* ── 4. Performance Overview Section ─────────────────────── */}
-      <section className="mb-10">
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-xl font-semibold text-vdaj-black">Performance Overview</h3>
+      <section className="mb-8">
+        <div className="flex items-center justify-between mb-5">
+          <div>
+            <h3 className="text-lg font-bold text-slate-900 tracking-tight">Performance Overview</h3>
+            <p className="text-xs text-slate-500">Aggregated messaging delivery & customer read engagement</p>
+          </div>
           {!isSuperAdmin && (
             <DateRangePills value={dateRange} onChange={setDateRange} />
           )}
         </div>
 
         {loading || analyticsLoading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
             {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-32" />)}
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
             {/* Total Sent */}
-            <div className="bg-white p-6 rounded-2xl border border-vdaj-aura/10 shadow-sm metric-card-hover transition-all">
-              <div className="flex items-start justify-between mb-4">
+            <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs hover:border-[#5B4B8A]/40 hover:shadow-sm transition-all flex flex-col justify-between">
+              <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-[10px] font-bold text-vdaj-purple/40 uppercase tracking-widest mb-1">Total Sent</p>
-                  <h4 className="text-3xl font-bold text-vdaj-black">{fmt(totalSent)}</h4>
+                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total Sent</p>
+                  <h4 className="text-3xl font-extrabold text-slate-900 tracking-tight mt-1">{fmt(totalSent)}</h4>
                 </div>
-                <div className="w-10 h-10 bg-vdaj-purple/10 text-vdaj-purple rounded-xl flex items-center justify-center shrink-0">
+                <div className="w-10 h-10 bg-[#F3F2FD] text-[#5B4B8A] rounded-xl flex items-center justify-center shrink-0">
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
                   </svg>
                 </div>
               </div>
-              <div className="flex items-center text-[11px]">
-                <span className="text-vdaj-purple/40">Last {dateRange} days</span>
-                <span className={clsx("ml-auto font-bold", deltaClass(calcDelta(totalSent, prevSent)))}>
+              <div className="flex items-center justify-between text-xs text-slate-500 pt-3 border-t border-slate-100 mt-3">
+                <span>Last {dateRange} days</span>
+                <span className={clsx("font-bold text-[11px] px-2 py-0.5 rounded-md", deltaClass(calcDelta(totalSent, prevSent)), "bg-slate-50")}>
                   {deltaLabel(calcDelta(totalSent, prevSent))}
                 </span>
               </div>
             </div>
 
             {/* Delivered */}
-            <div className="bg-white p-6 rounded-2xl border border-vdaj-aura/10 shadow-sm metric-card-hover transition-all">
-              <div className="flex items-start justify-between mb-4">
+            <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs hover:border-emerald-300 hover:shadow-sm transition-all flex flex-col justify-between">
+              <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-[10px] font-bold text-vdaj-purple/40 uppercase tracking-widest mb-1">Delivered</p>
-                  <h4 className="text-3xl font-bold text-vdaj-teal">{deliveredPct}%</h4>
+                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Delivered</p>
+                  <h4 className="text-3xl font-extrabold text-emerald-600 tracking-tight mt-1">{deliveredPct}%</h4>
                 </div>
-                <div className="w-10 h-10 bg-vdaj-teal/10 text-vdaj-teal rounded-xl flex items-center justify-center shrink-0">
+                <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center shrink-0">
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </div>
               </div>
-              <div className="flex items-center text-[11px]">
-                <span className="text-vdaj-purple/40">{fmt(totalDelivered)} messages</span>
-                <span className="ml-auto text-vdaj-teal/60 font-bold tracking-tighter uppercase">
+              <div className="flex items-center justify-between text-xs text-slate-500 pt-3 border-t border-slate-100 mt-3">
+                <span>{fmt(totalDelivered)} messages</span>
+                <span className="font-bold text-[10px] tracking-wider uppercase bg-emerald-50 text-emerald-700 border border-emerald-200/60 px-2 py-0.5 rounded-md">
                   {deliveredPct >= 90 ? 'Excellent' : deliveredPct > 0 ? `${deliveredPct}%` : 'No data'}
                 </span>
               </div>
             </div>
 
             {/* Read Rate */}
-            <div className="bg-white p-6 rounded-2xl border border-vdaj-aura/10 shadow-sm metric-card-hover transition-all">
-              <div className="flex items-start justify-between mb-4">
+            <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs hover:border-[#5B4B8A]/40 hover:shadow-sm transition-all flex flex-col justify-between">
+              <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-[10px] font-bold text-vdaj-purple/40 uppercase tracking-widest mb-1">Read Rate</p>
-                  <h4 className="text-3xl font-bold text-vdaj-purple">{readPct}%</h4>
+                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Read Rate</p>
+                  <h4 className="text-3xl font-extrabold text-[#5B4B8A] tracking-tight mt-1">{readPct}%</h4>
                 </div>
-                <div className="w-10 h-10 bg-vdaj-aura/10 text-vdaj-purple rounded-xl flex items-center justify-center shrink-0">
+                <div className="w-10 h-10 bg-[#F3F2FD] text-[#5B4B8A] rounded-xl flex items-center justify-center shrink-0">
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                     <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                   </svg>
                 </div>
               </div>
-              <div className="flex items-center text-[11px]">
-                <span className="text-vdaj-purple/40">{fmt(totalRead)} opened</span>
-                <span className="ml-auto text-vdaj-purple/40 font-medium">
-                  {totalRead > 0 ? `${readPct}% read` : 'No data'}
+              <div className="flex items-center justify-between text-xs text-slate-500 pt-3 border-t border-slate-100 mt-3">
+                <span>{fmt(totalRead)} opened</span>
+                <span className="font-bold text-[10px] tracking-wider uppercase bg-[#F3F2FD] text-[#5B4B8A] border border-[#E6E4F5] px-2 py-0.5 rounded-md">
+                  {totalRead > 0 ? `${readPct}% Read` : 'No data'}
                 </span>
               </div>
             </div>
 
             {/* Failed / DLQ */}
-            <div className="bg-white p-6 rounded-2xl border border-vdaj-aura/10 shadow-sm metric-card-hover transition-all">
-              <div className="flex items-start justify-between mb-4">
+            <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs hover:border-rose-300 hover:shadow-sm transition-all flex flex-col justify-between">
+              <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-[10px] font-bold text-vdaj-purple/40 uppercase tracking-widest mb-1">Failed / DLQ</p>
-                  <h4 className="text-3xl font-bold text-rose-500">{fmt(totalDead)}</h4>
+                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Failed / DLQ</p>
+                  <h4 className={clsx("text-3xl font-extrabold tracking-tight mt-1", totalDead > 0 ? "text-rose-500" : "text-slate-900")}>
+                    {fmt(totalDead)}
+                  </h4>
                 </div>
-                <div className="w-10 h-10 bg-rose-50 text-rose-500 rounded-xl flex items-center justify-center shrink-0">
+                <div className={clsx("w-10 h-10 rounded-xl flex items-center justify-center shrink-0", totalDead > 0 ? "bg-rose-50 text-rose-500" : "bg-slate-100 text-slate-500")}>
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                   </svg>
                 </div>
               </div>
-              <div className="flex items-center text-[11px]">
-                <span className={clsx("font-bold uppercase tracking-tighter", totalDead > 0 ? "text-rose-500" : "text-vdaj-teal")}>
-                  {totalDead > 0 ? "Priority Needed" : "Clean Queue"}
+              <div className="flex items-center justify-between text-xs text-slate-500 pt-3 border-t border-slate-100 mt-3">
+                <span>{totalDead > 0 ? 'Requires attention' : 'Clean pipeline'}</span>
+                <span className={clsx("font-bold text-[10px] tracking-wider uppercase px-2 py-0.5 rounded-md border", totalDead > 0 ? "bg-rose-50 text-rose-700 border-rose-200/80" : "bg-emerald-50 text-emerald-700 border-emerald-200/60")}>
+                  {totalDead > 0 ? 'Priority Needed' : 'Healthy'}
                 </span>
-                <svg className="w-3.5 h-3.5 ml-auto text-vdaj-purple/30" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
               </div>
             </div>
           </div>
@@ -620,12 +616,12 @@ export default function DashboardPage() {
 
         {/* Redis Queue health (Super Admin only) */}
         {isSuperAdmin && (
-          <div className="bg-white rounded-2xl p-6 border border-vdaj-aura/10 shadow-sm">
+          <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs">
             <div className="flex items-center justify-between mb-5">
-              <h2 className="text-base font-semibold text-vdaj-black">
+              <h2 className="text-base font-bold text-slate-900">
                 Redis Queue Health
               </h2>
-              <span className="w-2.5 h-2.5 rounded-full bg-vdaj-teal animate-pulse" />
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
             </div>
 
             {!queueStats ? (
@@ -636,16 +632,16 @@ export default function DashboardPage() {
               <div className="space-y-3">
                 {[
                   { label: 'Waiting',     value: queueStats.messageQueue?.waiting,    color: '#5B4B8A' },
-                  { label: 'Active',      value: queueStats.messageQueue?.active,     color: '#17C975' },
-                  { label: 'Completed',   value: queueStats.messageQueue?.completed,  color: '#5A5A6E' },
-                  { label: 'Failed',      value: queueStats.messageQueue?.failed,     color: '#f87171' },
-                  { label: 'Dead Letter', value: queueStats.deadLetterQueue?.waiting, color: '#f59e0b' },
+                  { label: 'Active',      value: queueStats.messageQueue?.active,     color: '#10B981' },
+                  { label: 'Completed',   value: queueStats.messageQueue?.completed,  color: '#64748B' },
+                  { label: 'Failed',      value: queueStats.messageQueue?.failed,     color: '#EF4444' },
+                  { label: 'Dead Letter', value: queueStats.deadLetterQueue?.waiting, color: '#F59E0B' },
                 ].map((row) => (
                   <div
                     key={row.label}
-                    className="flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-vdaj-white border border-vdaj-aura/10"
+                    className="flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200/70"
                   >
-                    <span className="text-xs font-medium text-vdaj-purple/60">{row.label}</span>
+                    <span className="text-xs font-medium text-slate-600">{row.label}</span>
                     <span className="text-sm font-bold tabular-nums" style={{ color: row.color }}>
                       {row.value ?? 0}
                     </span>
@@ -658,15 +654,18 @@ export default function DashboardPage() {
 
         {/* Recent Campaigns Section */}
         <section className={isSuperAdmin ? 'xl:col-span-2' : ''}>
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-xl font-semibold text-vdaj-black">Recent Campaigns</h3>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-lg font-bold text-slate-900 tracking-tight">Recent Campaigns</h3>
+              <p className="text-xs text-slate-500">Overview of your recent bulk messaging dispatches</p>
+            </div>
             <Link
               to="/campaigns"
               id="view-all-campaigns"
-              className="text-sm font-bold text-vdaj-purple hover:text-vdaj-purple/80 flex items-center transition-colors"
+              className="text-xs font-bold text-[#5B4B8A] hover:underline flex items-center transition-colors"
             >
               View all campaigns
-              <svg className="w-4 h-4 ml-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <svg className="w-4 h-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
               </svg>
             </Link>
@@ -677,22 +676,21 @@ export default function DashboardPage() {
               {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-20" />)}
             </div>
           ) : campaigns.length === 0 ? (
-            /* Official Branded Empty State */
-            <div className="bg-white rounded-2xl border border-vdaj-aura/20 py-24 flex flex-col items-center justify-center border-dashed relative overflow-hidden shadow-sm">
-              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-vdaj-purple/20 via-vdaj-aura/30 to-vdaj-teal/20" />
-              <div className="w-24 h-24 bg-vdaj-white rounded-full flex items-center justify-center mb-6 shadow-inner border border-vdaj-aura/10">
-                <svg className="w-12 h-12 text-vdaj-aura/60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            /* Branded Empty State */
+            <div className="bg-white rounded-2xl border border-slate-200 border-dashed py-16 flex flex-col items-center justify-center text-center p-6 shadow-xs">
+              <div className="w-16 h-16 bg-[#F3F2FD] rounded-2xl flex items-center justify-center mb-4 text-[#5B4B8A]">
+                <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
                 </svg>
               </div>
-              <h4 className="text-vdaj-black font-bold text-xl mb-2">Empower your brand</h4>
-              <p className="text-vdaj-purple/50 mb-10 max-w-sm text-center px-6 leading-relaxed text-sm">
-                No campaigns yet. Connect with your audience and grow your business today.
+              <h4 className="text-slate-900 font-bold text-lg mb-1">Empower your brand</h4>
+              <p className="text-slate-500 mb-6 max-w-sm text-xs leading-relaxed">
+                No campaigns yet. Connect with your audience and start broadcasting WhatsApp templates today.
               </p>
               <Link
                 to="/campaigns"
                 id="cta-create-campaign"
-                className="bg-vdaj-purple hover:bg-vdaj-purple/90 text-white px-10 py-3.5 rounded-xl font-bold text-sm shadow-xl shadow-vdaj-purple/20 transition-all transform hover:scale-105 active:scale-95"
+                className="bg-[#5B4B8A] hover:bg-[#4B3D73] text-white px-6 py-2.5 rounded-xl font-bold text-xs shadow-xs hover:shadow-sm transition-all"
               >
                 Create Your First Campaign
               </Link>
@@ -701,49 +699,58 @@ export default function DashboardPage() {
             /* Populated Campaigns Stream */
             <div className="space-y-3">
               {campaigns.map((c) => {
-                const sentPct = c.total_count ? Math.round((c.sent_count / c.total_count) * 100) : 0;
+                // Progress capped cleanly at 100%
+                const progressPct = c.status === 'completed'
+                  ? 100
+                  : c.total_count
+                    ? Math.min(100, Math.round((c.sent_count / c.total_count) * 100))
+                    : 0;
                 const delPct  = c.sent_count  ? Math.round(((c.delivered_count || 0) / c.sent_count) * 100) : 0;
+                const cleanName = (c.name || 'Untitled Campaign').replace(/_/g, ' ');
+
                 return (
                   <div
                     key={c.id}
-                    className="bg-white p-5 rounded-2xl border border-vdaj-aura/10 shadow-sm metric-card-hover transition-all"
+                    className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs hover:border-[#5B4B8A]/30 transition-all"
                   >
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2.5">
-                        <h4 className="text-base font-bold text-vdaj-black">{c.name}</h4>
-                        <span className={clsx("text-[10px] px-2 py-0.5 rounded-full font-bold uppercase border", CAMPAIGN_STATUS_STYLE[c.status])}>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+                      <div className="flex items-center gap-2.5 flex-wrap">
+                        <h4 className="text-sm font-bold text-slate-900 tracking-tight">{cleanName}</h4>
+                        <span className={clsx("text-[10px] px-2 py-0.5 rounded-md font-bold uppercase border", CAMPAIGN_STATUS_STYLE[c.status])}>
                           {c.status}
                         </span>
                       </div>
-                      <span className="text-xs font-semibold text-vdaj-purple/60">
-                        {fmt(c.total_count)} recipients
-                      </span>
-                    </div>
-
-                    <div className="grid grid-cols-3 gap-3 my-3 py-2 border-y border-vdaj-aura/5 text-xs">
-                      <div>
-                        <span className="text-[10px] uppercase font-bold text-vdaj-purple/40 block">Sent</span>
-                        <span className="font-bold text-vdaj-black">{fmt(c.sent_count)}</span>
-                      </div>
-                      <div>
-                        <span className="text-[10px] uppercase font-bold text-vdaj-purple/40 block">Delivered</span>
-                        <span className="font-bold text-vdaj-teal">{delPct}%</span>
-                      </div>
-                      <div>
-                        <span className="text-[10px] uppercase font-bold text-vdaj-purple/40 block">Read</span>
-                        <span className="font-bold text-vdaj-purple">{fmt(c.read_count)}</span>
+                      <div className="flex items-center gap-2 text-xs text-slate-500">
+                        <span className="font-semibold text-slate-700">{fmt(c.total_count)}</span> recipients
                       </div>
                     </div>
 
+                    {/* Stats columns */}
+                    <div className="grid grid-cols-3 gap-3 py-2.5 px-3 bg-slate-50/80 rounded-xl mb-3 text-xs border border-slate-100">
+                      <div>
+                        <span className="text-[10px] uppercase font-bold text-slate-400 block">Sent</span>
+                        <span className="font-bold text-slate-800">{fmt(c.sent_count)}</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] uppercase font-bold text-slate-400 block">Delivered</span>
+                        <span className="font-bold text-emerald-600">{delPct}%</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] uppercase font-bold text-slate-400 block">Read</span>
+                        <span className="font-bold text-[#5B4B8A]">{fmt(c.read_count)}</span>
+                      </div>
+                    </div>
+
+                    {/* Progress indicator */}
                     <div className="flex items-center gap-3">
-                      <div className="flex-1 h-1.5 rounded-full overflow-hidden bg-vdaj-aura/10">
+                      <div className="flex-1 h-2 rounded-full overflow-hidden bg-slate-100">
                         <div
-                          className="h-full rounded-full bg-gradient-to-r from-vdaj-purple to-vdaj-teal transition-all duration-500"
-                          style={{ width: `${Math.min(sentPct, 100)}%` }}
+                          className="h-full rounded-full bg-gradient-to-r from-[#5B4B8A] to-emerald-500 transition-all duration-500"
+                          style={{ width: `${progressPct}%` }}
                         />
                       </div>
-                      <span className="text-xs font-bold text-vdaj-purple/60 tabular-nums">
-                        {sentPct}%
+                      <span className="text-xs font-bold text-slate-600 tabular-nums">
+                        {progressPct}%
                       </span>
                     </div>
                   </div>

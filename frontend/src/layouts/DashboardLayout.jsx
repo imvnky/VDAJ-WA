@@ -24,40 +24,40 @@ const NAV_ITEMS = [
   {
     section: 'Main',
     items: [
-      { to: '/dashboard',      label: 'Dashboard',     icon: <HomeIcon /> },
-      { to: '/inbox',          label: 'Inbox',          icon: <InboxIcon />,   badge: 'Live', feature: 'inbox' },
-      { to: '/campaigns',      label: 'Campaigns',      icon: <CampaignIcon />, feature: 'campaigns' },
-      { to: '/contacts',       label: 'Contacts',       icon: <ContactsIcon />, feature: 'contacts' },
-      { to: '/templates',      label: 'Templates',      icon: <TemplateIcon />, feature: 'templates' },
+      { to: '/dashboard', label: 'Dashboard', icon: <HomeIcon /> },
+      { to: '/inbox', label: 'Inbox', icon: <InboxIcon />, badge: 'Live', feature: 'inbox' },
+      { to: '/campaigns', label: 'Campaigns', icon: <CampaignIcon />, feature: 'campaigns' },
+      { to: '/contacts', label: 'Contacts', icon: <ContactsIcon />, feature: 'contacts' },
+      { to: '/templates', label: 'Templates', icon: <TemplateIcon />, feature: 'templates' },
     ],
   },
   {
     section: 'Growth',
     items: [
-      { to: '/automation',     label: 'Automation',     icon: <AutoIcon />,    badge: 'New', feature: 'automation' },
-      { to: '/analytics',      label: 'Analytics',      icon: <AnalyticsIcon />, feature: 'analytics' },
-      { to: '/commerce',       label: 'Commerce',       icon: <CommerceIcon />, badge: 'Beta', feature: 'commerce' },
+      { to: '/automation', label: 'Automation', icon: <AutoIcon />, badge: 'New', feature: 'automation' },
+      { to: '/analytics', label: 'Analytics', icon: <AnalyticsIcon />, feature: 'analytics' },
+      { to: '/commerce', label: 'Commerce', icon: <CommerceIcon />, badge: 'Beta', feature: 'commerce' },
     ],
   },
   {
     section: 'Management',
     items: [
-      { to: '/whatsapp-setup', label: 'WhatsApp Setup', icon: <WaIcon />,      badge: 'Setup' },
-      { to: '/team',           label: 'Team',            icon: <UsersIcon /> },
-      { to: '/compliance',     label: 'Compliance',      icon: <ComplianceIcon /> },
-      { to: '/activity',       label: 'Audit Trail',     icon: <AuditIcon /> },
-      { to: '/logs',           label: 'Message Logs',    icon: <LogIcon />,     feature: 'logs' },
-      { to: '/settings',       label: 'Settings',        icon: <SettingsIcon /> },
+      { to: '/whatsapp-setup', label: 'WhatsApp Setup', icon: <WaIcon />, badge: 'Setup' },
+      { to: '/team', label: 'Team', icon: <UsersIcon /> },
+      { to: '/compliance', label: 'Compliance', icon: <ComplianceIcon /> },
+      { to: '/activity', label: 'Audit Trail', icon: <AuditIcon /> },
+      { to: '/logs', label: 'Message Logs', icon: <LogIcon />, feature: 'logs' },
+      { to: '/settings', label: 'Settings', icon: <SettingsIcon /> },
     ],
   },
   {
     section: 'Platform Governance',
     role: ['super_admin'],  // entire section is super_admin only
     items: [
-      { to: '/admin/tenants',  label: 'Clients',         icon: <ClientsIcon /> },
-      { to: '/admin/users',    label: 'Platform Users',  icon: <UsersIcon /> },
-      { to: '/admin/queue',    label: 'Queue Monitor',   icon: <QueueIcon /> },
-      { to: '/activity',       label: 'Audit Trail',     icon: <AuditIcon /> },
+      { to: '/admin/tenants', label: 'Clients', icon: <ClientsIcon /> },
+      { to: '/admin/users', label: 'Platform Users', icon: <UsersIcon /> },
+      { to: '/admin/queue', label: 'Queue Monitor', icon: <QueueIcon /> },
+      { to: '/activity', label: 'Audit Trail', icon: <AuditIcon /> },
     ],
   },
 ];
@@ -78,7 +78,7 @@ export default function DashboardLayout() {
   }, [user, isImpersonating, location.pathname, navigate]);
 
   const handleLogout = async () => {
-    try { await authApi.logout(); } catch {}
+    try { await authApi.logout(); } catch { }
     clearAuth();
     showSuccess('Logged out successfully.');
     navigate('/login');
@@ -89,12 +89,12 @@ export default function DashboardLayout() {
 
   const sidebarStyle = {
     background: '#FFFFFF',
-    borderRight: '1px solid rgba(232, 166, 255, 0.15)',
+    borderRight: '1px solid #EAE8F5',
   };
 
   const topbarStyle = {
-    background: 'rgba(255, 255, 255, 0.90)',
-    borderBottom: '1px solid rgba(232, 166, 255, 0.15)',
+    background: 'rgba(255, 255, 255, 0.95)',
+    borderBottom: '1px solid #EAE8F5',
     backdropFilter: 'blur(12px)',
   };
 
@@ -102,181 +102,186 @@ export default function DashboardLayout() {
     <>
       <UpdateBanner />
       <ImpersonationBanner />
-      <div className="flex h-screen overflow-hidden bg-vdaj-white">
-      {/* Mobile overlay */}
-      {mobileOpen && (
-        <div
-          className="fixed inset-0 z-30 bg-black/40 lg:hidden"
-          onClick={() => setMobileOpen(false)}
-        />
-      )}
-
-      {/* ── SIDEBAR ── */}
-      <aside
-        className={clsx(
-          'sidebar-transition fixed lg:relative z-40 h-full w-64 flex flex-col',
-          mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+      <div className="flex h-screen overflow-hidden bg-[#F8F9FD]">
+        {/* Mobile overlay */}
+        {mobileOpen && (
+          <div
+            className="fixed inset-0 z-30 bg-black/40 lg:hidden"
+            onClick={() => setMobileOpen(false)}
+          />
         )}
-        style={sidebarStyle}
-      >
-        {/* Brand Logo */}
-        <div className="h-20 flex items-center px-6 border-b border-vdaj-aura/10 shrink-0">
-          <div className="brand-grid w-8 h-8 mr-3 shrink-0">
-            <div className="bg-vdaj-purple rounded-sm"></div>
-            <div className="bg-vdaj-aura rounded-sm"></div>
-            <div className="bg-vdaj-aura rounded-sm"></div>
-            <div className="bg-vdaj-teal rounded-sm"></div>
-          </div>
-          <div className="flex flex-col leading-none">
-            <span className="font-bold text-vdaj-black tracking-tight text-lg">VDAJ</span>
-            <span className="text-[10px] text-vdaj-purple/60 font-semibold tracking-wider leading-none mt-0.5">SERVICES LLP</span>
-          </div>
-          <button className="ml-auto lg:hidden text-vdaj-purple/60 hover:text-vdaj-purple p-1" onClick={() => setMobileOpen(false)}>✕</button>
-        </div>
 
-        {/* Nav */}
-        <nav className="flex-1 overflow-y-auto px-3 py-6 space-y-6 no-scrollbar">
-          {NAV_ITEMS.map((section) => {
-            const isPlatformMode = user?.role === 'super_admin' && !isImpersonating;
-
-            // In Platform Mode, only show Platform Governance
-            if (isPlatformMode) {
-              if (section.section !== 'Platform Governance') return null;
-            } else {
-              // In Client Workspace Mode (or regular tenant user), hide Platform Governance
-              if (section.section === 'Platform Governance') return null;
-            }
-
-            if (section.role && !section.role.includes(user?.role)) return null;
-            const enabledFeats = tenant?.enabledFeatures || null;
-            const visibleItems = section.items.filter((item) => {
-              if (item.role && !item.role.includes(user?.role)) return false;
-              if (item.feature && user?.role !== 'super_admin' && enabledFeats) {
-                return enabledFeats.includes(item.feature);
-              }
-              return true;
-            });
-            if (visibleItems.length === 0) return null;
-
-            return (
-              <div key={section.section} className="px-1">
-                <h3 className="px-4 text-[11px] font-bold text-vdaj-purple/40 uppercase tracking-widest mb-2.5">
-                  {section.section}
-                </h3>
-                <div className="space-y-1">
-                  {visibleItems.map((item) => (
-                    <NavLink
-                      key={item.to}
-                      to={item.to}
-                      onClick={() => setMobileOpen(false)}
-                      className={({ isActive }) => clsx(
-                        'flex items-center px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 group',
-                        isActive
-                          ? 'nav-item-active rounded-r-lg font-semibold'
-                          : 'text-vdaj-purple/60 hover:text-vdaj-purple hover:bg-vdaj-aura/5'
-                      )}
-                    >
-                      <span className="w-5 h-5 shrink-0 mr-3 flex items-center justify-center opacity-90">{item.icon}</span>
-                      <span className="flex-1">{item.label}</span>
-                      {item.badge && (
-                        <span className={clsx(
-                          'text-[10px] px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wide',
-                          item.badge === 'Live' ? 'bg-vdaj-teal/10 text-vdaj-teal' : 'bg-vdaj-purple/10 text-vdaj-purple'
-                        )}>
-                          {item.badge}
-                        </span>
-                      )}
-                    </NavLink>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-        </nav>
-
-        {/* Legal Footer */}
-        <div className="p-6 border-t border-vdaj-aura/10 text-[11px] text-vdaj-purple/40 flex flex-wrap gap-2 mt-auto">
-          <a
-            href="/legal/privacy"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="hover:text-vdaj-purple transition-colors"
-          >
-            Privacy
-          </a>
-          <span>•</span>
-          <a
-            href="/legal/terms"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="hover:text-vdaj-purple transition-colors"
-          >
-            Terms
-          </a>
-          <span>•</span>
-          <span>© 2024 VDAJ Services</span>
-        </div>
-      </aside>
-
-      {/* ── MAIN CONTENT ── */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Topbar */}
-        <header className="h-20 bg-white/90 backdrop-blur-md border-b border-vdaj-aura/10 flex items-center justify-between px-6 sm:px-8 sticky top-0 z-40 shrink-0">
-          <div className="flex items-center gap-3">
-            <button className="lg:hidden text-vdaj-purple/60 hover:text-vdaj-purple p-1" onClick={() => setMobileOpen(true)}>
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
+        {/* ── SIDEBAR ── */}
+        <aside
+          className={clsx(
+            'sidebar-transition fixed lg:relative z-40 h-full w-64 flex flex-col shrink-0',
+            mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+          )}
+          style={sidebarStyle}
+        >
+          {/* Original Brand Logo Area */}
+          <div className="h-20 flex items-center px-6 border-b border-slate-100 shrink-0">
+            <Logo size={36} />
+            <button
+              className="ml-auto lg:hidden text-slate-400 hover:text-slate-700 p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+              onClick={() => setMobileOpen(false)}
+              aria-label="Close menu"
+            >
+              ✕
             </button>
-
-            {/* Workspace Switcher */}
-            <WorkspaceSwitcher />
           </div>
 
-          <div className="flex items-center space-x-6">
-            <div className="flex items-center space-x-4 pr-6 border-r border-vdaj-aura/10">
-              <NotificationBell />
+          {/* Nav */}
+          <nav className="flex-1 overflow-y-auto px-3.5 py-6 space-y-6 no-scrollbar">
+            {NAV_ITEMS.map((section) => {
+              const isPlatformMode = user?.role === 'super_admin' && !isImpersonating;
 
-              {/* Live badge */}
-              <div className="flex items-center space-x-2 bg-vdaj-teal/10 text-vdaj-teal px-3 py-1 rounded-full text-xs font-semibold">
-                <span className="w-2 h-2 bg-vdaj-teal rounded-full animate-pulse"></span>
-                <span>{user?.role === 'super_admin' && !isImpersonating ? 'Platform Owner' : (tenant?.status === 'active' ? 'Active' : 'Live')}</span>
-              </div>
+              // In Platform Mode, only show Platform Governance
+              if (isPlatformMode) {
+                if (section.section !== 'Platform Governance') return null;
+              } else {
+                // In Client Workspace Mode (or regular tenant user), hide Platform Governance
+                if (section.section === 'Platform Governance') return null;
+              }
+
+              if (section.role && !section.role.includes(user?.role)) return null;
+              const enabledFeats = tenant?.enabledFeatures || null;
+              const visibleItems = section.items.filter((item) => {
+                if (item.role && !item.role.includes(user?.role)) return false;
+                if (item.feature && user?.role !== 'super_admin' && enabledFeats) {
+                  return enabledFeats.includes(item.feature);
+                }
+                return true;
+              });
+              if (visibleItems.length === 0) return null;
+
+              return (
+                <div key={section.section} className="px-1">
+                  <h3 className="px-3.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">
+                    {section.section}
+                  </h3>
+                  <div className="space-y-1">
+                    {visibleItems.map((item) => (
+                      <NavLink
+                        key={item.to}
+                        to={item.to}
+                        onClick={() => setMobileOpen(false)}
+                        className={({ isActive }) => clsx(
+                          'flex items-center px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 group',
+                          isActive
+                            ? 'bg-[#F3F2FD] text-[#5B4B8A] font-semibold border-l-[3px] border-[#5B4B8A] shadow-xs'
+                            : 'text-slate-600 hover:text-[#5B4B8A] hover:bg-[#F8F7FF]'
+                        )}
+                      >
+                        <span className="w-5 h-5 shrink-0 mr-3 flex items-center justify-center opacity-90 transition-colors">
+                          {item.icon}
+                        </span>
+                        <span className="flex-1">{item.label}</span>
+                        {item.badge && (
+                          <span className={clsx(
+                            'text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider',
+                            item.badge === 'Live'
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/80'
+                              : 'bg-[#F3F2FD] text-[#5B4B8A] border border-[#E6E4F5]'
+                          )}>
+                            {item.badge}
+                          </span>
+                        )}
+                      </NavLink>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </nav>
+
+          {/* Legal Footer */}
+          <div className="p-5 border-t border-slate-100 text-[11px] text-slate-400 flex flex-wrap gap-2 mt-auto">
+            <a
+              href="/legal/privacy"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-[#5B4B8A] transition-colors"
+            >
+              Privacy
+            </a>
+            <span>•</span>
+            <a
+              href="/legal/terms"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-[#5B4B8A] transition-colors"
+            >
+              Terms
+            </a>
+            <span>•</span>
+            <span>© 2026 VDAJ Services</span>
+          </div>
+        </aside>
+
+        {/* ── MAIN CONTENT ── */}
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+          {/* Topbar */}
+          <header className="h-18 sm:h-20 bg-white/95 backdrop-blur-md border-b border-[#EAE8F5] flex items-center justify-between px-6 sm:px-8 sticky top-0 z-40 shrink-0">
+            <div className="flex items-center gap-3">
+              <button
+                className="lg:hidden text-slate-500 hover:text-slate-800 p-2 rounded-xl border border-slate-200 hover:bg-slate-50 transition-colors"
+                onClick={() => setMobileOpen(true)}
+                aria-label="Open navigation"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </button>
+
+              {/* Workspace Switcher */}
+              <WorkspaceSwitcher />
             </div>
 
-            {/* User Profile Dropdown */}
-            <UserProfileDropdown />
-          </div>
-        </header>
+            <div className="flex items-center gap-5 sm:gap-6">
+              <div className="flex items-center gap-4 pr-5 sm:pr-6 border-r border-slate-200">
+                <NotificationBell />
 
-        {/* Page content */}
-        <main className={clsx(
-          "flex-1 min-h-0 flex flex-col",
-          isInbox ? "overflow-hidden p-2.5 sm:p-4 w-full" : "overflow-y-auto p-4 sm:p-6 lg:p-8 w-full min-w-0"
-        )}>
-          <PageErrorBoundary key={location.pathname}>
-            <Outlet />
-          </PageErrorBoundary>
-        </main>
+                {/* Status badge */}
+                <div className="hidden sm:flex items-center gap-2 bg-emerald-50 text-emerald-700 border border-emerald-200/80 px-3 py-1 rounded-full text-xs font-semibold shadow-2xs">
+                  <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
+                  <span>{user?.role === 'super_admin' && !isImpersonating ? 'Platform Owner' : (tenant?.status === 'active' ? 'Active' : 'Live')}</span>
+                </div>
+              </div>
+
+              {/* User Profile Dropdown */}
+              <UserProfileDropdown />
+            </div>
+          </header>
+
+          {/* Page content */}
+          <main className={clsx(
+            "flex-1 min-h-0 flex flex-col",
+            isInbox ? "overflow-hidden p-2.5 sm:p-4 w-full" : "overflow-y-auto p-4 sm:p-6 lg:p-8 w-full min-w-0"
+          )}>
+            <PageErrorBoundary key={location.pathname}>
+              <Outlet />
+            </PageErrorBoundary>
+          </main>
+        </div>
       </div>
-    </div>
     </>
   );
 }
 
-function HomeIcon()     { return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>; }
-function InboxIcon()    { return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/></svg>; }
-function CampaignIcon() { return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"/></svg>; }
-function ContactsIcon() { return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>; }
-function TemplateIcon() { return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>; }
-function AutoIcon()     { return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>; }
-function AnalyticsIcon(){ return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>; }
-function CommerceIcon() { return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/></svg>; }
-function WaIcon()       { return <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347zM12.05 2.049C6.495 2.049 2 6.545 2 12.1c0 1.784.47 3.458 1.292 4.913L2 22l5.237-1.373A9.99 9.99 0 0012.05 22c5.554 0 10.05-4.495 10.05-10.05S17.604 2.049 12.05 2.049z"/></svg>; }
-function QueueIcon()    { return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>; }
-function SettingsIcon() { return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>; }
-function LogIcon()      { return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>; }
-function ClientsIcon()  { return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>; }
-function UsersIcon()    { return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>; }
-function AuditIcon()    { return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>; }
-function ComplianceIcon() { return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"/></svg>; }
+function HomeIcon() { return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>; }
+function InboxIcon() { return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" /></svg>; }
+function CampaignIcon() { return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" /></svg>; }
+function ContactsIcon() { return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>; }
+function TemplateIcon() { return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>; }
+function AutoIcon() { return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>; }
+function AnalyticsIcon() { return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>; }
+function CommerceIcon() { return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>; }
+function WaIcon() { return <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347zM12.05 2.049C6.495 2.049 2 6.545 2 12.1c0 1.784.47 3.458 1.292 4.913L2 22l5.237-1.373A9.99 9.99 0 0012.05 22c5.554 0 10.05-4.495 10.05-10.05S17.604 2.049 12.05 2.049z" /></svg>; }
+function QueueIcon() { return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16" /></svg>; }
+function SettingsIcon() { return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>; }
+function LogIcon() { return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>; }
+function ClientsIcon() { return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>; }
+function UsersIcon() { return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>; }
+function AuditIcon() { return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>; }
+function ComplianceIcon() { return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" /></svg>; }
