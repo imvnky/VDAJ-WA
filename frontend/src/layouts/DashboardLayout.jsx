@@ -68,7 +68,7 @@ export default function DashboardLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const isInbox = location.pathname.startsWith('/inbox');
+  const isFullBleed = location.pathname.startsWith('/inbox') || location.pathname.startsWith('/automation');
 
   // If Super Admin is in Platform Mode and hits /dashboard, direct them to /admin/tenants
   useEffect(() => {
@@ -239,7 +239,7 @@ export default function DashboardLayout() {
         {/* Page content */}
         <main className={clsx(
           "flex-1 min-h-0 flex flex-col",
-          isInbox ? "overflow-hidden p-2.5 sm:p-4 w-full" : "overflow-y-auto p-4 sm:p-6 lg:px-8 lg:py-7 w-full min-w-0"
+          isFullBleed ? "overflow-hidden p-0 w-full" : "overflow-y-auto p-4 sm:p-6 lg:px-8 lg:py-7 w-full min-w-0"
         )}>
           <PageErrorBoundary key={location.pathname}>
             <Outlet />
