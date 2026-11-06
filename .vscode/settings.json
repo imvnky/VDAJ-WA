@@ -5,17 +5,14 @@
   // know about them, so it reports false-positive warnings.
   "css.lint.unknownAtRules": "ignore",
   "scss.lint.unknownAtRules": "ignore",
-
   // Tailwind IntelliSense: tell it where to find the config
   "tailwindCSS.configFile": "${workspaceFolder}/frontend/tailwind.config.js",
-
   // Associate .css files that use Tailwind with the right language
   "files.associations": {
     "*.css": "css",
     "*.jsx": "javascriptreact",
     "*.js": "javascript"
   },
-
   // Recommended: install Tailwind CSS IntelliSense extension for full support
   "extensions.recommendations": [
     "bradlc.vscode-tailwindcss"
