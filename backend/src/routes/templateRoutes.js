@@ -108,7 +108,7 @@ router.post('/', catchAsync(async (req, res) => {
 
   // Attempt Meta submission — non-fatal if credentials missing
   const effectiveWabaId = req.tenant?.waba_id || req.tenant?.wabaId || process.env.META_WABA_ID;
-  const effectiveToken  = req.tenant?.meta_system_token || req.tenant?.metaSystemToken || req.tenant?.whatsapp_access_token || process.env.META_ACCESS_TOKEN;
+  const effectiveToken = req.tenant?.meta_system_token || req.tenant?.metaSystemToken || req.tenant?.whatsapp_access_token || process.env.META_ACCESS_TOKEN;
 
   if (effectiveWabaId && effectiveToken) {
     try {
@@ -182,7 +182,7 @@ router.post('/', catchAsync(async (req, res) => {
       ...(template.meta_template_id ? [{ name: 'Meta Review Submission', details: `Submitted to Meta Graph API (ID: ${template.meta_template_id})`, component: 'Meta Graph API', status: 'SUCCESS' }] : []),
     ],
     ipAddress: req.ip,
-  }).catch(() => {});
+  }).catch(() => { });
 
   return sendCreated(
     res,
@@ -208,7 +208,7 @@ router.post('/sync', catchAsync(async (req, res) => {
   }
 
   const effectiveWabaId = tenant?.waba_id || tenant?.wabaId || process.env.META_WABA_ID;
-  const effectiveToken  = tenant?.meta_system_token || tenant?.metaSystemToken || tenant?.whatsapp_access_token || process.env.META_ACCESS_TOKEN;
+  const effectiveToken = tenant?.meta_system_token || tenant?.metaSystemToken || tenant?.whatsapp_access_token || process.env.META_ACCESS_TOKEN;
 
   if (!effectiveWabaId || !effectiveToken) {
     throw new AppError(
@@ -364,7 +364,7 @@ router.post('/:id/sync', catchAsync(async (req, res) => {
   }
 
   const effectiveWabaId = tenant?.waba_id || tenant?.wabaId || process.env.META_WABA_ID;
-  const effectiveToken  = tenant?.meta_system_token || tenant?.metaSystemToken || tenant?.whatsapp_access_token || process.env.META_ACCESS_TOKEN;
+  const effectiveToken = tenant?.meta_system_token || tenant?.metaSystemToken || tenant?.whatsapp_access_token || process.env.META_ACCESS_TOKEN;
 
   if (!effectiveWabaId || !effectiveToken) {
     throw new AppError(
@@ -438,7 +438,7 @@ router.post('/:id/sync', catchAsync(async (req, res) => {
       { name: 'Approval State Synchronized', details: `Updated approval status to ${metaStatus}${rejectionReason ? ` (Reason: ${rejectionReason})` : ''}`, component: 'PostgreSQL Store', status: 'SUCCESS' },
     ],
     ipAddress: req.ip,
-  }).catch(() => {});
+  }).catch(() => { });
 
   return sendSuccess(res, updated, `Template status synced: ${metaStatus}.`);
 }));
@@ -464,7 +464,7 @@ router.delete('/:id', catchAsync(async (req, res) => {
   }
 
   const effectiveWabaId = tenant?.waba_id || tenant?.wabaId || process.env.META_WABA_ID;
-  const effectiveToken  = tenant?.meta_system_token || tenant?.metaSystemToken || tenant?.whatsapp_access_token || process.env.META_ACCESS_TOKEN;
+  const effectiveToken = tenant?.meta_system_token || tenant?.metaSystemToken || tenant?.whatsapp_access_token || process.env.META_ACCESS_TOKEN;
 
   let metaDeleted = false;
   let metaWarning = null;
@@ -519,7 +519,7 @@ router.delete('/:id', catchAsync(async (req, res) => {
       },
     ],
     ipAddress: req.ip,
-  }).catch(() => {});
+  }).catch(() => { });
 
   return sendSuccess(
     res,
@@ -527,8 +527,8 @@ router.delete('/:id', catchAsync(async (req, res) => {
     metaDeleted
       ? `Template "${template.name}" deleted from Meta and local workspace.`
       : (metaWarning
-          ? `Template deleted locally. Meta notice: ${metaWarning}`
-          : `Template "${template.name}" deleted successfully.`)
+        ? `Template deleted locally. Meta notice: ${metaWarning}`
+        : `Template "${template.name}" deleted successfully.`)
   );
 }));
 

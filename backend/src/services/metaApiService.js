@@ -15,7 +15,7 @@ const logger = require('../utils/logger');
 const AppError = require('../utils/AppError');
 
 const META_API_BASE = process.env.META_GRAPH_API_URL || 'https://graph.facebook.com';
-const API_VERSION   = process.env.META_API_VERSION   || 'v21.0';
+const API_VERSION = process.env.META_API_VERSION || 'v21.0';
 
 // ── Global token fallback ──────────────────────────────────────
 // Per-tenant meta_system_token is preferred (multi-tenant BSP mode).
@@ -27,11 +27,11 @@ const getEffectiveToken = (providedToken) =>
 
 // ── Error code mapping ─────────────────────────────────────────
 const mapMetaError = (metaErrorCode) => {
-  if (metaErrorCode === 190)                        return 'ERR_META_AUTH';    // Invalid token
+  if (metaErrorCode === 190) return 'ERR_META_AUTH';    // Invalid token
   if (metaErrorCode === 130429 || metaErrorCode === 80007) return 'ERR_META_001'; // Rate limit
-  if (metaErrorCode === 131030)                     return 'ERR_META_002';    // Phone not on WA
+  if (metaErrorCode === 131030) return 'ERR_META_002';    // Phone not on WA
   if (metaErrorCode === 132000 || metaErrorCode === 132001) return 'ERR_META_003'; // Template error
-  if (metaErrorCode === 131021)                     return 'ERR_META_004';    // Invalid phone
+  if (metaErrorCode === 131021) return 'ERR_META_004';    // Invalid phone
   return 'ERR_META_005';
 };
 
@@ -44,9 +44,9 @@ const callMetaApi = async ({ method = 'POST', path, accessToken, body }) => {
     response = await fetch(url, {
       method,
       headers: {
-        Authorization:  `Bearer ${accessToken}`,
+        Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
-        Accept:         'application/json',
+        Accept: 'application/json',
       },
       body: body ? JSON.stringify(body) : undefined,
       timeout: 15000,
@@ -58,15 +58,15 @@ const callMetaApi = async ({ method = 'POST', path, accessToken, body }) => {
   const responseBody = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    const metaErr  = responseBody?.error;
+    const metaErr = responseBody?.error;
     const errorCode = mapMetaError(metaErr?.code);
 
     logger.error('Meta API error', {
       method,
       path,
-      statusCode:    response.status,
+      statusCode: response.status,
       metaErrorCode: metaErr?.code,
-      metaMessage:   metaErr?.message,
+      metaMessage: metaErr?.message,
       errorCode,
     });
 
@@ -183,12 +183,12 @@ const buildTemplatePayload = (to, templateName, language, templateVars = {}) => 
 
   return {
     messaging_product: 'whatsapp',
-    recipient_type:    'individual',
+    recipient_type: 'individual',
     to,
-    type:     'template',
+    type: 'template',
     template: {
-      name:       templateName,
-      language:   { code: language || 'en' },
+      name: templateName,
+      language: { code: language || 'en' },
       components: components.length > 0 ? components : undefined,
     },
   };
@@ -233,7 +233,7 @@ const sendWhatsAppMessage = async ({
     // Free-text reply (used by Inbox)
     messagePayload = {
       messaging_product: 'whatsapp',
-      recipient_type:    'individual',
+      recipient_type: 'individual',
       to,
       type: 'text',
       text: { body: freeTextBody, preview_url: false },
@@ -243,10 +243,10 @@ const sendWhatsAppMessage = async ({
   }
 
   return callMetaApi({
-    method:      'POST',
-    path:        `${phoneNumberId}/messages`,
+    method: 'POST',
+    path: `${phoneNumberId}/messages`,
     accessToken: token,
-    body:        messagePayload,
+    body: messagePayload,
   });
 };
 
@@ -282,13 +282,13 @@ const markWhatsAppMessageAsRead = async ({ phoneNumberId, accessToken, messageId
 
   try {
     return await callMetaApi({
-      method:      'POST',
-      path:        `${phoneNumberId}/messages`,
+      method: 'POST',
+      path: `${phoneNumberId}/messages`,
       accessToken: token,
       body: {
         messaging_product: 'whatsapp',
-        status:            'read',
-        message_id:        messageId,
+        status: 'read',
+        message_id: messageId,
       },
     });
   } catch (err) {
@@ -360,9 +360,9 @@ const createMetaTemplate = async (tenantCredentials, templateData) => {
     });
   } else if (templateData.header_text && headerType === 'TEXT') {
     const headerComp = {
-      type:   'HEADER',
+      type: 'HEADER',
       format: 'TEXT',
-      text:   templateData.header_text,
+      text: templateData.header_text,
     };
     // Check if header text has variables like {{1}}
     const headerVarMatches = [...(templateData.header_text || '').matchAll(/\{\{(\w+)\}\}/g)];
@@ -460,31 +460,31 @@ const createMetaTemplate = async (tenantCredentials, templateData) => {
     .replace(/^_+|_+$/g, '');
 
   const metaPayload = {
-    name:       cleanTemplateName,
-    category:   templateData.category.toUpperCase(), // Meta expects uppercase
-    language:   templateData.language,
+    name: cleanTemplateName,
+    category: templateData.category.toUpperCase(), // Meta expects uppercase
+    language: templateData.language,
     components,
   };
 
   logger.info('Submitting template to Meta', {
     wabaId,
     templateName: templateData.name,
-    category:     metaPayload.category,
-    language:     templateData.language,
+    category: metaPayload.category,
+    language: templateData.language,
   });
 
   const responseBody = await callMetaApi({
-    method:      'POST',
-    path:        `${wabaId}/message_templates`,
+    method: 'POST',
+    path: `${wabaId}/message_templates`,
     accessToken,
-    body:        metaPayload,
+    body: metaPayload,
   });
 
   const metaTemplateId = responseBody?.id;
-  const metaStatus     = responseBody?.status?.toLowerCase() || 'pending';
+  const metaStatus = responseBody?.status?.toLowerCase() || 'pending';
 
   logger.info('Template submitted to Meta successfully', {
-    templateName:   templateData.name,
+    templateName: templateData.name,
     metaTemplateId,
     metaStatus,
   });
@@ -507,12 +507,12 @@ const createMetaTemplate = async (tenantCredentials, templateData) => {
  */
 const syncMetaTemplateStatus = async (wabaId, accessToken, metaTemplateId) => {
   const responseBody = await callMetaApi({
-    method:      'GET',
-    path:        `${metaTemplateId}?fields=id,name,status,rejected_reason`,
+    method: 'GET',
+    path: `${metaTemplateId}?fields=id,name,status,rejected_reason`,
     accessToken,
   });
 
-  const status          = responseBody?.status?.toLowerCase() || 'pending';
+  const status = responseBody?.status?.toLowerCase() || 'pending';
   const rejectionReason = responseBody?.rejected_reason || null;
 
   return { status, rejectionReason };
@@ -531,8 +531,8 @@ const syncMetaTemplateStatus = async (wabaId, accessToken, metaTemplateId) => {
 const fetchMetaTemplates = async (wabaId, accessToken) => {
   const fields = 'id,name,status,category,language,components,rejected_reason';
   const responseBody = await callMetaApi({
-    method:      'GET',
-    path:        `${wabaId}/message_templates?fields=${fields}&limit=250`,
+    method: 'GET',
+    path: `${wabaId}/message_templates?fields=${fields}&limit=250`,
     accessToken,
   });
 
@@ -566,7 +566,7 @@ const deleteMetaTemplate = async (wabaId, accessToken, templateName, metaTemplat
   });
 
   return await callMetaApi({
-    method:      'DELETE',
+    method: 'DELETE',
     path,
     accessToken,
   });
@@ -587,7 +587,7 @@ const deleteMetaTemplate = async (wabaId, accessToken, templateName, metaTemplat
 const exchangeEmbeddedSignupToken = async (code, metaAppId, metaAppSecret, redirectUri = '') => {
   const tokenUrl = `${META_API_BASE}/${API_VERSION}/oauth/access_token`;
   const queryParams = {
-    client_id:     metaAppId,
+    client_id: metaAppId,
     client_secret: metaAppSecret,
     code,
   };
@@ -616,7 +616,7 @@ const exchangeEmbeddedSignupToken = async (code, metaAppId, metaAppSecret, redir
 
   return {
     accessToken: tokenData.access_token,
-    tokenType:   tokenData.token_type,
+    tokenType: tokenData.token_type,
   };
 };
 
@@ -649,16 +649,16 @@ const getWABAHealth = async (phoneNumberId, accessToken) => {
 
   const responseBody = await callMetaApi({
     method: 'GET',
-    path:   `${phoneNumberId}?fields=quality_rating,messaging_limit_tier,display_phone_number,verified_name,name_status,status,code_verification_status`,
+    path: `${phoneNumberId}?fields=quality_rating,messaging_limit_tier,display_phone_number,verified_name,name_status,status,code_verification_status`,
     accessToken,
   });
 
   logger.debug('WABA health fetched', {
     phoneNumberId,
-    quality_rating:       responseBody?.quality_rating,
+    quality_rating: responseBody?.quality_rating,
     messaging_limit_tier: responseBody?.messaging_limit_tier,
-    name_status:          responseBody?.name_status,
-    status:               responseBody?.status,
+    name_status: responseBody?.name_status,
+    status: responseBody?.status,
   });
 
   return responseBody;
@@ -675,7 +675,7 @@ const getBusinessProfile = async (phoneNumberId, accessToken) => {
 
   const result = await callMetaApi({
     method: 'GET',
-    path:   `${phoneNumberId}/whatsapp_business_profile?fields=about,address,description,email,profile_picture_url,websites,vertical`,
+    path: `${phoneNumberId}/whatsapp_business_profile?fields=about,address,description,email,profile_picture_url,websites,vertical`,
     accessToken: token,
   });
 
@@ -692,16 +692,16 @@ const updateBusinessProfile = async (phoneNumberId, accessToken, profileData = {
   }
 
   const body = { messaging_product: 'whatsapp' };
-  if (profileData.about !== undefined)       body.about       = profileData.about;
-  if (profileData.address !== undefined)     body.address     = profileData.address;
+  if (profileData.about !== undefined) body.about = profileData.about;
+  if (profileData.address !== undefined) body.address = profileData.address;
   if (profileData.description !== undefined) body.description = profileData.description;
-  if (profileData.email !== undefined)       body.email       = profileData.email;
-  if (profileData.vertical !== undefined)    body.vertical    = profileData.vertical;
-  if (Array.isArray(profileData.websites))   body.websites    = profileData.websites;
+  if (profileData.email !== undefined) body.email = profileData.email;
+  if (profileData.vertical !== undefined) body.vertical = profileData.vertical;
+  if (Array.isArray(profileData.websites)) body.websites = profileData.websites;
 
   return callMetaApi({
     method: 'POST',
-    path:   `${phoneNumberId}/whatsapp_business_profile`,
+    path: `${phoneNumberId}/whatsapp_business_profile`,
     accessToken: token,
     body,
   });
@@ -750,7 +750,7 @@ const uploadBusinessProfilePicture = async (phoneNumberId, accessToken, fileBuff
         );
         initData = await initRes.json().catch(() => ({}));
       }
-    } catch (e) {}
+    } catch (e) { }
   }
 
   if (!initRes.ok || !initData?.id) {
@@ -763,9 +763,9 @@ const uploadBusinessProfilePicture = async (phoneNumberId, accessToken, fileBuff
   const uploadRes = await fetch(`${META_API_BASE}/${API_VERSION}/${initData.id}`, {
     method: 'POST',
     headers: {
-      Authorization:    `OAuth ${token}`,
-      file_offset:      '0',
-      'Content-Type':   'application/octet-stream',
+      Authorization: `OAuth ${token}`,
+      file_offset: '0',
+      'Content-Type': 'application/octet-stream',
       'Content-Length': String(fileBuffer.length),
     },
     body: fileBuffer,
@@ -780,10 +780,10 @@ const uploadBusinessProfilePicture = async (phoneNumberId, accessToken, fileBuff
   // 3. Attach handle to WhatsApp Business Profile
   return callMetaApi({
     method: 'POST',
-    path:   `${phoneNumberId}/whatsapp_business_profile`,
+    path: `${phoneNumberId}/whatsapp_business_profile`,
     accessToken: token,
     body: {
-      messaging_product:      'whatsapp',
+      messaging_product: 'whatsapp',
       profile_picture_handle: uploadData.h,
     },
   });
@@ -812,8 +812,8 @@ const resolveMediaUrl = async (mediaId, accessToken) => {
   }
 
   const result = await callMetaApi({
-    method:      'GET',
-    path:        `${mediaId}`,
+    method: 'GET',
+    path: `${mediaId}`,
     accessToken: token,
   });
 

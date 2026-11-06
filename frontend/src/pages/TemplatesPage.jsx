@@ -56,7 +56,7 @@ function WhatsAppLivePreview({ form, sampleValues = {} }) {
     return text.replace(/\{\{(\w+)\}\}/g, (match, p1) => {
       const userVal = sampleValues && sampleValues[p1] && sampleValues[p1].trim() !== '' ? sampleValues[p1].trim() : null;
       const fallback = p1 === '1' || p1.toLowerCase() === 'name' ? 'Customer' : `Sample ${p1}`;
-      return `*${userVal || fallback}*`;
+      return userVal || fallback;
     });
   };
 
@@ -64,17 +64,28 @@ function WhatsAppLivePreview({ form, sampleValues = {} }) {
     if (!form.headerText) return '';
     return form.headerText.replace(/\{\{(\w+)\}\}/g, (match, p1) => {
       const userVal = sampleValues && (sampleValues[`header_${p1}`] || sampleValues[p1])?.trim();
-      return `*${userVal || 'Customer'}*`;
+      return userVal || 'Customer';
     });
   };
 
   const renderFormatted = (raw) => {
-    const tokens = raw.split(/(\*[^*]+\*|_[^_]+_|~[^~]+~|```[^`]+```)/g);
+    if (!raw) return null;
+    const regex = /(```[\s\S]+?```|\*[^\*\n]+?\*|_[^_\n]+?_|~[^~\n]+?~)/g;
+    const tokens = raw.split(regex);
     return tokens.map((t, idx) => {
-      if (t.startsWith('*') && t.endsWith('*')) return <strong key={idx} className="font-semibold text-white">{t.slice(1, -1)}</strong>;
-      if (t.startsWith('_') && t.endsWith('_')) return <em key={idx}>{t.slice(1, -1)}</em>;
-      if (t.startsWith('~') && t.endsWith('~')) return <s key={idx}>{t.slice(1, -1)}</s>;
-      if (t.startsWith('```') && t.endsWith('```')) return <code key={idx} className="font-mono bg-black/30 rounded px-1">{t.slice(3, -3)}</code>;
+      if (!t) return null;
+      if (t.startsWith('```') && t.endsWith('```') && t.length >= 6) {
+        return <code key={idx} className="font-mono bg-black/40 text-[#93C5FD] rounded px-1.5 py-0.5 text-[11px]">{t.slice(3, -3)}</code>;
+      }
+      if (t.startsWith('*') && t.endsWith('*') && t.length >= 2) {
+        return <strong key={idx} className="font-bold text-white tracking-wide">{t.slice(1, -1)}</strong>;
+      }
+      if (t.startsWith('_') && t.endsWith('_') && t.length >= 2) {
+        return <em key={idx} className="italic text-white/95">{t.slice(1, -1)}</em>;
+      }
+      if (t.startsWith('~') && t.endsWith('~') && t.length >= 2) {
+        return <s key={idx} className="line-through text-white/60">{t.slice(1, -1)}</s>;
+      }
       return <span key={idx}>{t}</span>;
     });
   };
@@ -274,21 +285,89 @@ function CreateTemplateModal({ onClose, onCreated, prefill = null }) {
     return Array.from(new Set(matches.map((m) => m[1])));
   }, [form.headerText, form.headerType]);
 
-  // Body editor formatting helpers
+  // Body editor formatting helpers (Wrap, Unwrap & Shortcuts)
   const insertBodyFormatting = (prefix, suffix = prefix) => {
     const el = bodyTextareaRef.current;
     if (!el) return;
     const start = el.selectionStart;
     const end = el.selectionEnd;
     const current = form.bodyText || '';
-    const selected = current.substring(start, end);
-    const replacement = selected ? `${prefix}${selected}${suffix}` : `${prefix}text${suffix}`;
-    const nextText = current.substring(0, start) + replacement + current.substring(end);
-    set('bodyText', nextText);
-    setTimeout(() => {
-      el.focus();
-      el.setSelectionRange(start + prefix.length, start + replacement.length - suffix.length);
-    }, 0);
+
+    if (start !== end) {
+      const selected = current.substring(start, end);
+
+      // Case 1: Selection itself begins and ends with formatting markers (e.g. "*bold*")
+      if (
+        selected.startsWith(prefix) &&
+        selected.endsWith(suffix) &&
+        selected.length >= prefix.length + suffix.length
+      ) {
+        const unwrapped = selected.substring(prefix.length, selected.length - suffix.length);
+        const nextText = current.substring(0, start) + unwrapped + current.substring(end);
+        set('bodyText', nextText);
+        setTimeout(() => {
+          el.focus();
+          el.setSelectionRange(start, start + unwrapped.length);
+        }, 0);
+        return;
+      }
+
+      // Case 2: Cursor selection is inside existing markers (e.g. user selected "bold" in "*bold*")
+      const before = current.substring(start - prefix.length, start);
+      const after = current.substring(end, end + suffix.length);
+      if (start >= prefix.length && before === prefix && after === suffix) {
+        const nextText =
+          current.substring(0, start - prefix.length) +
+          selected +
+          current.substring(end + suffix.length);
+        set('bodyText', nextText);
+        setTimeout(() => {
+          el.focus();
+          el.setSelectionRange(start - prefix.length, end - prefix.length);
+        }, 0);
+        return;
+      }
+
+      // Case 3: Wrap selected text with prefix and suffix
+      const wrapped = `${prefix}${selected}${suffix}`;
+      const nextText = current.substring(0, start) + wrapped + current.substring(end);
+      set('bodyText', nextText);
+      setTimeout(() => {
+        el.focus();
+        el.setSelectionRange(start, start + wrapped.length);
+      }, 0);
+    } else {
+      // No text selected: insert placeholder and select it so typing replaces it immediately
+      const placeholder = 'text';
+      const inserted = `${prefix}${placeholder}${suffix}`;
+      const nextText = current.substring(0, start) + inserted + current.substring(end);
+      set('bodyText', nextText);
+      setTimeout(() => {
+        el.focus();
+        el.setSelectionRange(start + prefix.length, start + prefix.length + placeholder.length);
+      }, 0);
+    }
+  };
+
+  const handleBodyKeyDown = (e) => {
+    const isMac = typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.platform);
+    const mod = isMac ? e.metaKey : e.ctrlKey;
+    if (!mod) return;
+
+    const key = e.key.toLowerCase();
+    if (key === 'b') {
+      e.preventDefault();
+      insertBodyFormatting('*');
+    } else if (key === 'i') {
+      e.preventDefault();
+      insertBodyFormatting('_');
+    } else if ((e.shiftKey && (key === 's' || key === 'x')) || (e.altKey && (key === '5' || key === 's'))) {
+      e.preventDefault();
+      insertBodyFormatting('~');
+    } else if ((e.shiftKey && (key === 'c' || key === 'm')) || key === '`') {
+      e.preventDefault();
+      insertBodyFormatting('```');
+    }
   };
 
   const insertBodyVariable = () => {
@@ -823,6 +902,7 @@ function CreateTemplateModal({ onClose, onCreated, prefill = null }) {
                   placeholder="Hello {{1}}, your appointment is confirmed for {{2}}. Reply STOP to unsubscribe."
                   value={form.bodyText}
                   onChange={(e) => set('bodyText', e.target.value)}
+                  onKeyDown={handleBodyKeyDown}
                   className="w-full p-3.5 text-xs text-[#0F172A] placeholder-[#94A3B8] font-sans leading-relaxed border-none focus:outline-none resize-y min-h-[96px]"
                   required
                 />
@@ -834,9 +914,10 @@ function CreateTemplateModal({ onClose, onCreated, prefill = null }) {
                     <div className="relative">
                       <button
                         type="button"
+                        onMouseDown={(e) => e.preventDefault()}
                         onClick={() => setEmojiPickerOpen(!emojiPickerOpen)}
                         title="Add emoji"
-                        className="w-7 h-7 rounded-lg text-sm flex items-center justify-center hover:bg-[#E2E8F0] text-[#475569] transition-colors"
+                        className="w-7 h-7 rounded-lg text-sm flex items-center justify-center hover:bg-[#E2E8F0] active:bg-[#CBD5E1] text-[#475569] transition-colors"
                       >
                         🙂
                       </button>
@@ -857,6 +938,7 @@ function CreateTemplateModal({ onClose, onCreated, prefill = null }) {
                               <button
                                 key={em}
                                 type="button"
+                                onMouseDown={(e) => e.preventDefault()}
                                 onClick={() => {
                                   insertBodyEmoji(em);
                                   setEmojiPickerOpen(false);
@@ -874,9 +956,10 @@ function CreateTemplateModal({ onClose, onCreated, prefill = null }) {
                     {/* Bold */}
                     <button
                       type="button"
+                      onMouseDown={(e) => e.preventDefault()}
                       onClick={() => insertBodyFormatting('*')}
-                      title="Bold (*text*)"
-                      className="w-7 h-7 rounded-lg text-xs font-bold flex items-center justify-center hover:bg-[#E2E8F0] text-[#334155] transition-colors"
+                      title="Bold (*text*) — Ctrl+B"
+                      className="w-7 h-7 rounded-lg text-xs font-bold flex items-center justify-center hover:bg-[#E2E8F0] active:bg-[#CBD5E1] text-[#334155] transition-colors"
                     >
                       B
                     </button>
@@ -884,9 +967,10 @@ function CreateTemplateModal({ onClose, onCreated, prefill = null }) {
                     {/* Italic */}
                     <button
                       type="button"
+                      onMouseDown={(e) => e.preventDefault()}
                       onClick={() => insertBodyFormatting('_')}
-                      title="Italic (_text_)"
-                      className="w-7 h-7 rounded-lg text-xs italic font-serif flex items-center justify-center hover:bg-[#E2E8F0] text-[#334155] transition-colors"
+                      title="Italic (_text_) — Ctrl+I"
+                      className="w-7 h-7 rounded-lg text-xs italic font-serif flex items-center justify-center hover:bg-[#E2E8F0] active:bg-[#CBD5E1] text-[#334155] transition-colors"
                     >
                       I
                     </button>
@@ -894,9 +978,10 @@ function CreateTemplateModal({ onClose, onCreated, prefill = null }) {
                     {/* Strikethrough */}
                     <button
                       type="button"
+                      onMouseDown={(e) => e.preventDefault()}
                       onClick={() => insertBodyFormatting('~')}
-                      title="Strikethrough (~text~)"
-                      className="w-7 h-7 rounded-lg text-xs line-through flex items-center justify-center hover:bg-[#E2E8F0] text-[#334155] transition-colors"
+                      title="Strikethrough (~text~) — Ctrl+Shift+S"
+                      className="w-7 h-7 rounded-lg text-xs line-through flex items-center justify-center hover:bg-[#E2E8F0] active:bg-[#CBD5E1] text-[#334155] transition-colors"
                     >
                       S
                     </button>
@@ -904,9 +989,10 @@ function CreateTemplateModal({ onClose, onCreated, prefill = null }) {
                     {/* Monospace */}
                     <button
                       type="button"
+                      onMouseDown={(e) => e.preventDefault()}
                       onClick={() => insertBodyFormatting('```')}
-                      title="Monospace (```text```)"
-                      className="w-7 h-7 rounded-lg text-[11px] font-mono flex items-center justify-center hover:bg-[#E2E8F0] text-[#334155] transition-colors"
+                      title="Monospace (```text```) — Ctrl+Shift+C"
+                      className="w-7 h-7 rounded-lg text-[11px] font-mono flex items-center justify-center hover:bg-[#E2E8F0] active:bg-[#CBD5E1] text-[#334155] transition-colors"
                     >
                       {'</>'}
                     </button>
@@ -916,9 +1002,10 @@ function CreateTemplateModal({ onClose, onCreated, prefill = null }) {
                     {/* Add variable */}
                     <button
                       type="button"
+                      onMouseDown={(e) => e.preventDefault()}
                       onClick={insertBodyVariable}
                       title="Add variable {{n}}"
-                      className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-semibold text-[#534AB7] hover:bg-[#EDE9FE] transition-colors"
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-semibold text-[#534AB7] hover:bg-[#EDE9FE] active:bg-[#DDD6FE] transition-colors"
                     >
                       + Add variable
                     </button>
