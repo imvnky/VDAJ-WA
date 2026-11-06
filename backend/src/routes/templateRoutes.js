@@ -43,7 +43,7 @@ router.get('/', catchAsync(async (req, res) => {
 
 // ── POST /templates — Create locally + submit to Meta ──────────
 router.post('/', catchAsync(async (req, res) => {
-  const { name, category, language, bodyText, headerText, headerType, headerSampleUrl, footerText, buttons, variablesSchema, bodySampleValues } = req.body;
+  const { name, category, language, bodyText, headerText, headerType, headerSampleUrl, footerText, buttons, variablesSchema, bodySampleValues, headerSampleValues } = req.body;
 
   if (!name?.trim() || !bodyText?.trim()) {
     throw new AppError('name and bodyText are required.', 400, 'ERR_VDAJ_VAL_001');
@@ -113,6 +113,7 @@ router.post('/', catchAsync(async (req, res) => {
   if (effectiveWabaId && effectiveToken) {
     try {
       template.body_sample_values = bodySampleValues;
+      template.header_sample_values = headerSampleValues;
       const { metaTemplateId, status: metaStatus } = await createMetaTemplate(
         { wabaId: effectiveWabaId, accessToken: effectiveToken },
         template

@@ -160,6 +160,20 @@ const buildTemplatePayload = (to, templateName, language, templateVars = {}) => 
         },
       }],
     });
+  } else if (headerType === 'LOCATION' || templateVars.location) {
+    const loc = templateVars.location || {};
+    components.push({
+      type: 'header',
+      parameters: [{
+        type: 'location',
+        location: {
+          latitude: loc.latitude || templateVars.latitude || '0',
+          longitude: loc.longitude || templateVars.longitude || '0',
+          name: loc.name || templateVars.locationName || 'Location',
+          address: loc.address || templateVars.locationAddress || '',
+        },
+      }],
+    });
   } else if (templateVars.header && typeof templateVars.header === 'string') {
     components.push({
       type: 'header',
@@ -339,12 +353,33 @@ const createMetaTemplate = async (tenantCredentials, templateData) => {
       comp.example = { header_handle: [templateData.header_sample_url || templateData.headerSampleUrl] };
     }
     components.push(comp);
-  } else if (templateData.header_text && headerType === 'TEXT') {
+  } else if (headerType === 'LOCATION') {
     components.push({
+      type: 'HEADER',
+      format: 'LOCATION',
+    });
+  } else if (templateData.header_text && headerType === 'TEXT') {
+    const headerComp = {
       type:   'HEADER',
       format: 'TEXT',
       text:   templateData.header_text,
-    });
+    };
+    // Check if header text has variables like {{1}}
+    const headerVarMatches = [...(templateData.header_text || '').matchAll(/\{\{(\w+)\}\}/g)];
+    if (headerVarMatches.length > 0) {
+      const uniqueHVars = Array.from(new Set(headerVarMatches.map((m) => m[1])));
+      const headerSamples = templateData.header_sample_values || templateData.headerSampleValues || {};
+      const sampleHArray = uniqueHVars.map((v, i) => {
+        if (typeof headerSamples === 'object' && headerSamples[v] && String(headerSamples[v]).trim() !== '') {
+          return String(headerSamples[v]).trim();
+        }
+        return i === 0 ? 'Customer' : 'Sample';
+      });
+      headerComp.example = {
+        header_text: sampleHArray,
+      };
+    }
+    components.push(headerComp);
   }
 
   // Body — always required
@@ -392,13 +427,27 @@ const createMetaTemplate = async (tenantCredentials, templateData) => {
         .slice(0, 25) || btn.text.trim().slice(0, 25);
 
       if (btn.type === 'URL') {
-        return { type: 'URL', text: cleanText, url: btn.url };
+        const urlComp = { type: 'URL', text: cleanText || 'Visit Website', url: btn.url };
+        if (btn.url && /\{\{\d+\}\}/.test(btn.url)) {
+          urlComp.example = [btn.url_example || btn.urlExample || btn.url.replace(/\{\{\d+\}\}/g, 'sample')];
+        }
+        return urlComp;
       }
       if (btn.type === 'PHONE_NUMBER') {
-        return { type: 'PHONE_NUMBER', text: cleanText, phone_number: btn.phone_number || btn.phoneNumber };
+        return {
+          type: 'PHONE_NUMBER',
+          text: cleanText || 'Call Us',
+          phone_number: btn.phone_number || btn.phoneNumber || '',
+        };
+      }
+      if (btn.type === 'COPY_CODE') {
+        return {
+          type: 'COPY_CODE',
+          example: btn.code || btn.example || 'OFFER2026',
+        };
       }
       // Default: QUICK_REPLY
-      return { type: 'QUICK_REPLY', text: cleanText };
+      return { type: 'QUICK_REPLY', text: cleanText || 'Quick Reply' };
     });
     components.push({ type: 'BUTTONS', buttons: metaButtons });
   }

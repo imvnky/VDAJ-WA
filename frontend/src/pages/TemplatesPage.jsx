@@ -5,7 +5,7 @@
  * Meta Graph API v19.0 and WhatsApp Business Platform standards.
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { clsx } from 'clsx';
 import { templateApi, mediaApi } from '../lib/api';
 import useAuthStore from '../store/authStore';
@@ -36,6 +36,7 @@ const HEADER_TYPES = [
   { id: 'IMAGE', label: 'IMAGE' },
   { id: 'VIDEO', label: 'VIDEO' },
   { id: 'DOCUMENT', label: 'DOCUMENT' },
+  { id: 'LOCATION', label: 'LOCATION' },
 ];
 
 // ── WhatsApp Mobile Preview Card ──────────────────────────────
@@ -122,7 +123,18 @@ function WhatsAppLivePreview({ form, sampleValues = {} }) {
                 {renderFormatted(getInterpolatedHeader())}
               </p>
             )}
-            {form.headerType !== 'NONE' && form.headerType !== 'TEXT' && (
+            {form.headerType === 'LOCATION' && (
+              <div className="rounded-lg overflow-hidden border border-white/10 bg-[#1F2C34] p-3 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[#00A884]/20 border border-[#00A884]/40 flex items-center justify-center text-xl shrink-0 shadow-sm">
+                  📍
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-bold text-white truncate">Location Header</p>
+                  <p className="text-[10px] text-[#8696A0] truncate">Interactive Map & Address Details</p>
+                </div>
+              </div>
+            )}
+            {form.headerType !== 'NONE' && form.headerType !== 'TEXT' && form.headerType !== 'LOCATION' && (
               <div className="rounded-lg overflow-hidden border border-white/10 bg-[#1F2C34] flex flex-col items-center justify-center text-[#8696A0]">
                 {form.headerType === 'IMAGE' && form.headerSampleUrl ? (
                   <img
@@ -176,7 +188,12 @@ function WhatsAppLivePreview({ form, sampleValues = {} }) {
                     {btn.type === 'URL' && <span>🔗</span>}
                     {btn.type === 'PHONE_NUMBER' && <span>📞</span>}
                     {btn.type === 'QUICK_REPLY' && <span>↩️</span>}
-                    <span className="truncate">{btn.text || `Button ${idx + 1}`}</span>
+                    {btn.type === 'COPY_CODE' && <span>📋</span>}
+                    <span className="truncate">
+                      {btn.type === 'COPY_CODE'
+                        ? `Copy code: ${btn.code || 'OFFER2026'}`
+                        : (btn.text || `Button ${idx + 1}`)}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -212,6 +229,12 @@ function CreateTemplateModal({ onClose, onCreated, prefill = null }) {
   const [uploadingMedia, setUploadingMedia] = useState(false);
   const [loading, setLoading] = useState(false);
   const [sampleValues, setSampleValues] = useState({});
+  const [headerSampleValues, setHeaderSampleValues] = useState({});
+  const [buttonDropdownOpen, setButtonDropdownOpen] = useState(false);
+  const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
+
+  const bodyTextareaRef = useRef(null);
+  const headerInputRef = useRef(null);
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
@@ -244,16 +267,114 @@ function CreateTemplateModal({ onClose, onCreated, prefill = null }) {
     return Array.from(new Set(matches.map((m) => m[1])));
   }, [form.bodyText]);
 
-  // Button management
-  const addButton = () => {
-    if (form.buttons.length >= 3) {
-      showInfo('Maximum 3 buttons allowed per template.');
+  // Detect {{1}}, {{2}} in header text
+  const detectedHeaderVars = useMemo(() => {
+    if (form.headerType !== 'TEXT') return [];
+    const matches = [...(form.headerText || '').matchAll(/\{\{(\w+)\}\}/g)];
+    return Array.from(new Set(matches.map((m) => m[1])));
+  }, [form.headerText, form.headerType]);
+
+  // Body editor formatting helpers
+  const insertBodyFormatting = (prefix, suffix = prefix) => {
+    const el = bodyTextareaRef.current;
+    if (!el) return;
+    const start = el.selectionStart;
+    const end = el.selectionEnd;
+    const current = form.bodyText || '';
+    const selected = current.substring(start, end);
+    const replacement = selected ? `${prefix}${selected}${suffix}` : `${prefix}text${suffix}`;
+    const nextText = current.substring(0, start) + replacement + current.substring(end);
+    set('bodyText', nextText);
+    setTimeout(() => {
+      el.focus();
+      el.setSelectionRange(start + prefix.length, start + replacement.length - suffix.length);
+    }, 0);
+  };
+
+  const insertBodyVariable = () => {
+    const el = bodyTextareaRef.current;
+    const current = form.bodyText || '';
+    const matches = [...current.matchAll(/\{\{(\d+)\}\}/g)];
+    const existingNums = matches.map((m) => parseInt(m[1], 10)).filter((n) => !isNaN(n));
+    const nextNum = existingNums.length > 0 ? Math.max(...existingNums) + 1 : 1;
+    const varTag = `{{${nextNum}}}`;
+    if (!el) {
+      set('bodyText', current + (current ? ` ${varTag}` : varTag));
       return;
     }
+    const start = el.selectionStart ?? current.length;
+    const end = el.selectionEnd ?? current.length;
+    const nextText = current.substring(0, start) + varTag + current.substring(end);
+    set('bodyText', nextText);
+    setTimeout(() => {
+      el.focus();
+      el.setSelectionRange(start + varTag.length, start + varTag.length);
+    }, 0);
+  };
+
+  const insertHeaderVariable = () => {
+    const el = headerInputRef.current;
+    const current = form.headerText || '';
+    const matches = [...current.matchAll(/\{\{(\d+)\}\}/g)];
+    const existingNums = matches.map((m) => parseInt(m[1], 10)).filter((n) => !isNaN(n));
+    const nextNum = existingNums.length > 0 ? Math.max(...existingNums) + 1 : 1;
+    const varTag = `{{${nextNum}}}`;
+    if (!el) {
+      set('headerText', current + (current ? ` ${varTag}` : varTag));
+      return;
+    }
+    const start = el.selectionStart ?? current.length;
+    const end = el.selectionEnd ?? current.length;
+    const nextText = current.substring(0, start) + varTag + current.substring(end);
+    set('headerText', nextText);
+    setTimeout(() => {
+      el.focus();
+      el.setSelectionRange(start + varTag.length, start + varTag.length);
+    }, 0);
+  };
+
+  const insertBodyEmoji = (emoji) => {
+    const el = bodyTextareaRef.current;
+    const current = form.bodyText || '';
+    if (!el) {
+      set('bodyText', current + emoji);
+      return;
+    }
+    const start = el.selectionStart ?? current.length;
+    const end = el.selectionEnd ?? current.length;
+    const nextText = current.substring(0, start) + emoji + current.substring(end);
+    set('bodyText', nextText);
+    setTimeout(() => {
+      el.focus();
+      el.setSelectionRange(start + emoji.length, start + emoji.length);
+    }, 0);
+  };
+
+  // Button management (Up to 10 buttons per Meta Graph API v19+)
+  const addButton = (type = 'QUICK_REPLY') => {
+    if (form.buttons.length >= 10) {
+      showInfo('Maximum 10 buttons allowed per template by Meta.');
+      return;
+    }
+    let defaultLabel = 'Quick reply';
+    if (type === 'URL') defaultLabel = 'Visit website';
+    if (type === 'PHONE_NUMBER') defaultLabel = 'Call phone number';
+    if (type === 'COPY_CODE') defaultLabel = 'Copy offer code';
+
     setForm((f) => ({
       ...f,
-      buttons: [...f.buttons, { type: 'QUICK_REPLY', text: '' }],
+      buttons: [
+        ...f.buttons,
+        {
+          type,
+          text: defaultLabel,
+          url: type === 'URL' ? 'https://' : undefined,
+          phoneNumber: type === 'PHONE_NUMBER' ? '+91 ' : undefined,
+          code: type === 'COPY_CODE' ? 'OFFER2026' : undefined,
+        },
+      ],
     }));
+    setButtonDropdownOpen(false);
   };
 
   const updateButton = (index, field, value) => {
@@ -315,6 +436,16 @@ function CreateTemplateModal({ onClose, onCreated, prefill = null }) {
       }
     }
 
+    const validButtons = form.buttons
+      .filter((b) => (b.type === 'COPY_CODE' ? (b.code && b.code.trim() !== '') : (b.text && b.text.trim() !== '')))
+      .map((b) => ({
+        type: b.type,
+        text: b.text?.trim() || (b.type === 'COPY_CODE' ? 'Copy offer code' : 'Button'),
+        url: b.type === 'URL' ? b.url?.trim() : undefined,
+        phoneNumber: b.type === 'PHONE_NUMBER' ? (b.phoneNumber?.trim() || b.phone_number?.trim()) : undefined,
+        code: b.type === 'COPY_CODE' ? b.code?.trim() : undefined,
+      }));
+
     setLoading(true);
     try {
       const payload = {
@@ -324,10 +455,11 @@ function CreateTemplateModal({ onClose, onCreated, prefill = null }) {
         bodyText: form.bodyText,
         headerText: form.headerType === 'TEXT' ? form.headerText : null,
         headerType: form.headerType,
-        headerSampleUrl: form.headerSampleUrl || null,
+        headerSampleUrl: (form.headerType !== 'NONE' && form.headerType !== 'TEXT' && form.headerType !== 'LOCATION') ? (form.headerSampleUrl || null) : null,
         footerText: form.footerText || null,
-        buttons: form.buttons.filter((b) => b.text.trim() !== ''),
+        buttons: validButtons,
         bodySampleValues: sampleValues,
+        headerSampleValues: headerSampleValues,
       };
 
       const res = await templateApi.create(payload);
@@ -523,23 +655,67 @@ function CreateTemplateModal({ onClose, onCreated, prefill = null }) {
               </div>
 
               {form.headerType === 'TEXT' && (
-                <div>
-                  <input
-                    type="text"
-                    maxLength={60}
-                    placeholder="e.g. Order Update #{{1}}"
-                    value={form.headerText}
-                    onChange={(e) => set('headerText', e.target.value)}
-                    className="w-full px-3.5 py-2 text-xs bg-[#FFFFFF] border border-[#CBD5E1] rounded-xl text-[#0F172A] placeholder-[#94A3B8] focus:border-[#534AB7] focus:outline-none"
-                  />
-                  <div className="flex items-center justify-between mt-1 text-[11px]">
-                    <span className="text-[#64748B]">Max 60 characters.</span>
-                    <span className="text-amber-600 font-medium">Plain text only (no emojis or asterisks)</span>
+                <div className="space-y-2">
+                  <div className="relative">
+                    <input
+                      ref={headerInputRef}
+                      type="text"
+                      maxLength={60}
+                      placeholder="e.g. Order Update #{{1}}"
+                      value={form.headerText}
+                      onChange={(e) => set('headerText', e.target.value)}
+                      className="w-full px-3.5 py-2 text-xs bg-[#FFFFFF] border border-[#CBD5E1] rounded-xl text-[#0F172A] placeholder-[#94A3B8] focus:border-[#534AB7] focus:outline-none"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between text-[11px]">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[#64748B]">Max 60 chars. Plain text only.</span>
+                      <button
+                        type="button"
+                        onClick={insertHeaderVariable}
+                        className="text-xs font-semibold text-[#534AB7] hover:underline flex items-center gap-1"
+                      >
+                        + Add variable
+                      </button>
+                    </div>
+                    <span className="font-mono text-[#64748B]">{form.headerText.length} / 60</span>
+                  </div>
+
+                  {detectedHeaderVars.length > 0 && (
+                    <div className="p-2.5 bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl space-y-1.5">
+                      <span className="text-[11px] font-bold text-[#0F172A]">Header Variable Samples</span>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {detectedHeaderVars.map((vKey) => (
+                          <div key={vKey}>
+                            <label className="block text-[10px] font-semibold text-[#475569] mb-0.5">
+                              Sample for {`{{${vKey}}}`}
+                            </label>
+                            <input
+                              type="text"
+                              placeholder="e.g. Order #1042"
+                              value={headerSampleValues[vKey] || ''}
+                              onChange={(e) => setHeaderSampleValues((prev) => ({ ...prev, [vKey]: e.target.value }))}
+                              className="w-full px-2 py-1 text-xs bg-[#FFFFFF] border border-[#CBD5E1] rounded-lg text-[#0F172A]"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {form.headerType === 'LOCATION' && (
+                <div className="p-3 bg-[#E8F9F4] border border-[#148059]/30 rounded-xl flex items-start gap-2.5 text-xs text-[#0F5132]">
+                  <span className="text-lg">📍</span>
+                  <div>
+                    <strong className="block font-semibold">Location Header Selected:</strong>
+                    Enables sending interactive maps with latitude, longitude, and venue details. Meta does not require media uploads for location headers.
                   </div>
                 </div>
               )}
 
-              {form.headerType !== 'NONE' && form.headerType !== 'TEXT' && (
+              {form.headerType !== 'NONE' && form.headerType !== 'TEXT' && form.headerType !== 'LOCATION' && (
                 <div className="p-3 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl space-y-2.5">
                   <div className="flex items-center justify-between">
                     <label className="text-[11px] font-bold text-[#0F172A] uppercase tracking-wider">
@@ -638,23 +814,126 @@ function CreateTemplateModal({ onClose, onCreated, prefill = null }) {
                 </span>
               </div>
 
-              <div className="relative">
+              {/* Body editor with Meta-grade inline toolbar */}
+              <div className="border border-[#CBD5E1] rounded-2xl focus-within:border-[#534AB7] focus-within:ring-1 focus-within:ring-[#534AB7] bg-white overflow-hidden shadow-sm transition-all">
                 <textarea
+                  ref={bodyTextareaRef}
                   rows={4}
                   maxLength={1024}
                   placeholder="Hello {{1}}, your appointment is confirmed for {{2}}. Reply STOP to unsubscribe."
                   value={form.bodyText}
                   onChange={(e) => set('bodyText', e.target.value)}
-                  className="w-full p-3.5 text-xs bg-[#FFFFFF] border border-[#CBD5E1] rounded-xl text-[#0F172A] placeholder-[#94A3B8] font-sans leading-relaxed focus:border-[#534AB7] focus:ring-1 focus:ring-[#534AB7] focus:outline-none"
+                  className="w-full p-3.5 text-xs text-[#0F172A] placeholder-[#94A3B8] font-sans leading-relaxed border-none focus:outline-none resize-y min-h-[96px]"
                   required
                 />
+
+                {/* Toolbar */}
+                <div className="flex items-center justify-between px-3 py-2 border-t border-[#F1F5F9] bg-[#F8FAFC]">
+                  <div className="flex items-center gap-1">
+                    {/* Emoji Picker Popover */}
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setEmojiPickerOpen(!emojiPickerOpen)}
+                        title="Add emoji"
+                        className="w-7 h-7 rounded-lg text-sm flex items-center justify-center hover:bg-[#E2E8F0] text-[#475569] transition-colors"
+                      >
+                        🙂
+                      </button>
+                      {emojiPickerOpen && (
+                        <div className="absolute left-0 bottom-9 z-30 w-64 p-2.5 bg-white border border-[#CBD5E1] rounded-2xl shadow-2xl animate-scale-in">
+                          <div className="flex items-center justify-between pb-1.5 mb-1.5 border-b border-[#F1F5F9]">
+                            <span className="text-[11px] font-bold text-[#475569]">WhatsApp Emojis</span>
+                            <button
+                              type="button"
+                              onClick={() => setEmojiPickerOpen(false)}
+                              className="text-xs text-[#94A3B8] hover:text-[#0F172A]"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                          <div className="grid grid-cols-6 gap-1.5 text-lg">
+                            {['😀', '👋', '🎉', '🔥', '✨', '⭐', '💡', '✅', '🚀', '🎁', '📢', '💬', '🕒', '📅', '📍', '📞', '🏷️', '💰', '👍', '🙏', '❤️', '💼', '📦', '💯'].map((em) => (
+                              <button
+                                key={em}
+                                type="button"
+                                onClick={() => {
+                                  insertBodyEmoji(em);
+                                  setEmojiPickerOpen(false);
+                                }}
+                                className="w-8 h-8 rounded-lg hover:bg-[#F1F5F9] flex items-center justify-center transition-transform hover:scale-110 active:scale-95"
+                              >
+                                {em}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Bold */}
+                    <button
+                      type="button"
+                      onClick={() => insertBodyFormatting('*')}
+                      title="Bold (*text*)"
+                      className="w-7 h-7 rounded-lg text-xs font-bold flex items-center justify-center hover:bg-[#E2E8F0] text-[#334155] transition-colors"
+                    >
+                      B
+                    </button>
+
+                    {/* Italic */}
+                    <button
+                      type="button"
+                      onClick={() => insertBodyFormatting('_')}
+                      title="Italic (_text_)"
+                      className="w-7 h-7 rounded-lg text-xs italic font-serif flex items-center justify-center hover:bg-[#E2E8F0] text-[#334155] transition-colors"
+                    >
+                      I
+                    </button>
+
+                    {/* Strikethrough */}
+                    <button
+                      type="button"
+                      onClick={() => insertBodyFormatting('~')}
+                      title="Strikethrough (~text~)"
+                      className="w-7 h-7 rounded-lg text-xs line-through flex items-center justify-center hover:bg-[#E2E8F0] text-[#334155] transition-colors"
+                    >
+                      S
+                    </button>
+
+                    {/* Monospace */}
+                    <button
+                      type="button"
+                      onClick={() => insertBodyFormatting('```')}
+                      title="Monospace (```text```)"
+                      className="w-7 h-7 rounded-lg text-[11px] font-mono flex items-center justify-center hover:bg-[#E2E8F0] text-[#334155] transition-colors"
+                    >
+                      {'</>'}
+                    </button>
+
+                    <div className="w-[1px] h-4 bg-[#CBD5E1] mx-1" />
+
+                    {/* Add variable */}
+                    <button
+                      type="button"
+                      onClick={insertBodyVariable}
+                      title="Add variable {{n}}"
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-semibold text-[#534AB7] hover:bg-[#EDE9FE] transition-colors"
+                    >
+                      + Add variable
+                    </button>
+                  </div>
+
+                  <span className="text-[11px] font-mono text-[#64748B]">
+                    {form.bodyText.length} / 1024
+                  </span>
+                </div>
               </div>
 
               <div className="flex items-center justify-between text-[11px] text-[#64748B]">
                 <span className="font-semibold text-[#534AB7]">
                   Detected variables: {detectedVars.length} {detectedVars.length > 0 && `(${detectedVars.map(v => `{{${v}}}`).join(', ')})`}
                 </span>
-                <span>{form.bodyText.length} / 1024</span>
               </div>
 
               {detectedVars.length > 0 && (
@@ -724,30 +1003,118 @@ function CreateTemplateModal({ onClose, onCreated, prefill = null }) {
               </p>
             </div>
 
-            {/* ── BUTTONS SECTION (MAX 3) ── */}
+            {/* ── BUTTONS SECTION (MAX 10) ── */}
             <div className="pt-3 border-t border-[#E2E8F0] space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-[#F1F5F9] text-[#475569]">
-                    BUTTONS
-                  </span>
-                  <span className="text-xs text-[#64748B]">Optional — max 3</span>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-[#F1F5F9] text-[#475569]">
+                      BUTTONS
+                    </span>
+                    <span className="text-xs text-[#64748B]">Optional — max 10</span>
+                  </div>
+                  <p className="text-[11px] text-[#64748B] mt-0.5">
+                    Customers respond to your message or take action. You can add up to 10 buttons. If you add more than 3 buttons, they will appear in a list.
+                  </p>
                 </div>
-                {form.buttons.length < 3 && (
-                  <button
-                    type="button"
-                    onClick={addButton}
-                    className="px-2.5 py-1 text-xs font-bold text-[#534AB7] bg-[#F3F2FD] hover:bg-[#E6E4F5] rounded-lg transition-colors"
-                  >
-                    + Add Button
-                  </button>
+
+                {form.buttons.length < 10 && (
+                  <div className="relative shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setButtonDropdownOpen(!buttonDropdownOpen)}
+                      className="px-3 py-1.5 text-xs font-bold text-[#534AB7] bg-[#F3F2FD] hover:bg-[#E6E4F5] rounded-xl transition-colors flex items-center gap-1.5 shadow-sm"
+                    >
+                      <span>+ Add button</span>
+                      <svg className={clsx('w-3.5 h-3.5 transition-transform', buttonDropdownOpen && 'rotate-180')} viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                      </svg>
+                    </button>
+
+                    {buttonDropdownOpen && (
+                      <div className="absolute right-0 top-9 z-30 w-60 py-1.5 bg-white border border-[#CBD5E1] rounded-2xl shadow-2xl animate-scale-in text-xs font-medium text-[#0F172A]">
+                        <button
+                          type="button"
+                          onClick={() => addButton('QUICK_REPLY')}
+                          className="w-full text-left px-3.5 py-2 hover:bg-[#F8FAFC] flex items-center gap-2.5 transition-colors"
+                        >
+                          <span className="text-base">↩️</span>
+                          <div>
+                            <div className="font-semibold text-[#0F172A]">Custom</div>
+                            <div className="text-[10px] text-[#64748B]">Quick reply button</div>
+                          </div>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => addButton('URL')}
+                          className="w-full text-left px-3.5 py-2 hover:bg-[#F8FAFC] flex items-center gap-2.5 transition-colors"
+                        >
+                          <span className="text-base">🔗</span>
+                          <div>
+                            <div className="font-semibold text-[#0F172A]">Visit website</div>
+                            <div className="text-[10px] text-[#64748B]">Open URL link</div>
+                          </div>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => addButton('PHONE_NUMBER')}
+                          className="w-full text-left px-3.5 py-2 hover:bg-[#F8FAFC] flex items-center gap-2.5 transition-colors"
+                        >
+                          <span className="text-base">📞</span>
+                          <div>
+                            <div className="font-semibold text-[#0F172A]">Call phone number</div>
+                            <div className="text-[10px] text-[#64748B]">Direct dial with country code</div>
+                          </div>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => addButton('COPY_CODE')}
+                          className="w-full text-left px-3.5 py-2 hover:bg-[#F8FAFC] flex items-center gap-2.5 transition-colors"
+                        >
+                          <span className="text-base">🏷️</span>
+                          <div>
+                            <div className="font-semibold text-[#0F172A]">Copy offer code</div>
+                            <div className="text-[10px] text-[#64748B]">1-tap copy coupon/promo code</div>
+                          </div>
+                        </button>
+
+                        <div className="my-1 border-t border-[#F1F5F9]" />
+
+                        <div className="px-3.5 py-1 text-[10px] font-bold text-[#94A3B8] uppercase tracking-wider">
+                          Meta Advanced Actions
+                        </div>
+                        <div className="px-3.5 py-1.5 text-xs text-[#94A3B8] flex items-center justify-between hover:bg-slate-50 cursor-not-allowed">
+                          <span className="flex items-center gap-2"><span>💬</span> Call on WhatsApp</span>
+                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-bold">Cloud API</span>
+                        </div>
+                        <div className="px-3.5 py-1.5 text-xs text-[#94A3B8] flex items-center justify-between hover:bg-slate-50 cursor-not-allowed">
+                          <span className="flex items-center gap-2"><span>💳</span> Request payment</span>
+                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-bold">Meta Pay</span>
+                        </div>
+                        <div className="px-3.5 py-1.5 text-xs text-[#94A3B8] flex items-center justify-between hover:bg-slate-50 cursor-not-allowed">
+                          <span className="flex items-center gap-2"><span>👤</span> Share Contact Info</span>
+                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-bold">vCard</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
 
               {form.buttons.map((btn, idx) => (
-                <div key={idx} className="p-3 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl space-y-2">
+                <div key={idx} className="p-3 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl space-y-2.5">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-[#0F172A]">Button #{idx + 1}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="w-5 h-5 rounded-full bg-[#E2E8F0] text-[10px] font-bold text-[#475569] flex items-center justify-center">
+                        {idx + 1}
+                      </span>
+                      <span className="text-xs font-bold text-[#0F172A]">
+                        {btn.type === 'QUICK_REPLY' && 'Custom (Quick Reply)'}
+                        {btn.type === 'URL' && 'Visit Website (URL)'}
+                        {btn.type === 'PHONE_NUMBER' && 'Call Phone Number'}
+                        {btn.type === 'COPY_CODE' && 'Copy Offer Code'}
+                      </span>
+                    </div>
                     <button
                       type="button"
                       onClick={() => removeButton(idx)}
@@ -761,18 +1128,19 @@ function CreateTemplateModal({ onClose, onCreated, prefill = null }) {
                     <select
                       value={btn.type}
                       onChange={(e) => updateButton(idx, 'type', e.target.value)}
-                      className="px-2.5 py-1.5 text-xs bg-[#FFFFFF] border border-[#CBD5E1] rounded-lg text-[#0F172A]"
+                      className="px-2.5 py-1.5 text-xs bg-[#FFFFFF] border border-[#CBD5E1] rounded-lg text-[#0F172A] font-semibold"
                     >
-                      <option value="QUICK_REPLY">Quick Reply</option>
-                      <option value="URL">Visit Website (URL)</option>
-                      <option value="PHONE_NUMBER">Call Phone Number</option>
+                      <option value="QUICK_REPLY">Custom (Quick Reply)</option>
+                      <option value="URL">Visit website (URL)</option>
+                      <option value="PHONE_NUMBER">Call phone number</option>
+                      <option value="COPY_CODE">Copy offer code</option>
                     </select>
 
                     <div>
                       <input
                         type="text"
                         maxLength={25}
-                        placeholder="Button label (max 25 chars, plain text)"
+                        placeholder={btn.type === 'COPY_CODE' ? 'Button label (Meta default: Copy code)' : 'Button label (max 25 chars)'}
                         value={btn.text}
                         onChange={(e) => updateButton(idx, 'text', e.target.value)}
                         className="w-full px-2.5 py-1.5 text-xs bg-[#FFFFFF] border border-[#CBD5E1] rounded-lg text-[#0F172A]"
@@ -793,6 +1161,32 @@ function CreateTemplateModal({ onClose, onCreated, prefill = null }) {
                       onChange={(e) => updateButton(idx, 'url', e.target.value)}
                       className="w-full px-2.5 py-1.5 text-xs bg-[#FFFFFF] border border-[#CBD5E1] rounded-lg text-[#0F172A]"
                     />
+                  )}
+
+                  {btn.type === 'PHONE_NUMBER' && (
+                    <input
+                      type="text"
+                      placeholder="+91 99703 64001 (must include country code)"
+                      value={btn.phoneNumber || ''}
+                      onChange={(e) => updateButton(idx, 'phoneNumber', e.target.value)}
+                      className="w-full px-2.5 py-1.5 text-xs bg-[#FFFFFF] border border-[#CBD5E1] rounded-lg text-[#0F172A]"
+                    />
+                  )}
+
+                  {btn.type === 'COPY_CODE' && (
+                    <div>
+                      <input
+                        type="text"
+                        maxLength={15}
+                        placeholder="Offer / coupon code (e.g. 20OFF, SUMMER50)"
+                        value={btn.code || ''}
+                        onChange={(e) => updateButton(idx, 'code', e.target.value.toUpperCase())}
+                        className="w-full px-2.5 py-1.5 text-xs font-mono font-bold bg-[#FFFFFF] border border-[#CBD5E1] rounded-lg text-[#0F172A] tracking-wider uppercase"
+                      />
+                      <p className="text-[10px] text-[#64748B] mt-1">
+                        WhatsApp provides users a 1-tap copy button for this code.
+                      </p>
+                    </div>
                   )}
                 </div>
               ))}
