@@ -1,5 +1,6 @@
 'use strict';
 const path = require('path');
+const fs = require('fs');
 require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
 require('dotenv').config();
@@ -23,10 +24,29 @@ async function main() {
   }
   const tenant = tenants[0];
 
+  // Load original membership lookup from smr_parsed_excel_data.json
+  const originalLookup = new Map();
+  try {
+    const dataPath = path.resolve(__dirname, 'smr_parsed_excel_data.json');
+    if (fs.existsSync(dataPath)) {
+      const d = JSON.parse(fs.readFileSync(dataPath, 'utf8'));
+      (d.individual || []).forEach((x) => {
+        const p = (x.phone || x.phoneE164 || '').replace(/[\s\-().]/g, '').slice(-10);
+        if (p) originalLookup.set(p, 'Alphabetica-Individual-Membership');
+      });
+      (d.family || []).forEach((x) => {
+        const p = (x.phone || x.phoneE164 || '').replace(/[\s\-().]/g, '').slice(-10);
+        if (p) originalLookup.set(p, 'Alphabetica-Family-Membership');
+      });
+    }
+  } catch (err) {
+    console.warn('Notice: Could not load smr_parsed_excel_data.json:', err.message);
+  }
+
   // 1. Identify all contacts that have tag 'SMR-Body-Members'
   const { rows: taggedContacts } = await query(
     `SELECT id, first_name, last_name, phone_e164, tags, created_at, updated_at,
-            (created_at >= NOW() - INTERVAL '4 hours') AS is_newly_created
+            (created_at >= '2026-11-08T13:00:00Z') AS is_newly_created
      FROM contacts
      WHERE tenant_id = $1 AND 'SMR-Body-Members' = ANY(tags)
      ORDER BY created_at DESC`,
@@ -35,8 +55,8 @@ async function main() {
 
   console.log(`Found ${taggedContacts.length} contacts with tag 'SMR-Body-Members'.`);
 
-  const newlyCreated = taggedContacts.filter(c => c.is_newly_created);
-  const existingUpdated = taggedContacts.filter(c => !c.is_newly_created);
+  const newlyCreated = taggedContacts.filter((c) => c.is_newly_created);
+  const existingUpdated = taggedContacts.filter((c) => !c.is_newly_created);
 
   console.log(`\nBreakdown:`);
   console.log(`  1. Brand-new contacts created in this recent upload: ${newlyCreated.length}`);
@@ -44,27 +64,26 @@ async function main() {
 
   if (newlyCreated.length > 0) {
     console.log(`\nNew contacts to be DELETED (${newlyCreated.length}):`);
-    newlyCreated.slice(0, 5).forEach((c, i) => {
-      console.log(`   [${i + 1}] ${c.first_name || ''} ${c.last_name || ''} (${c.phone_e164}) | Created: ${c.created_at.toISOString()}`);
+    newlyCreated.forEach((c, i) => {
+      console.log(`   [${i + 1}] ${c.first_name || ''} ${c.last_name || ''} (${c.phone_e164}) | Created: ${c.created_at.toISOString().slice(11, 19)}`);
     });
-    if (newlyCreated.length > 5) console.log(`   ... and ${newlyCreated.length - 5} more`);
   }
 
   if (existingUpdated.length > 0) {
-    console.log(`\nExisting contacts to have 'SMR-Body-Members' REMOVED from tags (${existingUpdated.length}):`);
-    existingUpdated.slice(0, 5).forEach((c, i) => {
-      const remainingTags = (c.tags || []).filter(t => t !== 'SMR-Body-Members');
+    console.log(`\nExisting contacts to have original membership tag RESTORED (${existingUpdated.length}):`);
+    existingUpdated.forEach((c, i) => {
+      const p10 = (c.phone_e164 || '').replace(/[\s\-().]/g, '').slice(-10);
+      const originalTag = originalLookup.get(p10) || 'Alphabetica-Family-Membership';
       console.log(`   [${i + 1}] ${c.first_name || ''} ${c.last_name || ''} (${c.phone_e164})`);
-      console.log(`       Current tags:   ${JSON.stringify(c.tags)}`);
-      console.log(`       Remaining tags: ${JSON.stringify(remainingTags)}`);
+      console.log(`       Current tag:  ${JSON.stringify(c.tags)}`);
+      console.log(`       Restored tag: ["${originalTag}"]`);
     });
-    if (existingUpdated.length > 5) console.log(`   ... and ${existingUpdated.length - 5} more`);
   }
 
   if (!isConfirm) {
     console.log('\n----------------------------------------------------------------');
     console.log('⚠️  DRY-RUN COMPLETE: No changes were made to the database.');
-    console.log('To execute this revert safely, run:');
+    console.log('To execute this revert safely and restore original tags, run:');
     console.log('node backend/scripts/revert_smr_recent_upload.js --confirm');
     console.log('----------------------------------------------------------------');
     await pool.end();
@@ -75,7 +94,7 @@ async function main() {
   await withTransaction(async (client) => {
     // 1. Delete newly created contacts
     if (newlyCreated.length > 0) {
-      const idsToDelete = newlyCreated.map(c => c.id);
+      const idsToDelete = newlyCreated.map((c) => c.id);
       const { rowCount: delCount } = await client.query(
         `DELETE FROM contacts WHERE id = ANY($1::uuid[]) AND tenant_id = $2`,
         [idsToDelete, tenant.id]
@@ -83,17 +102,22 @@ async function main() {
       console.log(`\n✅ Deleted ${delCount} newly created contacts.`);
     }
 
-    // 2. Remove 'SMR-Body-Members' from existing contacts
+    // 2. Restore original tags for pre-existing contacts
     if (existingUpdated.length > 0) {
-      const idsToUpdate = existingUpdated.map(c => c.id);
-      const { rowCount: updCount } = await client.query(
-        `UPDATE contacts
-         SET tags = array_remove(tags, 'SMR-Body-Members'),
-             updated_at = NOW()
-         WHERE id = ANY($1::uuid[]) AND tenant_id = $2`,
-        [idsToUpdate, tenant.id]
-      );
-      console.log(`✅ Stripped 'SMR-Body-Members' tag from ${updCount} pre-existing contacts.`);
+      let restoredCount = 0;
+      for (const c of existingUpdated) {
+        const p10 = (c.phone_e164 || '').replace(/[\s\-().]/g, '').slice(-10);
+        const originalTag = originalLookup.get(p10) || 'Alphabetica-Family-Membership';
+        await client.query(
+          `UPDATE contacts
+           SET tags = $1,
+               updated_at = NOW()
+           WHERE id = $2 AND tenant_id = $3`,
+          [[originalTag], c.id, tenant.id]
+        );
+        restoredCount++;
+      }
+      console.log(`✅ Restored original membership tag for ${restoredCount} pre-existing contacts.`);
     }
 
     // 3. Clean up empty contact lists if any list named 'SMR-Body-Members' was created
@@ -114,7 +138,7 @@ async function main() {
     }
   });
 
-  console.log('\n🎉 REVERT COMPLETED SUCCESSFULLY! Previous contacts restored.');
+  console.log('\n🎉 REVERT COMPLETED SUCCESSFULLY! Original membership tags restored.');
   console.log('================================================================');
   await pool.end();
 }

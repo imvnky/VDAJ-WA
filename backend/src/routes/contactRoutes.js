@@ -180,7 +180,7 @@ router.post('/', contactValidators, validate, catchAsync(async (req, res) => {
     lastName,
     email,
     customVars,
-    tags          = [],
+    tags = [],
     listId,
     opt_in_source = 'manual',
     opt_in_proof,
@@ -275,12 +275,12 @@ router.post('/', contactValidators, validate, catchAsync(async (req, res) => {
 //   Accepted values: 'import' | 'web_form' | 'manual' | 'api' | 'verbal'
 router.post('/bulk', catchAsync(async (req, res) => {
   const {
-    contacts:    rawContacts,
+    contacts: rawContacts,
     listId,
     newListName,
-    tags          = [],
+    tags = [],
     opt_in_source = 'import',          // default: bulk import
-    opt_in_proof  = 'Bulk CSV import', // fallback proof text
+    opt_in_proof = 'Bulk CSV import', // fallback proof text
   } = req.body;
 
   if (!Array.isArray(rawContacts) || rawContacts.length === 0) {
@@ -316,13 +316,13 @@ router.post('/bulk', catchAsync(async (req, res) => {
 
   // ── Server-side E.164 validation + sanitization ───────────
   const E164_REGEX = /^\+[1-9]\d{7,14}$/;
-  const valid   = [];
+  const valid = [];
   const invalid = [];
 
   for (const raw of rawContacts) {
     let phone = String(raw.phoneE164 || '').trim().replace(/^['"\t]+|['"\t]+$/g, '');
     if (/^[0-9.]+[eE]\+[0-9]+$/.test(phone)) {
-      try { phone = BigInt(Math.round(Number(phone))).toString(); } catch {}
+      try { phone = BigInt(Math.round(Number(phone))).toString(); } catch { }
     }
     phone = phone.replace(/[\s\-().]/g, '');
     if (/^[6-9]\d{9}$/.test(phone)) {
@@ -347,11 +347,11 @@ router.post('/bulk', catchAsync(async (req, res) => {
 
     valid.push({
       phone,
-      firstName:  raw.firstName  || null,
-      lastName:   raw.lastName   || null,
-      email:      raw.email      || null,
+      firstName: raw.firstName || null,
+      lastName: raw.lastName || null,
+      email: raw.email || null,
       customVars: raw.customVars || {},
-      tags:       contactTags,
+      tags: contactTags,
     });
   }
 
@@ -366,10 +366,10 @@ router.post('/bulk', catchAsync(async (req, res) => {
     if (uniqueContactsMap.has(c.phone)) {
       const existing = uniqueContactsMap.get(c.phone);
       existing.firstName = c.firstName || existing.firstName;
-      existing.lastName  = c.lastName  || existing.lastName;
-      existing.email     = c.email     || existing.email;
+      existing.lastName = c.lastName || existing.lastName;
+      existing.email = c.email || existing.email;
       existing.customVars = { ...(existing.customVars || {}), ...(c.customVars || {}) };
-      existing.tags      = Array.from(new Set([...(existing.tags || []), ...(c.tags || [])]));
+      existing.tags = Array.from(new Set([...(existing.tags || []), ...(c.tags || [])]));
     } else {
       uniqueContactsMap.set(c.phone, c);
     }
@@ -377,15 +377,15 @@ router.post('/bulk', catchAsync(async (req, res) => {
   const deduplicatedValid = Array.from(uniqueContactsMap.values());
 
   // ── Build parallel arrays for UNNEST bulk insert ───────────
-  const phones        = deduplicatedValid.map((c) => c.phone);
-  const firstNames    = deduplicatedValid.map((c) => c.firstName);
-  const lastNames     = deduplicatedValid.map((c) => c.lastName);
-  const emails        = deduplicatedValid.map((c) => c.email);
+  const phones = deduplicatedValid.map((c) => c.phone);
+  const firstNames = deduplicatedValid.map((c) => c.firstName);
+  const lastNames = deduplicatedValid.map((c) => c.lastName);
+  const emails = deduplicatedValid.map((c) => c.email);
   const customVarsArr = deduplicatedValid.map((c) => JSON.stringify(c.customVars));
-  const tagsStrArr    = deduplicatedValid.map((c) => (c.tags || []).join('|||'));
+  const tagsStrArr = deduplicatedValid.map((c) => (c.tags || []).join('|||'));
 
   let inserted = 0;
-  let updated  = 0;
+  let updated = 0;
   let newContactIds = [];
   let targetListId = listId || null;
 
@@ -439,7 +439,11 @@ router.post('/bulk', catchAsync(async (req, res) => {
            custom_vars = contacts.custom_vars || EXCLUDED.custom_vars,
            tags        = CASE
                            WHEN array_length(EXCLUDED.tags, 1) > 0
-                           THEN EXCLUDED.tags
+                           THEN (
+                             SELECT COALESCE(array_agg(DISTINCT elem), '{}'::text[])
+                             FROM unnest(COALESCE(contacts.tags, '{}'::text[]) || EXCLUDED.tags) AS elem
+                             WHERE elem IS NOT NULL AND elem <> ''
+                           )
                            ELSE contacts.tags
                          END,
            updated_at  = NOW()
@@ -455,9 +459,9 @@ router.post('/bulk', catchAsync(async (req, res) => {
       ]
     );
 
-    inserted       = upserted.filter((r) => r.is_new).length;
-    updated        = upserted.filter((r) => !r.is_new).length;
-    newContactIds  = upserted.map((r) => r.id);
+    inserted = upserted.filter((r) => r.is_new).length;
+    updated = upserted.filter((r) => !r.is_new).length;
+    newContactIds = upserted.map((r) => r.id);
 
     // ── Add all contacts to the specified list ─────────────────
     if (targetListId && newContactIds.length > 0) {
@@ -533,7 +537,7 @@ router.post('/bulk', catchAsync(async (req, res) => {
       ...(targetListId ? [{ name: 'List Association', details: `Assign contacts to contact list ${targetListId}`, component: 'Audience Engine', status: 'SUCCESS' }] : []),
     ],
     ipAddress: req.ip,
-  }).catch(() => {});
+  }).catch(() => { });
 
   return sendSuccess(
     res,
@@ -768,7 +772,7 @@ router.post('/bulk-tags', catchAsync(async (req, res) => {
   // Sanitise tags — preserve casing
   const cleanTags = [...new Set(
     tags.map((t) => String(t).trim().replace(/[^a-zA-Z0-9_\- ]/g, '').slice(0, 30))
-        .filter(Boolean)
+      .filter(Boolean)
   )];
 
   if (cleanTags.length === 0) {
@@ -843,8 +847,8 @@ router.post('/reset-all', catchAsync(async (req, res) => {
 
 // ── GET /contacts/:id — Full contact detail ────────────────────
 router.get('/:id', uuidParamValidator('id'), validate, catchAsync(async (req, res) => {
-  const tenantId   = req.user.tenantId;
-  const contactId  = req.params.id;
+  const tenantId = req.user.tenantId;
+  const contactId = req.params.id;
 
   // 1. Base contact row (always exists)
   const { rows: [contact] } = await query(
@@ -894,7 +898,7 @@ router.get('/:id', uuidParamValidator('id'), validate, catchAsync(async (req, re
         [contactId]
       );
       optOutEvent = ooe2;
-    } catch (e2) {}
+    } catch (e2) { }
   }
 
   // 4. Campaign history — last 20 messages sent to this contact
@@ -920,7 +924,7 @@ router.get('/:id', uuidParamValidator('id'), validate, catchAsync(async (req, re
       [contactId, tenantId, req.user.role === 'super_admin']
     );
     campaignHistory = rows;
-  } catch (err) {}
+  } catch (err) { }
 
   // 5. Active inbox conversation thread (if exists)
   let conversation = null;
@@ -933,17 +937,17 @@ router.get('/:id', uuidParamValidator('id'), validate, catchAsync(async (req, re
       [contactId, tenantId, req.user.role === 'super_admin']
     );
     conversation = conv;
-  } catch (err) {}
+  } catch (err) { }
 
   return sendSuccess(res, {
     ...contact,
     opt_in_event_source: optInEvent?.source || contact.opt_in_source || null,
-    opt_in_event_proof:  optInEvent?.proof || contact.opt_in_proof || null,
-    opt_in_event_ip:     optInEvent?.ip_address || null,
-    opt_in_event_at:     optInEvent?.created_at || contact.opted_in_at || null,
-    opt_out_event:       optOutEvent || null,
-    campaign_history:    campaignHistory,
-    conversation_id:     conversation?.id || null,
+    opt_in_event_proof: optInEvent?.proof || contact.opt_in_proof || null,
+    opt_in_event_ip: optInEvent?.ip_address || null,
+    opt_in_event_at: optInEvent?.created_at || contact.opted_in_at || null,
+    opt_out_event: optOutEvent || null,
+    campaign_history: campaignHistory,
+    conversation_id: conversation?.id || null,
   }, 'Contact detail fetched.');
 }));
 
@@ -955,7 +959,7 @@ router.patch('/:id/tags', uuidParamValidator('id'), validate, catchAsync(async (
   // Sanitise: alphanumeric + dash/underscore/space, max 30 chars, max 20 tags — preserve casing
   const clean = [...new Set(
     tags.map((t) => String(t).trim().replace(/[^a-zA-Z0-9_\- ]/g, '').slice(0, 30))
-        .filter(Boolean)
+      .filter(Boolean)
   )].slice(0, 20);
 
   const { rows: [contact] } = await query(
