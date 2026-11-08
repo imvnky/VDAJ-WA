@@ -44,21 +44,18 @@ async function verify() {
     // 2. Query Meta Graph API for Phone Number Health
     try {
       const res = await fetch(
-        `https://graph.facebook.com/v21.0/${phoneId}?fields=display_phone_number,verified_name,name_status,status,quality_rating,messaging_limit_tier,whatsapp_business_account&access_token=${token}`
+        `https://graph.facebook.com/v21.0/${phoneId}?fields=display_phone_number,verified_name,name_status,status,quality_rating,messaging_limit_tier&access_token=${token}`
       );
       const data = await res.json();
       if (data.error) {
         console.log(`❌ Meta Phone API Error: ${data.error.message} (Code: ${data.error.code})`);
       } else {
-        console.log(`✅ LIVE META STATUS:`);
+        console.log(`✅ LIVE META PHONE STATUS:`);
         console.log(`   - Verified Name:    ${data.verified_name} (${data.name_status})`);
         console.log(`   - Phone on Meta:    ${data.display_phone_number}`);
         console.log(`   - Quality Rating:   ${data.quality_rating}`);
         console.log(`   - Messaging Tier:   ${data.messaging_limit_tier || 'Tier 1'}`);
         console.log(`   - Account Status:   ${data.status}`);
-        if (data.whatsapp_business_account?.id) {
-          console.log(`   - Linked Real WABA: ${data.whatsapp_business_account.id}`);
-        }
       }
     } catch (err) {
       console.log(`❌ Network error reaching Meta: ${err.message}`);
@@ -71,9 +68,11 @@ async function verify() {
           `https://graph.facebook.com/v21.0/${wabaId}/message_templates?fields=name,status,language&limit=10&access_token=${token}`
         );
         const tplData = await tplRes.json();
-        if (tplData?.data) {
+        if (tplData?.error) {
+          console.log(`\n❌ Meta Template Query Error: ${tplData.error.message} (Code: ${tplData.error.code})`);
+        } else if (tplData?.data) {
           console.log(`\n📋 Meta Templates Found: ${tplData.data.length}`);
-          tplData.data.slice(0, 5).forEach((tp) => {
+          tplData.data.forEach((tp) => {
             console.log(`   - [${tp.status}] ${tp.name} (${tp.language})`);
           });
         }
