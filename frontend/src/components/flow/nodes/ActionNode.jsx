@@ -8,12 +8,13 @@ import React, { memo } from 'react';
 import { Handle, Position } from '@xyflow/react';
 
 const ACTION_META = {
-  add_tag:    { icon: '🏷️', label: 'Add Tag',        color: '#059669', lightBg: '#ECFDF5', border: '#A7F3D0' },
-  remove_tag: { icon: '✂️', label: 'Remove Tag',     color: '#DC2626', lightBg: '#FEF2F2', border: '#FECACA' },
-  assign:     { icon: '👤', label: 'Assign Agent',   color: '#4F46E5', lightBg: '#EEF2FF', border: '#C7D2FE' },
-  webhook:    { icon: '🔗', label: 'Webhook Call',   color: '#7C3AED', lightBg: '#F5F3FF', border: '#DDD6FE' },
-  opt_out:    { icon: '🚫', label: 'Mark Opted Out', color: '#D97706', lightBg: '#FFFBEB', border: '#FDE68A' },
-  condition:  { icon: '❓', label: 'Condition Split',color: '#DB2777', lightBg: '#FDF2F8', border: '#FBCFE8' },
+  update_tags: { icon: '🏷️', label: 'Update Tags', color: '#0D9488', lightBg: '#F0FDFA', border: '#99F6E4' },
+  add_tag: { icon: '🏷️', label: 'Add Tag', color: '#059669', lightBg: '#ECFDF5', border: '#A7F3D0' },
+  remove_tag: { icon: '✂️', label: 'Remove Tag', color: '#DC2626', lightBg: '#FEF2F2', border: '#FECACA' },
+  assign: { icon: '👤', label: 'Assign Agent', color: '#059669', lightBg: '#ECFDF5', border: '#A7F3D0' },
+  webhook: { icon: '🔗', label: 'Webhook', color: '#10B981', lightBg: '#ECFDF5', border: '#A7F3D0' },
+  opt_out: { icon: '🚫', label: 'Mark Opted Out', color: '#D97706', lightBg: '#FFFBEB', border: '#FDE68A' },
+  condition: { icon: '⑂', label: 'Condition', color: '#D97706', lightBg: '#FFFBEB', border: '#FDE68A' },
 };
 
 function ActionNode({ data, selected }) {
