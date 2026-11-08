@@ -403,7 +403,7 @@ async function handleInboundMessage(msg, value, broadcastToTenant) {
     tenantId,
     fromPhone: formattedPhone,
     messageBody: body,
-    buttonReplyId: rawMsg?.interactive?.button_reply?.id || null,
+    buttonReplyId: msg?.interactive?.button_reply?.id || null,
     contactId,
     conversationId: conv.id,
     broadcastToTenant,

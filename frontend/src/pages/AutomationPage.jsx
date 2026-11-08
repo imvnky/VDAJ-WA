@@ -1038,11 +1038,10 @@ function FlowCanvas() {
       return;
     }
 
-    let targetId = activeFlowId;
-    if (!targetId) {
-      targetId = await saveFlow();
-    }
-    if (!targetId) return;
+    // Always persist current canvas state (nodes, messages, edges, trigger config) first
+    const savedId = await saveFlow();
+    if (!savedId) return;
+    const targetId = savedId;
 
     try {
       await automationApi.update(targetId, { isActive: true });

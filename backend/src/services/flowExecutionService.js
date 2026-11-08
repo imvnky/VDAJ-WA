@@ -103,11 +103,11 @@ async function processInboundFlow({
 
       // 3. Retrieve Tenant Meta Credentials
       const { rows: [tenant] } = await query(
-        `SELECT meta_phone_number_id, meta_system_token FROM tenants WHERE id = $1`,
+        `SELECT phone_number_id, meta_system_token FROM tenants WHERE id = $1`,
         [tenantId]
       );
 
-      const effectivePhoneId = tenant?.meta_phone_number_id || process.env.META_PHONE_NUMBER_ID;
+      const effectivePhoneId = tenant?.phone_number_id || process.env.META_PHONE_NUMBER_ID;
       const effectiveToken = tenant?.meta_system_token || process.env.META_ACCESS_TOKEN;
 
       if (!effectivePhoneId || !effectiveToken) {
@@ -157,7 +157,7 @@ async function processInboundFlow({
             const metaRes = await sendWhatsAppMessage({
               phoneNumberId: effectivePhoneId,
               accessToken: effectiveToken,
-              to: fromPhone,
+              to: String(fromPhone).replace(/\D/g, ''),
               body: bodyText,
               buttons: msgType === 'buttons' && buttons.length > 0 ? buttons : undefined,
               templateName: msgType === 'template' ? config.templateName : undefined,
@@ -267,3 +267,4 @@ module.exports = {
   processInboundFlow,
   parseGraph,
 };
+
