@@ -44,7 +44,7 @@ async function verify() {
     // 2. Query Meta Graph API for Phone Number Health
     try {
       const res = await fetch(
-        `https://graph.facebook.com/v21.0/${phoneId}?fields=display_phone_number,verified_name,name_status,status,quality_rating,messaging_limit_tier&access_token=${token}`
+        `https://graph.facebook.com/v21.0/${phoneId}?fields=display_phone_number,verified_name,name_status,status,quality_rating,messaging_limit_tier,whatsapp_business_account&access_token=${token}`
       );
       const data = await res.json();
       if (data.error) {
@@ -56,6 +56,9 @@ async function verify() {
         console.log(`   - Quality Rating:   ${data.quality_rating}`);
         console.log(`   - Messaging Tier:   ${data.messaging_limit_tier || 'Tier 1'}`);
         console.log(`   - Account Status:   ${data.status}`);
+        if (data.whatsapp_business_account?.id) {
+          console.log(`   - Linked Real WABA: ${data.whatsapp_business_account.id}`);
+        }
       }
     } catch (err) {
       console.log(`❌ Network error reaching Meta: ${err.message}`);
@@ -98,3 +101,4 @@ verify().catch(async (e) => {
   console.error(e);
   try { await pool.end(); } catch {}
 });
+
