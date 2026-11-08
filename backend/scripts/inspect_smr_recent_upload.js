@@ -24,7 +24,7 @@ async function main() {
 
   // 1. Check recent audit logs for bulk import
   const { rows: auditLogs } = await query(
-    `SELECT id, action, status, meta, created_at
+    `SELECT id, action, meta, created_at
      FROM audit_logs
      WHERE tenant_id = $1 AND action = 'CONTACTS_BULK_IMPORT'
      ORDER BY created_at DESC
@@ -119,3 +119,4 @@ main().catch(async (err) => {
   console.error('Error running inspection:', err);
   try { await pool.end(); } catch {}
 });
+
