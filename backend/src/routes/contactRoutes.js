@@ -309,20 +309,10 @@ router.post('/bulk', catchAsync(async (req, res) => {
     );
   }
 
-  // Parse tags array from request-level and row-level tags
-  const rowTagsAll = [];
-  for (const raw of rawContacts) {
-    if (Array.isArray(raw.tags)) {
-      rowTagsAll.push(...raw.tags);
-    } else if (raw.tags) {
-      rowTagsAll.push(...String(raw.tags).split(','));
-    }
-  }
-
-  const cleanTags = Array.from(new Set([
-    ...(Array.isArray(tags) ? tags : String(tags || '').split(',')),
-    ...rowTagsAll
-  ])).map((t) => String(t).trim()).filter(Boolean);
+  // Parse optional batch-level global tags (e.g. from modal input)
+  const batchGlobalTags = (Array.isArray(tags) ? tags : String(tags || '').split(','))
+    .map((t) => String(t).trim())
+    .filter(Boolean);
 
   // ── Server-side E.164 validation + sanitization ───────────
   const E164_REGEX = /^\+[1-9]\d{7,14}$/;
@@ -346,12 +336,22 @@ router.post('/bulk', catchAsync(async (req, res) => {
       continue;
     }
 
+    // Extract this contact's row-level tags
+    let rowTags = [];
+    if (Array.isArray(raw.tags)) {
+      rowTags = raw.tags.map((t) => String(t).trim()).filter(Boolean);
+    } else if (raw.tags) {
+      rowTags = String(raw.tags).split(',').map((t) => String(t).trim()).filter(Boolean);
+    }
+    const contactTags = Array.from(new Set([...batchGlobalTags, ...rowTags]));
+
     valid.push({
       phone,
       firstName:  raw.firstName  || null,
       lastName:   raw.lastName   || null,
       email:      raw.email      || null,
       customVars: raw.customVars || {},
+      tags:       contactTags,
     });
   }
 
@@ -369,6 +369,7 @@ router.post('/bulk', catchAsync(async (req, res) => {
       existing.lastName  = c.lastName  || existing.lastName;
       existing.email     = c.email     || existing.email;
       existing.customVars = { ...(existing.customVars || {}), ...(c.customVars || {}) };
+      existing.tags      = Array.from(new Set([...(existing.tags || []), ...(c.tags || [])]));
     } else {
       uniqueContactsMap.set(c.phone, c);
     }
@@ -381,6 +382,7 @@ router.post('/bulk', catchAsync(async (req, res) => {
   const lastNames     = deduplicatedValid.map((c) => c.lastName);
   const emails        = deduplicatedValid.map((c) => c.email);
   const customVarsArr = deduplicatedValid.map((c) => JSON.stringify(c.customVars));
+  const tagsStrArr    = deduplicatedValid.map((c) => (c.tags || []).join('|||'));
 
   let inserted = 0;
   let updated  = 0;
@@ -421,10 +423,14 @@ router.post('/bulk', catchAsync(async (req, res) => {
          $1,
          phone, first_name, last_name, email,
          custom_vars::jsonb,
-         $7::text[]
+         CASE
+           WHEN tags_str IS NOT NULL AND tags_str <> ''
+           THEN string_to_array(tags_str, '|||')
+           ELSE '{}'::text[]
+         END
        FROM UNNEST(
-         $2::text[], $3::text[], $4::text[], $5::text[], $6::text[]
-       ) AS t(phone, first_name, last_name, email, custom_vars)
+         $2::text[], $3::text[], $4::text[], $5::text[], $6::text[], $7::text[]
+       ) AS t(phone, first_name, last_name, email, custom_vars, tags_str)
        ON CONFLICT (tenant_id, phone_e164) DO UPDATE
          SET
            first_name  = COALESCE(EXCLUDED.first_name,  contacts.first_name),
@@ -432,8 +438,8 @@ router.post('/bulk', catchAsync(async (req, res) => {
            email       = COALESCE(EXCLUDED.email,       contacts.email),
            custom_vars = contacts.custom_vars || EXCLUDED.custom_vars,
            tags        = CASE
-                           WHEN array_length($7::text[], 1) > 0
-                           THEN COALESCE(contacts.tags, '{}'::text[]) || $7::text[]
+                           WHEN array_length(EXCLUDED.tags, 1) > 0
+                           THEN EXCLUDED.tags
                            ELSE contacts.tags
                          END,
            updated_at  = NOW()
@@ -445,7 +451,7 @@ router.post('/bulk', catchAsync(async (req, res) => {
         lastNames,
         emails,
         customVarsArr,
-        cleanTags,
+        tagsStrArr,
       ]
     );
 
