@@ -65,7 +65,7 @@ const cookie = require('cookie');
 
 // ──────────────────────────────────────────────────────────────
 const app        = express();
-app.set('trust proxy', true); // Trust all reverse proxy hops (Cloudflare, Nginx) so client IP is accurately extracted
+app.set('trust proxy', 1); // Single reverse proxy hop (Nginx) on the same machine
 
 const PORT       = process.env.PORT || 5000;
 const API_PREFIX = '/api/v1';
@@ -129,6 +129,7 @@ const globalLimiter = rateLimit({
   max:      IS_DEV ? 50_000 : Math.max(10_000, parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '10000', 10)),
   standardHeaders: true,
   legacyHeaders:   false,
+  validate:        { trustProxy: false },
   message: {
     success:   false,
     errorCode: 'ERR_VDAJ_SRV_002',
@@ -147,6 +148,7 @@ const loginLimiter = rateLimit({
   max:      IS_DEV ? 1_000 : 100,
   standardHeaders: true,
   legacyHeaders:   false,
+  validate:        { trustProxy: false },
   message: {
     success:   false,
     errorCode: 'ERR_VDAJ_SRV_002',
