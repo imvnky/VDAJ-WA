@@ -23,6 +23,7 @@ const { query }           = require('../config/database');
 const { sendSuccess }     = require('../middleware/responseHandler');
 const logger              = require('../utils/logger');
 const { optOutInterceptor } = require('../workers/optOutInterceptor');
+const { processInboundFlow } = require('../services/flowExecutionService');
 const fetch = (...args) => import('node-fetch').then(({ default: f }) => f(...args));
 
 const META_API_BASE = process.env.META_GRAPH_API_URL || 'https://graph.facebook.com';
@@ -395,6 +396,20 @@ async function handleInboundMessage(msg, value, broadcastToTenant) {
       },
     });
   }
+
+  // ── Trigger Inbound WhatsApp Flow Automation Engine ───────────
+  // Evaluates active keyword & interactive button automations for this tenant
+  processInboundFlow({
+    tenantId,
+    fromPhone: formattedPhone,
+    messageBody: body,
+    buttonReplyId: rawMsg?.interactive?.button_reply?.id || null,
+    contactId,
+    conversationId: conv.id,
+    broadcastToTenant,
+  }).catch((flowErr) => {
+    logger.warn('[Webhook] Error executing inbound automation flow', { error: flowErr.message });
+  });
 }
 
 // ─────────────────────────────────────────────────────────────────

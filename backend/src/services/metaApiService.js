@@ -214,6 +214,7 @@ const sendWhatsAppMessage = async ({
   templateLanguage,
   templateVars,
   body: freeTextBody,
+  buttons,
 }) => {
   const token = getEffectiveToken(accessToken);
   if (!token) {
@@ -229,6 +230,27 @@ const sendWhatsAppMessage = async ({
   if (templateName) {
     // Template send
     messagePayload = buildTemplatePayload(to, templateName, templateLanguage, templateVars);
+  } else if (Array.isArray(buttons) && buttons.length > 0 && freeTextBody) {
+    // Interactive button reply (Meta supports up to 3 quick-reply buttons)
+    messagePayload = {
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      to,
+      type: 'interactive',
+      interactive: {
+        type: 'button',
+        body: { text: freeTextBody },
+        action: {
+          buttons: buttons.slice(0, 3).map((b, i) => ({
+            type: 'reply',
+            reply: {
+              id: String(b.value || b.id || `btn_${i}`).slice(0, 256),
+              title: String(b.label || b.title || 'Select').slice(0, 20),
+            },
+          })),
+        },
+      },
+    };
   } else if (freeTextBody) {
     // Free-text reply (used by Inbox)
     messagePayload = {

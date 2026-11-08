@@ -784,35 +784,89 @@ function FlowCanvas() {
     setShowTemplates(false);
   };
 
+  // Helper to re-hydrate nodes for React Flow
+  const toRfNode = (n) => ({
+    id: n.id,
+    type: n.type || 'message',
+    position: n.position || { x: 300, y: 100 },
+    data: n.data || { label: n.label || 'Step', config: n.config || {} },
+  });
+
   // Load flow
   const loadFlow = (f) => {
     setFlowName(f.name);
     setActiveFlowId(f.id);
-    setStatus(f.status || 'draft');
+    setStatus(f.is_active ? 'active' : (f.status || 'draft'));
     if (f.steps) {
-      setNodes(f.steps.filter((s) => !s.source));
-      setEdges(f.steps.filter((s) => s.source));
+      if (Array.isArray(f.steps)) {
+        setNodes(f.steps.filter((s) => !s.source).map(toRfNode));
+        setEdges(f.steps.filter((s) => s.source));
+      } else if (typeof f.steps === 'object') {
+        const loadedNodes = (f.steps.nodes || []).map(toRfNode);
+        const loadedEdges = (f.steps.edges || []).map((e) => ({
+          ...EDGE_DEFAULTS,
+          ...e,
+        }));
+        setNodes(loadedNodes);
+        setEdges(loadedEdges);
+      }
     }
   };
 
   // Save flow
   const saveFlow = async () => {
+    if (!flowName.trim()) {
+      showError('Please enter a name for this automation flow.');
+      return null;
+    }
+
+    if (nodes.length === 0) {
+      showError('Cannot save an empty flow. Add at least one Trigger and Message step.');
+      return null;
+    }
+
+    const triggerNode = nodes.find((n) => n.type === 'trigger');
+    const triggerType = triggerNode?.data?.config?.triggerType || 'keyword';
+    const triggerConfig = triggerNode?.data?.config || {};
+
     setSaving(true);
+    let savedId = activeFlowId;
     try {
       const payload = {
-        name: flowName,
-        steps: nodes.map((n) => ({ ...n.data, id: n.id, type: n.type, position: n.position })),
+        name: flowName.trim(),
+        triggerType,
+        triggerConfig,
+        steps: {
+          nodes: nodes.map((n) => ({
+            id: n.id,
+            type: n.type,
+            position: n.position,
+            data: n.data,
+          })),
+          edges: edges.map((e) => ({
+            id: e.id,
+            source: e.source,
+            target: e.target,
+            sourceHandle: e.sourceHandle || null,
+            targetHandle: e.targetHandle || null,
+            label: e.label || null,
+          })),
+        },
       };
+
       if (activeFlowId) {
         await automationApi.update(activeFlowId, payload);
       } else {
         const res = await automationApi.create(payload);
-        setActiveFlowId(res?.data?.id);
+        savedId = res?.data?.id;
+        setActiveFlowId(savedId);
         setFlowList((fl) => [res.data, ...fl]);
       }
-      showSuccess('Flow saved successfully.');
+      showSuccess('Flow saved successfully with all connections.');
+      return savedId;
     } catch {
       showError('Failed to save flow.');
+      return null;
     } finally {
       setSaving(false);
     }
@@ -820,13 +874,28 @@ function FlowCanvas() {
 
   // Publish
   const publishFlow = async () => {
-    if (!activeFlowId) {
-      await saveFlow();
+    if (nodes.length === 0) {
+      showError('Add steps to your flow before publishing.');
+      return;
     }
+
+    const hasTrigger = nodes.some((n) => n.type === 'trigger');
+    if (!hasTrigger) {
+      showError('Your flow needs at least one Trigger node (e.g. Keyword Received) to start.');
+      return;
+    }
+
+    let targetId = activeFlowId;
+    if (!targetId) {
+      targetId = await saveFlow();
+    }
+    if (!targetId) return;
+
     try {
-      await automationApi.update(activeFlowId, { isActive: true });
+      await automationApi.update(targetId, { isActive: true });
+      setActiveFlowId(targetId);
       setStatus('active');
-      showSuccess('Flow is now LIVE! 🚀');
+      showSuccess('Flow is now LIVE on WhatsApp! 🚀');
     } catch {
       showError('Publish failed.');
     }

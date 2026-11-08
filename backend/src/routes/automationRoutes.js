@@ -13,8 +13,50 @@ const AppError = require('../utils/AppError');
 
 router.use(authenticate, requireTenant);
 
+let tablesInitialized = false;
+async function ensureTables() {
+  if (tablesInitialized) return;
+  try {
+    await query(`
+      CREATE TABLE IF NOT EXISTS automations (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        name VARCHAR(255) NOT NULL,
+        description TEXT,
+        trigger_type VARCHAR(100) NOT NULL DEFAULT 'manual',
+        trigger_config JSONB NOT NULL DEFAULT '{}',
+        steps JSONB NOT NULL DEFAULT '[]',
+        is_active BOOLEAN NOT NULL DEFAULT FALSE,
+        run_count INTEGER NOT NULL DEFAULT 0,
+        created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE TABLE IF NOT EXISTS automation_runs (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        automation_id UUID NOT NULL REFERENCES automations(id) ON DELETE CASCADE,
+        contact_id UUID REFERENCES contacts(id) ON DELETE SET NULL,
+        phone_e164 VARCHAR(20) NOT NULL,
+        status VARCHAR(50) NOT NULL DEFAULT 'running',
+        current_step_id VARCHAR(100),
+        trigger_type VARCHAR(100),
+        matched_keyword VARCHAR(255),
+        logs JSONB NOT NULL DEFAULT '[]',
+        error_message TEXT,
+        started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        completed_at TIMESTAMPTZ
+      );
+    `);
+    tablesInitialized = true;
+  } catch (err) {
+    // Non-fatal if already initialized
+  }
+}
+
 // ---- GET /automations ----
 router.get('/', catchAsync(async (req, res) => {
+  await ensureTables();
   let rows = [];
   try {
     const result = await query(
@@ -27,14 +69,14 @@ router.get('/', catchAsync(async (req, res) => {
     );
     rows = result.rows;
   } catch (err) {
-    // Table may not exist yet — return empty list gracefully
-    if (err.code !== '42P01') throw err; // Re-throw if not "table does not exist"
+    if (err.code !== '42P01') throw err;
   }
   return sendSuccess(res, rows);
 }));
 
 // ---- POST /automations ----
 router.post('/', catchAsync(async (req, res) => {
+  await ensureTables();
   const { name, description, triggerType = 'manual', triggerConfig = {}, steps = [] } = req.body;
   if (!name?.trim()) throw new AppError('Automation name is required.', 400, 'ERR_AUTO_001');
 
@@ -42,13 +84,14 @@ router.post('/', catchAsync(async (req, res) => {
     `INSERT INTO automations (tenant_id, name, description, trigger_type, trigger_config, steps, created_by)
      VALUES ($1, $2, $3, $4, $5, $6, $7)
      RETURNING *`,
-    [req.user.tenantId, name, description, triggerType, JSON.stringify(triggerConfig), JSON.stringify(steps), req.user.id]
+    [req.user.tenantId, name.trim(), description, triggerType, JSON.stringify(triggerConfig), JSON.stringify(steps), req.user.id]
   );
   return sendSuccess(res, rows[0], 'Automation created.', 201);
 }));
 
 // ---- PUT /automations/:id ----
 router.put('/:id', catchAsync(async (req, res) => {
+  await ensureTables();
   const { name, description, triggerType, triggerConfig, steps, isActive } = req.body;
   const { rows } = await query(
     `UPDATE automations
@@ -61,11 +104,28 @@ router.put('/:id', catchAsync(async (req, res) => {
          updated_at = NOW()
      WHERE id = $7 AND tenant_id = $8
      RETURNING *`,
-    [name, description, triggerType, triggerConfig ? JSON.stringify(triggerConfig) : null,
+    [name ? name.trim() : null, description, triggerType, triggerConfig ? JSON.stringify(triggerConfig) : null,
      steps ? JSON.stringify(steps) : null, isActive, req.params.id, req.user.tenantId]
   );
   if (!rows.length) throw new AppError('Automation not found.', 404, 'ERR_AUTO_002');
   return sendSuccess(res, rows[0], 'Automation updated.');
+}));
+
+// ---- GET /automations/:id/runs ----
+router.get('/:id/runs', catchAsync(async (req, res) => {
+  await ensureTables();
+  try {
+    const { rows } = await query(
+      `SELECT * FROM automation_runs
+       WHERE automation_id = $1 AND tenant_id = $2
+       ORDER BY started_at DESC
+       LIMIT 50`,
+      [req.params.id, req.user.tenantId]
+    );
+    return sendSuccess(res, rows);
+  } catch (err) {
+    return sendSuccess(res, []);
+  }
 }));
 
 // ---- DELETE /automations/:id ----
