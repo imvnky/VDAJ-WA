@@ -79,25 +79,81 @@ async function processInboundFlow({
 
       let isMatch = false;
       let matchedKeyword = null;
+      let startNode = null;
 
-      // Evaluate trigger conditions
-      if (triggerType === 'keyword') {
-        const keywords = (triggerConfig.keywords || []).map((k) => String(k).trim().toLowerCase());
-        // Check if any keyword matches
-        for (const kw of keywords) {
-          if (!kw) continue;
-          if (cleanText === kw || cleanText.includes(kw)) {
-            isMatch = true;
-            matchedKeyword = kw;
-            break;
+      // ── A. Check if this is a click on an Interactive Button in the flow ──
+      for (const node of nodes) {
+        if (node.type === 'message' && Array.isArray(node.data?.config?.buttons)) {
+          const buttons = node.data.config.buttons;
+          for (let idx = 0; idx < buttons.length; idx++) {
+            const btn = buttons[idx];
+            const btnId = String(btn.value || btn.id || `btn_${idx}`).trim();
+            const btnLabel = String(btn.label || btn.title || '').trim().toLowerCase();
+            const defaultHandle = `btn_${idx}`;
+
+            // Match by button ID, button handle, label, sliced 20-char label, or prefix
+            const isButtonMatch =
+              (cleanButton && (cleanButton === btnId || cleanButton === defaultHandle || cleanButton === btn.value || cleanButton === btn.id)) ||
+              (cleanText && (
+                cleanText === btnLabel ||
+                cleanText === btnLabel.slice(0, 20) ||
+                (btnLabel.length > 4 && btnLabel.startsWith(cleanText))
+              ));
+
+            if (isButtonMatch) {
+              // Find edge connecting this button handle to the next node
+              const edge = edges.find(
+                (e) =>
+                  e.source === node.id &&
+                  (e.sourceHandle === defaultHandle ||
+                   e.sourceHandle === btnId ||
+                   e.sourceHandle === btn.value ||
+                   e.sourceHandle === btn.id ||
+                   (!e.sourceHandle && buttons.length === 1))
+              );
+
+              if (edge) {
+                const targetNode = nodes.find((n) => n.id === edge.target);
+                if (targetNode) {
+                  startNode = targetNode;
+                  matchedKeyword = `button:${btn.label || btnId}`;
+                  isMatch = true;
+                  break;
+                }
+              }
+            }
           }
+          if (startNode) break;
         }
-      } else if (triggerType === 'inbound') {
-        // Any inbound message triggers the flow
-        isMatch = true;
       }
 
-      if (!isMatch) continue;
+      // ── B. If not an interactive button click, evaluate root Trigger ──
+      if (!startNode) {
+        if (triggerType === 'keyword') {
+          const keywords = (triggerConfig.keywords || []).map((k) => String(k).trim().toLowerCase());
+          for (const kw of keywords) {
+            if (!kw) continue;
+            if (cleanText === kw || cleanText.includes(kw)) {
+              isMatch = true;
+              matchedKeyword = kw;
+              break;
+            }
+          }
+        } else if (triggerType === 'inbound') {
+          // Any inbound message triggers the root flow, provided it was not an unhandled button click
+          if (!cleanButton) {
+            isMatch = true;
+            matchedKeyword = 'any_inbound';
+          }
+        }
+
+        if (isMatch) {
+          const firstEdge = edges.find((e) => e.source === triggerNode.id);
+          startNode = firstEdge ? nodes.find((n) => n.id === firstEdge.target) : null;
+        }
+      }
+
+      if (!isMatch || !startNode) continue;
 
       logger.info(`[FlowEngine] Matched flow "${flow.name}" (${flow.id}) for ${fromPhone} on keyword "${matchedKeyword}"`);
 
@@ -138,9 +194,8 @@ async function processInboundFlow({
         // Non-blocking if table not migrated yet
       }
 
-      // 5. Traverse execution graph starting from trigger node
-      const firstEdge = edges.find((e) => e.source === triggerNode.id);
-      let currentNode = firstEdge ? nodes.find((n) => n.id === firstEdge.target) : null;
+      // 5. Traverse execution graph starting from resolved node
+      let currentNode = startNode;
       let stepLimit = 15; // prevent infinite loops
 
       while (currentNode && stepLimit > 0) {

@@ -317,16 +317,36 @@ function MessageForm({ config, onChange }) {
       </Field>
 
       {(config.messageType === 'buttons' || config.messageType === 'list') && (
-        <Field label={`Interactive Buttons (${buttons.length}/3)`}>
+        <Field
+          label={`Interactive Buttons (${buttons.length}/3)`}
+          hint="Meta limits WhatsApp button titles to 20 characters maximum."
+        >
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {buttons.map((btn, i) => (
               <div key={i} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                <input
-                  value={btn.label || ''}
-                  onChange={(e) => updateBtn(i, 'label', e.target.value)}
-                  placeholder={`Option ${i + 1} label`}
-                  style={{ ...inputStyle, flex: 1 }}
-                />
+                <div style={{ flex: 1, position: 'relative' }}>
+                  <input
+                    value={btn.label || ''}
+                    maxLength={20}
+                    onChange={(e) => updateBtn(i, 'label', e.target.value)}
+                    placeholder={`Option ${i + 1} label (max 20 chars)`}
+                    style={{ ...inputStyle, paddingRight: '46px' }}
+                  />
+                  <span
+                    style={{
+                      position: 'absolute',
+                      right: 10,
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      fontSize: '10px',
+                      color: (btn.label?.length || 0) >= 20 ? '#EF4444' : '#94A3B8',
+                      fontWeight: 700,
+                      pointerEvents: 'none',
+                    }}
+                  >
+                    {btn.label?.length || 0}/20
+                  </span>
+                </div>
                 <button
                   type="button"
                   onClick={() => removeBtn(i)}
