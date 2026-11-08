@@ -22,8 +22,8 @@ import '@xyflow/react/dist/style.css';
 
 import TriggerNode from '../components/flow/nodes/TriggerNode';
 import MessageNode from '../components/flow/nodes/MessageNode';
-import DelayNode   from '../components/flow/nodes/DelayNode';
-import ActionNode  from '../components/flow/nodes/ActionNode';
+import DelayNode from '../components/flow/nodes/DelayNode';
+import ActionNode from '../components/flow/nodes/ActionNode';
 import NodeConfigDrawer from '../components/flow/NodeConfigDrawer';
 import { automationApi } from '../lib/api';
 import { showSuccess, showError } from '../components/atoms/Toast/Toast.jsx';
@@ -32,8 +32,8 @@ import { showSuccess, showError } from '../components/atoms/Toast/Toast.jsx';
 const NODE_TYPES = {
   trigger: TriggerNode,
   message: MessageNode,
-  delay:   DelayNode,
-  action:  ActionNode,
+  delay: DelayNode,
+  action: ActionNode,
 };
 
 // ── Edge style ─────────────────────────────────────────────────
@@ -53,64 +53,74 @@ const PALETTE = [
   {
     section: 'Triggers',
     items: [
-      { type: 'trigger', label: 'Keyword Received',   icon: '⌨️', config: { triggerType: 'keyword', keywords: [] } },
-      { type: 'trigger', label: 'New Lead Added',     icon: '👤', config: { triggerType: 'new_lead' } },
-      { type: 'trigger', label: 'Opt-In Received',    icon: '✅', config: { triggerType: 'opt_in' } },
+      { type: 'trigger', label: 'Keyword Received', icon: '⌨️', config: { triggerType: 'keyword', keywords: [] } },
+      { type: 'trigger', label: 'New Lead Added', icon: '👤', config: { triggerType: 'new_lead' } },
+      { type: 'trigger', label: 'Opt-In Received', icon: '✅', config: { triggerType: 'opt_in' } },
     ],
   },
   {
     section: 'Messages',
     items: [
-      { type: 'message', label: 'Send Text',           icon: '💬', config: { messageType: 'text' } },
-      { type: 'message', label: 'Send Image',          icon: '🖼️', config: { messageType: 'image' } },
-      { type: 'message', label: 'Interactive Buttons', icon: '🔘', config: { messageType: 'buttons', buttons: [{label:'Yes',value:'yes'},{label:'No',value:'no'}] } },
-      { type: 'message', label: 'WA Flow Form',        icon: '📋', config: { messageType: 'wa_flow' } },
+      { type: 'message', label: 'Send Text', icon: '💬', config: { messageType: 'text' } },
+      { type: 'message', label: 'Send Image', icon: '🖼️', config: { messageType: 'image' } },
+      { type: 'message', label: 'Interactive Buttons', icon: '🔘', config: { messageType: 'buttons', buttons: [{ label: 'Yes', value: 'yes' }, { label: 'No', value: 'no' }] } },
+      { type: 'message', label: 'WA Flow Form', icon: '📋', config: { messageType: 'wa_flow' } },
     ],
   },
   {
     section: 'Logic',
     items: [
-      { type: 'delay',  label: 'Wait / Delay',         icon: '⏱️', config: { value: 1, unit: 'hours' } },
-      { type: 'action', label: 'Check Condition',      icon: '❓', config: { actionType: 'condition', field: 'last_reply', operator: 'equals' } },
+      { type: 'delay', label: 'Wait / Delay', icon: '⏱️', config: { value: 1, unit: 'hours' } },
+      { type: 'action', label: 'Check Condition', icon: '❓', config: { actionType: 'condition', field: 'last_reply', operator: 'equals' } },
     ],
   },
   {
     section: 'Actions',
     items: [
-      { type: 'action', label: 'Add Tag',              icon: '🏷️', config: { actionType: 'add_tag' } },
-      { type: 'action', label: 'Remove Tag',           icon: '✂️', config: { actionType: 'remove_tag' } },
-      { type: 'action', label: 'Assign to Agent',     icon: '👤', config: { actionType: 'assign' } },
-      { type: 'action', label: 'Trigger Webhook',     icon: '🔗', config: { actionType: 'webhook' } },
+      { type: 'action', label: 'Add Tag', icon: '🏷️', config: { actionType: 'add_tag' } },
+      { type: 'action', label: 'Remove Tag', icon: '✂️', config: { actionType: 'remove_tag' } },
+      { type: 'action', label: 'Assign to Agent', icon: '👤', config: { actionType: 'assign' } },
+      { type: 'action', label: 'Trigger Webhook', icon: '🔗', config: { actionType: 'webhook' } },
     ],
   },
 ];
 
 // ── Quick-start templates ──────────────────────────────────────
 const TEMPLATES = {
+  blank: {
+    name: 'New Custom Flow',
+    nodes: [
+      { id: 'n1', type: 'trigger', position: { x: 300, y: 60 }, data: { label: 'Keyword Received', config: { triggerType: 'keyword', keywords: ['hi', 'help', 'info'] } } },
+      { id: 'n2', type: 'message', position: { x: 300, y: 220 }, data: { label: 'Welcome Message', config: { messageType: 'text', body: 'Hello! Thank you for contacting us. How can we assist you today?' } } },
+    ],
+    edges: [
+      { id: 'e1', source: 'n1', target: 'n2', ...EDGE_DEFAULTS },
+    ],
+  },
   lead_qual: {
     name: 'Lead Qualification Bot',
     nodes: [
-      { id: 'n1', type: 'trigger', position: { x: 300, y: 60 },  data: { label: 'Keyword Received', config: { triggerType: 'keyword', keywords: ['price','quote','info'] } } },
-      { id: 'n2', type: 'message', position: { x: 300, y: 220 }, data: { label: 'Welcome Message', config: { messageType: 'buttons', body: 'Hi! Are you interested in our plans? 👋', buttons: [{label:'Yes, show me',value:'yes'},{label:'Not now',value:'no'}] } } },
-      { id: 'n3', type: 'action',  position: { x: 160, y: 420 }, data: { label: 'Check Response',  config: { actionType: 'condition', field: 'last_reply', operator: 'equals', value: 'yes' } } },
-      { id: 'n4', type: 'action',  position: { x: 60,  y: 580 }, data: { label: 'Tag Hot Lead',    config: { actionType: 'add_tag', tag: 'hot-lead' } } },
+      { id: 'n1', type: 'trigger', position: { x: 300, y: 60 }, data: { label: 'Keyword Received', config: { triggerType: 'keyword', keywords: ['price', 'quote', 'info'] } } },
+      { id: 'n2', type: 'message', position: { x: 300, y: 220 }, data: { label: 'Welcome Message', config: { messageType: 'buttons', body: 'Hi! Are you interested in our plans? 👋', buttons: [{ label: 'Yes, show me', value: 'yes' }, { label: 'Not now', value: 'no' }] } } },
+      { id: 'n3', type: 'action', position: { x: 160, y: 420 }, data: { label: 'Check Response', config: { actionType: 'condition', field: 'last_reply', operator: 'equals', value: 'yes' } } },
+      { id: 'n4', type: 'action', position: { x: 60, y: 580 }, data: { label: 'Tag Hot Lead', config: { actionType: 'add_tag', tag: 'hot-lead' } } },
       { id: 'n5', type: 'message', position: { x: 540, y: 580 }, data: { label: 'Follow-up Later', config: { messageType: 'text', body: 'No problem! Feel free to reach out anytime. 😊' } } },
     ],
     edges: [
       { id: 'e1', source: 'n1', target: 'n2', ...EDGE_DEFAULTS },
       { id: 'e2', source: 'n2', target: 'n3', ...EDGE_DEFAULTS },
       { id: 'e3', source: 'n3', sourceHandle: 'yes', target: 'n4', ...EDGE_DEFAULTS, style: { stroke: '#059669', strokeWidth: 2 }, label: 'Yes', markerEnd: { type: MarkerType.ArrowClosed, color: '#059669' } },
-      { id: 'e4', source: 'n3', sourceHandle: 'no',  target: 'n5', ...EDGE_DEFAULTS, style: { stroke: '#DC2626', strokeWidth: 2 }, label: 'No',  markerEnd: { type: MarkerType.ArrowClosed, color: '#DC2626' } },
+      { id: 'e4', source: 'n3', sourceHandle: 'no', target: 'n5', ...EDGE_DEFAULTS, style: { stroke: '#DC2626', strokeWidth: 2 }, label: 'No', markerEnd: { type: MarkerType.ArrowClosed, color: '#DC2626' } },
     ],
   },
   appointment: {
     name: 'Appointment Booking Flow',
     nodes: [
-      { id: 'n1', type: 'trigger', position: { x: 300, y: 60 },  data: { label: 'Book Keyword',   config: { triggerType: 'keyword', keywords: ['book','appointment','slot'] } } },
-      { id: 'n2', type: 'message', position: { x: 300, y: 220 }, data: { label: 'Pick a Slot',    config: { messageType: 'buttons', body: 'When would you like to book? 📅', buttons: [{label:'Today',value:'today'},{label:'Tomorrow',value:'tomorrow'},{label:'This Week',value:'week'}] } } },
-      { id: 'n3', type: 'delay',   position: { x: 300, y: 420 }, data: { label: 'Wait for Reply', config: { value: 1, unit: 'hours' } } },
-      { id: 'n4', type: 'message', position: { x: 300, y: 580 }, data: { label: 'Confirmation',   config: { messageType: 'text', body: "✅ Appointment confirmed! We'll send a reminder 1 hour before. See you soon!" } } },
-      { id: 'n5', type: 'action',  position: { x: 300, y: 740 }, data: { label: 'Tag Booked',     config: { actionType: 'add_tag', tag: 'appointment-booked' } } },
+      { id: 'n1', type: 'trigger', position: { x: 300, y: 60 }, data: { label: 'Book Keyword', config: { triggerType: 'keyword', keywords: ['book', 'appointment', 'slot'] } } },
+      { id: 'n2', type: 'message', position: { x: 300, y: 220 }, data: { label: 'Pick a Slot', config: { messageType: 'buttons', body: 'When would you like to book? 📅', buttons: [{ label: 'Today', value: 'today' }, { label: 'Tomorrow', value: 'tomorrow' }, { label: 'This Week', value: 'week' }] } } },
+      { id: 'n3', type: 'delay', position: { x: 300, y: 420 }, data: { label: 'Wait for Reply', config: { value: 1, unit: 'hours' } } },
+      { id: 'n4', type: 'message', position: { x: 300, y: 580 }, data: { label: 'Confirmation', config: { messageType: 'text', body: "✅ Appointment confirmed! We'll send a reminder 1 hour before. See you soon!" } } },
+      { id: 'n5', type: 'action', position: { x: 300, y: 740 }, data: { label: 'Tag Booked', config: { actionType: 'add_tag', tag: 'appointment-booked' } } },
     ],
     edges: [
       { id: 'e1', source: 'n1', target: 'n2', ...EDGE_DEFAULTS },
@@ -122,11 +132,11 @@ const TEMPLATES = {
   support: {
     name: 'Customer Support Triage',
     nodes: [
-      { id: 'n1', type: 'trigger', position: { x: 300, y: 60 },  data: { label: 'Any Inbound',    config: { triggerType: 'inbound' } } },
-      { id: 'n2', type: 'message', position: { x: 300, y: 220 }, data: { label: 'Auto-Reply',     config: { messageType: 'buttons', body: 'Hi! How can we help you today? 🙋', buttons: [{label:'Billing',value:'billing'},{label:'Technical',value:'tech'},{label:'Other',value:'other'}] } } },
-      { id: 'n3', type: 'action',  position: { x: 100, y: 420 }, data: { label: 'Assign Billing', config: { actionType: 'assign', agentName: 'Billing Team' } } },
-      { id: 'n4', type: 'action',  position: { x: 300, y: 420 }, data: { label: 'Assign Tech',    config: { actionType: 'assign', agentName: 'Tech Support' } } },
-      { id: 'n5', type: 'action',  position: { x: 500, y: 420 }, data: { label: 'Tag & Assign',   config: { actionType: 'add_tag', tag: 'general-enquiry' } } },
+      { id: 'n1', type: 'trigger', position: { x: 300, y: 60 }, data: { label: 'Any Inbound', config: { triggerType: 'inbound' } } },
+      { id: 'n2', type: 'message', position: { x: 300, y: 220 }, data: { label: 'Auto-Reply', config: { messageType: 'buttons', body: 'Hi! How can we help you today? 🙋', buttons: [{ label: 'Billing', value: 'billing' }, { label: 'Technical', value: 'tech' }, { label: 'Other', value: 'other' }] } } },
+      { id: 'n3', type: 'action', position: { x: 100, y: 420 }, data: { label: 'Assign Billing', config: { actionType: 'assign', agentName: 'Billing Team' } } },
+      { id: 'n4', type: 'action', position: { x: 300, y: 420 }, data: { label: 'Assign Tech', config: { actionType: 'assign', agentName: 'Tech Support' } } },
+      { id: 'n5', type: 'action', position: { x: 500, y: 420 }, data: { label: 'Tag & Assign', config: { actionType: 'add_tag', tag: 'general-enquiry' } } },
     ],
     edges: [
       { id: 'e1', source: 'n1', target: 'n2', ...EDGE_DEFAULTS },
@@ -209,15 +219,50 @@ function HelpGuideBanner({ onDismiss }) {
   );
 }
 
-// ── Template Modal ─────────────────────────────────────────────
-function TemplateModal({ onSelect, onClose }) {
+// ── Create Flow Modal ──────────────────────────────────────────
+function CreateFlowModal({ onSelect, onClose }) {
+  const [nameInput, setNameInput] = useState('');
+
+  const handleCreate = (tplKey) => {
+    const tpl = TEMPLATES[tplKey] || TEMPLATES.blank;
+    const finalName = nameInput.trim() || tpl.name || 'New Custom Flow';
+    onSelect(tplKey, finalName);
+  };
+
+  const templatesList = [
+    {
+      key: 'blank',
+      name: 'Blank Flow Canvas',
+      icon: '🚀',
+      desc: 'Start with a clean canvas containing a default Trigger & Welcome Message.',
+    },
+    {
+      key: 'lead_qual',
+      name: 'Lead Qualification Bot',
+      icon: '🎯',
+      desc: 'Qualify inbound leads with keyword triggers and automated Yes/No decision branches.',
+    },
+    {
+      key: 'appointment',
+      name: 'Appointment Booking Flow',
+      icon: '📅',
+      desc: 'Automate booking requests with slot selection buttons and auto confirmations.',
+    },
+    {
+      key: 'support',
+      name: 'Customer Support Triage',
+      icon: '🎧',
+      desc: 'Triage customer inquiries directly to the correct agent or department.',
+    },
+  ];
+
   return (
     <div
       style={{
         position: 'fixed',
         inset: 0,
         zIndex: 100,
-        background: 'rgba(15, 23, 42, 0.4)',
+        background: 'rgba(15, 23, 42, 0.45)',
         backdropFilter: 'blur(6px)',
         display: 'flex',
         alignItems: 'center',
@@ -240,10 +285,10 @@ function TemplateModal({ onSelect, onClose }) {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
           <div>
             <h2 style={{ fontSize: '18px', fontWeight: 800, color: '#0F172A', margin: 0 }}>
-              Quick-Start WhatsApp Flows
+              Create New WhatsApp Flow
             </h2>
             <p style={{ fontSize: '13px', color: '#64748B', margin: '4px 0 0' }}>
-              Select a pre-configured automation flow to get started instantly
+              Give your flow a name and pick a starter layout
             </p>
           </div>
           <button
@@ -264,69 +309,75 @@ function TemplateModal({ onSelect, onClose }) {
           </button>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))', gap: '14px' }}>
-          {Object.entries(TEMPLATES).map(([key, tpl]) => {
-            const icons = { lead_qual: '🎯', appointment: '📅', support: '🎧' };
-            const descs = {
-              lead_qual: 'Qualify inbound leads with keyword triggers and automated Yes/No decision branches',
-              appointment: 'Automate booking requests with slot selection buttons and auto confirmations',
-              support: 'Triage customer inquiries directly to the correct agent or department',
-            };
-            return (
-              <button
-                key={key}
-                onClick={() => onSelect(key)}
-                style={{
-                  padding: '20px',
-                  borderRadius: '16px',
-                  textAlign: 'left',
-                  background: '#F8FAFC',
-                  border: '1.5px solid #E2E8F0',
-                  cursor: 'pointer',
-                  transition: 'all 0.18s ease',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = '#F5F3FF';
-                  e.currentTarget.style.borderColor = '#534AB7';
-                  e.currentTarget.style.transform = 'translateY(-2px)';
-                  e.currentTarget.style.boxShadow = '0 8px 24px -4px rgba(83, 74, 183, 0.15)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = '#F8FAFC';
-                  e.currentTarget.style.borderColor = '#E2E8F0';
-                  e.currentTarget.style.transform = 'none';
-                  e.currentTarget.style.boxShadow = 'none';
-                }}
-              >
-                <div style={{ fontSize: '32px', marginBottom: '12px' }}>{icons[key]}</div>
-                <div style={{ fontSize: '14px', fontWeight: 800, color: '#0F172A', marginBottom: '6px' }}>
-                  {tpl.name}
-                </div>
-                <div style={{ fontSize: '11px', color: '#64748B', lineHeight: 1.5 }}>
-                  {descs[key]}
-                </div>
-              </button>
-            );
-          })}
+        {/* Flow Name Input */}
+        <div style={{ marginBottom: '20px' }}>
+          <label style={{ display: 'block', fontSize: '11px', fontWeight: 800, color: '#334155', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
+            Flow Name
+          </label>
+          <input
+            value={nameInput}
+            onChange={(e) => setNameInput(e.target.value)}
+            placeholder="e.g. SMR Membership Inquiries, Welcome Bot..."
+            style={{
+              width: '100%',
+              padding: '11px 14px',
+              borderRadius: '10px',
+              fontSize: '14px',
+              fontWeight: 600,
+              background: '#F8FAFC',
+              border: '1.5px solid #CBD5E1',
+              color: '#0F172A',
+              outline: 'none',
+              boxSizing: 'border-box',
+            }}
+          />
         </div>
 
-        <button
-          onClick={onClose}
-          style={{
-            width: '100%',
-            marginTop: '20px',
-            padding: '12px',
-            borderRadius: '12px',
-            background: '#F8FAFC',
-            border: '1px solid #CBD5E1',
-            color: '#475569',
-            cursor: 'pointer',
-            fontSize: '13px',
-            fontWeight: 700,
-          }}
-        >
-          Start from a blank canvas →
-        </button>
+        <p style={{ fontSize: '11px', fontWeight: 800, color: '#334155', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>
+          Choose Starting Template
+        </p>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(280px,1fr))', gap: '12px' }}>
+          {templatesList.map((tpl) => (
+            <button
+              key={tpl.key}
+              onClick={() => handleCreate(tpl.key)}
+              style={{
+                padding: '16px',
+                borderRadius: '14px',
+                textAlign: 'left',
+                background: '#F8FAFC',
+                border: '1.5px solid #E2E8F0',
+                cursor: 'pointer',
+                transition: 'all 0.18s ease',
+                display: 'flex',
+                gap: '12px',
+                alignItems: 'flex-start',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = '#F5F3FF';
+                e.currentTarget.style.borderColor = '#534AB7';
+                e.currentTarget.style.transform = 'translateY(-2px)';
+                e.currentTarget.style.boxShadow = '0 8px 24px -4px rgba(83, 74, 183, 0.15)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = '#F8FAFC';
+                e.currentTarget.style.borderColor = '#E2E8F0';
+                e.currentTarget.style.transform = 'none';
+                e.currentTarget.style.boxShadow = 'none';
+              }}
+            >
+              <div style={{ fontSize: '28px', flexShrink: 0 }}>{tpl.icon}</div>
+              <div>
+                <div style={{ fontSize: '14px', fontWeight: 800, color: '#0F172A', marginBottom: '4px' }}>
+                  {tpl.name}
+                </div>
+                <div style={{ fontSize: '11px', color: '#64748B', lineHeight: 1.4 }}>
+                  {tpl.desc}
+                </div>
+              </div>
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -342,8 +393,8 @@ function PaletteItem({ item }) {
   const TYPE_STYLES = {
     trigger: { bg: '#FAF5FF', border: '#F3E8FF', hoverBorder: '#DDD6FE', text: '#6D28D9' },
     message: { bg: '#F0F9FF', border: '#E0F2FE', hoverBorder: '#BAE6FD', text: '#0369A1' },
-    delay:   { bg: '#FFFBEB', border: '#FEF3C7', hoverBorder: '#FDE68A', text: '#B45309' },
-    action:  { bg: '#ECFDF5', border: '#D1FAE5', hoverBorder: '#A7F3D0', text: '#047857' },
+    delay: { bg: '#FFFBEB', border: '#FEF3C7', hoverBorder: '#FDE68A', text: '#B45309' },
+    action: { bg: '#ECFDF5', border: '#D1FAE5', hoverBorder: '#A7F3D0', text: '#047857' },
   };
 
   const style = TYPE_STYLES[item.type] || TYPE_STYLES.trigger;
@@ -384,11 +435,11 @@ function PaletteItem({ item }) {
 }
 
 // ── Left Palette Panel ─────────────────────────────────────────
-function NodePalette({ flowList, activeFlowId, onSelectFlow, onNewFlow }) {
+function NodePalette({ flowList, activeFlowId, onSelectFlow, onNewFlow, onDeleteFlow }) {
   return (
     <div
       style={{
-        width: '240px',
+        width: '250px',
         flexShrink: 0,
         display: 'flex',
         flexDirection: 'column',
@@ -398,20 +449,20 @@ function NodePalette({ flowList, activeFlowId, onSelectFlow, onNewFlow }) {
         zIndex: 5,
       }}
     >
-      {/* Flows list */}
-      <div style={{ padding: '14px 14px 12px', borderBottom: '1px solid #E2E8F0', flexShrink: 0 }}>
+      {/* Flows list header */}
+      <div style={{ padding: '14px', borderBottom: '1px solid #E2E8F0', flexShrink: 0, background: '#FAFAFD' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
           <p
             style={{
-              fontSize: '10px',
+              fontSize: '11px',
               fontWeight: 800,
-              color: '#64748B',
+              color: '#475569',
               textTransform: 'uppercase',
               letterSpacing: '0.08em',
               margin: 0,
             }}
           >
-            My Flows
+            My WhatsApp Flows ({flowList.length})
           </p>
           <button
             onClick={onNewFlow}
@@ -420,51 +471,109 @@ function NodePalette({ flowList, activeFlowId, onSelectFlow, onNewFlow }) {
               borderRadius: '8px',
               fontSize: '11px',
               fontWeight: 700,
-              background: '#EDE9FE',
-              border: '1px solid #DDD6FE',
-              color: '#534AB7',
+              background: '#534AB7',
+              border: 'none',
+              color: '#FFFFFF',
               cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              boxShadow: '0 2px 6px rgba(83, 74, 183, 0.25)',
               transition: 'all 0.15s ease',
             }}
           >
-            + New Flow
+            <span>+</span> New Flow
           </button>
         </div>
-        <div style={{ maxHeight: '110px', overflowY: 'auto' }}>
+        <div style={{ maxHeight: '140px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '4px' }}>
           {flowList.length === 0 ? (
-            <p style={{ fontSize: '11px', color: '#94A3B8', textAlign: 'center', padding: '10px 0', margin: 0 }}>
-              No saved flows yet
-            </p>
-          ) : (
-            flowList.map((f) => (
+            <div style={{ padding: '12px 6px', textAlign: 'center', background: '#FFFFFF', borderRadius: '8px', border: '1px dashed #CBD5E1' }}>
+              <p style={{ fontSize: '11px', color: '#64748B', fontWeight: 600, margin: '0 0 6px' }}>
+                No saved flows yet
+              </p>
               <button
-                key={f.id}
-                onClick={() => onSelectFlow(f)}
+                onClick={onNewFlow}
                 style={{
-                  width: '100%',
-                  textAlign: 'left',
-                  padding: '7px 10px',
-                  borderRadius: '8px',
-                  background: activeFlowId === f.id ? '#F5F3FF' : 'transparent',
-                  border: activeFlowId === f.id ? '1px solid #DDD6FE' : '1px solid transparent',
-                  color: activeFlowId === f.id ? '#534AB7' : '#334155',
-                  fontWeight: activeFlowId === f.id ? 700 : 500,
+                  fontSize: '10px',
+                  fontWeight: 700,
+                  color: '#534AB7',
+                  background: '#EDE9FE',
+                  border: 'none',
+                  padding: '3px 8px',
+                  borderRadius: '6px',
                   cursor: 'pointer',
-                  fontSize: '12px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  marginBottom: '2px',
-                  transition: 'all 0.15s',
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
                 }}
               >
-                <span style={{ color: f.status === 'active' ? '#10B981' : '#94A3B8', fontSize: '10px' }}>●</span>
-                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.name}</span>
+                + Create your first flow
               </button>
-            ))
+            </div>
+          ) : (
+            flowList.map((f) => {
+              const isSelected = activeFlowId === f.id;
+              return (
+                <div
+                  key={f.id}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    borderRadius: '8px',
+                    background: isSelected ? '#F5F3FF' : '#FFFFFF',
+                    border: isSelected ? '1.5px solid #534AB7' : '1px solid #E2E8F0',
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  <button
+                    onClick={() => onSelectFlow(f)}
+                    style={{
+                      flex: 1,
+                      textAlign: 'left',
+                      padding: '8px 10px',
+                      background: 'transparent',
+                      border: 'none',
+                      color: isSelected ? '#534AB7' : '#1E293B',
+                      fontWeight: isSelected ? 800 : 600,
+                      cursor: 'pointer',
+                      fontSize: '12px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      minWidth: 0,
+                    }}
+                  >
+                    <span
+                      style={{
+                        width: '7px',
+                        height: '7px',
+                        borderRadius: '50%',
+                        background: f.is_active ? '#10B981' : '#94A3B8',
+                        flexShrink: 0,
+                      }}
+                    />
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {f.name}
+                    </span>
+                  </button>
+                  <button
+                    onClick={(e) => onDeleteFlow(f.id, e)}
+                    title="Delete Flow"
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      color: '#94A3B8',
+                      cursor: 'pointer',
+                      padding: '6px 8px',
+                      fontSize: '11px',
+                      display: 'flex',
+                      alignItems: 'center',
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.color = '#DC2626')}
+                    onMouseLeave={(e) => (e.currentTarget.style.color = '#94A3B8')}
+                  >
+                    ✕
+                  </button>
+                </div>
+              );
+            })
           )}
         </div>
       </div>
@@ -513,10 +622,10 @@ function NodePalette({ flowList, activeFlowId, onSelectFlow, onNewFlow }) {
 }
 
 // ── Top Action Bar ─────────────────────────────────────────────
-function TopBar({ flowName, setFlowName, status, onSave, onPublish, onTest, onTemplate, saving }) {
+function TopBar({ flowName, setFlowName, status, onSave, onPublish, onTest, onNewFlow, onDelete, saving, hasActiveFlow }) {
   const statusMeta = {
-    draft:  { label: 'Draft',  bg: '#F1F5F9', color: '#475569', border: '#E2E8F0', dot: '#94A3B8' },
-    active: { label: 'Live',   bg: '#ECFDF5', color: '#059669', border: '#A7F3D0', dot: '#10B981' },
+    draft: { label: 'Draft', bg: '#F1F5F9', color: '#475569', border: '#E2E8F0', dot: '#94A3B8' },
+    active: { label: 'Live', bg: '#ECFDF5', color: '#059669', border: '#A7F3D0', dot: '#10B981' },
     paused: { label: 'Paused', bg: '#FFFBEB', color: '#D97706', border: '#FDE68A', dot: '#F59E0B' },
   };
   const sm = statusMeta[status] || statusMeta.draft;
@@ -538,31 +647,25 @@ function TopBar({ flowName, setFlowName, status, onSave, onPublish, onTest, onTe
     >
       {/* Flow name & editable input */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <input
-          value={flowName}
-          onChange={(e) => setFlowName(e.target.value)}
-          placeholder="Untitled Flow…"
-          style={{
-            background: 'transparent',
-            border: '1px solid transparent',
-            outline: 'none',
-            fontSize: '15px',
-            fontWeight: 800,
-            color: '#0F172A',
-            padding: '4px 8px',
-            borderRadius: '8px',
-            fontFamily: 'Inter, sans-serif',
-            transition: 'all 0.15s ease',
-          }}
-          onFocus={(e) => {
-            e.target.style.background = '#F8FAFC';
-            e.target.style.borderColor = '#CBD5E1';
-          }}
-          onBlur={(e) => {
-            e.target.style.background = 'transparent';
-            e.target.style.borderColor = 'transparent';
-          }}
-        />
+        <div style={{ display: 'flex', alignItems: 'center', background: '#F8FAFC', border: '1px solid #CBD5E1', borderRadius: '8px', padding: '0 8px' }}>
+          <span style={{ fontSize: '13px', color: '#64748B', marginRight: '4px' }}>✏️</span>
+          <input
+            value={flowName}
+            onChange={(e) => setFlowName(e.target.value)}
+            placeholder="Untitled Flow…"
+            style={{
+              background: 'transparent',
+              border: 'none',
+              outline: 'none',
+              fontSize: '14px',
+              fontWeight: 800,
+              color: '#0F172A',
+              padding: '6px 4px',
+              fontFamily: 'Inter, sans-serif',
+              minWidth: '180px',
+            }}
+          />
+        </div>
 
         {/* Status pill */}
         <span
@@ -570,7 +673,7 @@ function TopBar({ flowName, setFlowName, status, onSave, onPublish, onTest, onTe
             display: 'inline-flex',
             alignItems: 'center',
             gap: '6px',
-            padding: '3px 10px',
+            padding: '4px 10px',
             borderRadius: '20px',
             fontSize: '11px',
             fontWeight: 700,
@@ -589,24 +692,23 @@ function TopBar({ flowName, setFlowName, status, onSave, onPublish, onTest, onTe
       {/* Action Buttons */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
         <button
-          onClick={onTemplate}
+          onClick={onNewFlow}
           style={{
             display: 'flex',
             alignItems: 'center',
             gap: '6px',
             padding: '7px 14px',
             borderRadius: '10px',
-            background: '#FFFFFF',
-            border: '1px solid #CBD5E1',
-            color: '#334155',
+            background: '#EDE9FE',
+            border: '1.5px solid #DDD6FE',
+            color: '#534AB7',
             cursor: 'pointer',
             fontSize: '12px',
-            fontWeight: 700,
-            boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
+            fontWeight: 800,
             transition: 'all 0.15s ease',
           }}
         >
-          <span>📐</span> Templates
+          <span>+</span> New Flow
         </button>
 
         <button
@@ -672,6 +774,26 @@ function TopBar({ flowName, setFlowName, status, onSave, onPublish, onTest, onTe
         >
           <span>🚀</span> Publish Flow
         </button>
+
+        {hasActiveFlow && (
+          <button
+            onClick={onDelete}
+            title="Delete this flow"
+            style={{
+              padding: '7px 12px',
+              borderRadius: '10px',
+              background: '#FEF2F2',
+              border: '1px solid #FECACA',
+              color: '#DC2626',
+              cursor: 'pointer',
+              fontSize: '12px',
+              fontWeight: 700,
+              transition: 'all 0.15s ease',
+            }}
+          >
+            🗑️
+          </button>
+        )}
       </div>
     </div>
   );
@@ -687,21 +809,70 @@ function FlowCanvas() {
   const [status, setStatus] = useState('draft');
   const [flowList, setFlowList] = useState([]);
   const [saving, setSaving] = useState(false);
-  const [showTemplates, setShowTemplates] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
   const [showBanner, setShowBanner] = useState(true);
 
   const reactFlowWrapper = useRef(null);
   const [reactFlowInstance, setReactFlowInstance] = useState(null);
 
-  // Load flows on mount
+  // Helper to re-hydrate nodes for React Flow
+  const toRfNode = (n) => ({
+    id: n.id,
+    type: n.type || 'message',
+    position: n.position || { x: 300, y: 100 },
+    data: n.data || { label: n.label || 'Step', config: n.config || {} },
+  });
+
+  // Load flow into canvas with safe stringified JSON parsing
+  const loadFlow = useCallback((f) => {
+    if (!f) return;
+    setFlowName(f.name || 'Untitled Flow');
+    setActiveFlowId(f.id);
+    setStatus(f.is_active ? 'active' : (f.status || 'draft'));
+
+    let rawSteps = f.steps;
+    if (typeof rawSteps === 'string') {
+      try {
+        rawSteps = JSON.parse(rawSteps);
+        if (typeof rawSteps === 'string') {
+          rawSteps = JSON.parse(rawSteps);
+        }
+      } catch (err) {
+        console.warn('Could not parse steps JSON:', err);
+      }
+    }
+
+    if (rawSteps) {
+      if (Array.isArray(rawSteps)) {
+        setNodes(rawSteps.filter((s) => !s.source).map(toRfNode));
+        setEdges(rawSteps.filter((s) => s.source));
+      } else if (typeof rawSteps === 'object') {
+        const loadedNodes = (rawSteps.nodes || []).map(toRfNode);
+        const loadedEdges = (rawSteps.edges || []).map((e) => ({
+          ...EDGE_DEFAULTS,
+          ...e,
+        }));
+        setNodes(loadedNodes);
+        setEdges(loadedEdges);
+      }
+    } else {
+      setNodes([]);
+      setEdges([]);
+    }
+  }, [setNodes, setEdges]);
+
+  // Load flows on mount and auto-select the first flow
   useEffect(() => {
     automationApi.list()
       .then((res) => {
         const list = res.data?.flows || res.data || [];
         setFlowList(list);
+        if (list.length > 0) {
+          loadFlow(list[0]);
+        }
       })
-      .catch(() => {});
-  }, []);
+      .catch(() => { });
+  }, [loadFlow]);
 
   // Connect edges
   const onConnect = useCallback(
@@ -774,43 +945,17 @@ function FlowCanvas() {
     [setNodes, setEdges]
   );
 
-  // Load template
-  const loadTemplate = (key) => {
-    const tpl = TEMPLATES[key];
-    if (!tpl) return;
-    setFlowName(tpl.name);
+  // Create new flow or load template
+  const handleSelectTemplate = (tplKey, customName) => {
+    const tpl = TEMPLATES[tplKey] || TEMPLATES.blank;
+    const nameToUse = customName || tpl.name || 'New Custom Flow';
+    setFlowName(nameToUse);
+    setActiveFlowId(null);
+    setStatus('draft');
     setNodes(tpl.nodes);
     setEdges(tpl.edges);
-    setShowTemplates(false);
-  };
-
-  // Helper to re-hydrate nodes for React Flow
-  const toRfNode = (n) => ({
-    id: n.id,
-    type: n.type || 'message',
-    position: n.position || { x: 300, y: 100 },
-    data: n.data || { label: n.label || 'Step', config: n.config || {} },
-  });
-
-  // Load flow
-  const loadFlow = (f) => {
-    setFlowName(f.name);
-    setActiveFlowId(f.id);
-    setStatus(f.is_active ? 'active' : (f.status || 'draft'));
-    if (f.steps) {
-      if (Array.isArray(f.steps)) {
-        setNodes(f.steps.filter((s) => !s.source).map(toRfNode));
-        setEdges(f.steps.filter((s) => s.source));
-      } else if (typeof f.steps === 'object') {
-        const loadedNodes = (f.steps.nodes || []).map(toRfNode);
-        const loadedEdges = (f.steps.edges || []).map((e) => ({
-          ...EDGE_DEFAULTS,
-          ...e,
-        }));
-        setNodes(loadedNodes);
-        setEdges(loadedEdges);
-      }
-    }
+    setShowCreateModal(false);
+    showSuccess(`Created flow "${nameToUse}". Click "Save Draft" or "Publish Flow" to persist.`);
   };
 
   // Save flow
@@ -855,12 +1000,20 @@ function FlowCanvas() {
       };
 
       if (activeFlowId) {
-        await automationApi.update(activeFlowId, payload);
+        const res = await automationApi.update(activeFlowId, payload);
+        const updated = res?.data;
+        if (updated) {
+          setFlowList((prev) =>
+            prev.map((item) => (item.id === activeFlowId ? { ...item, ...updated } : item))
+          );
+        }
       } else {
         const res = await automationApi.create(payload);
         savedId = res?.data?.id;
         setActiveFlowId(savedId);
-        setFlowList((fl) => [res.data, ...fl]);
+        if (res?.data) {
+          setFlowList((prev) => [res.data, ...prev]);
+        }
       }
       showSuccess('Flow saved successfully with all connections.');
       return savedId;
@@ -895,14 +1048,48 @@ function FlowCanvas() {
       await automationApi.update(targetId, { isActive: true });
       setActiveFlowId(targetId);
       setStatus('active');
+      setFlowList((prev) =>
+        prev.map((item) => (item.id === targetId ? { ...item, is_active: true } : item))
+      );
       showSuccess('Flow is now LIVE on WhatsApp! 🚀');
     } catch {
       showError('Publish failed.');
     }
   };
 
+  // Delete Flow
+  const handleDeleteFlow = async (flowId, e) => {
+    if (e) e.stopPropagation();
+    const targetId = flowId || activeFlowId;
+    if (!targetId) return;
+
+    if (!window.confirm('Are you sure you want to delete this automation flow?')) {
+      return;
+    }
+
+    try {
+      await automationApi.delete(targetId);
+      const remaining = flowList.filter((item) => item.id !== targetId);
+      setFlowList(remaining);
+      if (activeFlowId === targetId) {
+        if (remaining.length > 0) {
+          loadFlow(remaining[0]);
+        } else {
+          setNodes([]);
+          setEdges([]);
+          setFlowName('Untitled Flow');
+          setActiveFlowId(null);
+          setStatus('draft');
+        }
+      }
+      showSuccess('Flow deleted successfully.');
+    } catch {
+      showError('Failed to delete flow.');
+    }
+  };
+
   const testSimulator = () => {
-    showSuccess('Test Simulator ready. Select or test steps on active WhatsApp line.');
+    showSuccess('Test Simulator ready. Send any configured keyword to your WhatsApp number to test.');
   };
 
   return (
@@ -914,8 +1101,10 @@ function FlowCanvas() {
         onSave={saveFlow}
         onPublish={publishFlow}
         onTest={testSimulator}
-        onTemplate={() => setShowTemplates(true)}
+        onNewFlow={() => setShowCreateModal(true)}
+        onDelete={() => handleDeleteFlow(activeFlowId)}
         saving={saving}
+        hasActiveFlow={Boolean(activeFlowId)}
       />
 
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden', position: 'relative' }}>
@@ -924,14 +1113,8 @@ function FlowCanvas() {
           flowList={flowList}
           activeFlowId={activeFlowId}
           onSelectFlow={loadFlow}
-          onNewFlow={() => {
-            setNodes([]);
-            setEdges([]);
-            setFlowName('Untitled Flow');
-            setActiveFlowId(null);
-            setStatus('draft');
-            setShowTemplates(true);
-          }}
+          onNewFlow={() => setShowCreateModal(true)}
+          onDeleteFlow={handleDeleteFlow}
         />
 
         {/* React Flow Canvas */}
@@ -1026,7 +1209,7 @@ function FlowCanvas() {
                     Drag a Trigger from the left panel onto the canvas, or pick a pre-configured template.
                   </p>
                   <button
-                    onClick={() => setShowTemplates(true)}
+                    onClick={() => setShowCreateModal(true)}
                     type="button"
                     style={{
                       padding: '10px 22px',
@@ -1040,7 +1223,7 @@ function FlowCanvas() {
                       boxShadow: '0 4px 14px rgba(83, 74, 183, 0.25)',
                     }}
                   >
-                    📐 Choose a Template
+                    🚀 Create Flow or Choose Template
                   </button>
                 </div>
               </Panel>
@@ -1059,8 +1242,13 @@ function FlowCanvas() {
         </div>
       </div>
 
-      {/* Template Modal */}
-      {showTemplates && <TemplateModal onSelect={loadTemplate} onClose={() => setShowTemplates(false)} />}
+      {/* Create Flow Modal */}
+      {showCreateModal && (
+        <CreateFlowModal
+          onSelect={handleSelectTemplate}
+          onClose={() => setShowCreateModal(false)}
+        />
+      )}
     </div>
   );
 }

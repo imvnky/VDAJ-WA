@@ -80,11 +80,14 @@ router.post('/', catchAsync(async (req, res) => {
   const { name, description, triggerType = 'manual', triggerConfig = {}, steps = [] } = req.body;
   if (!name?.trim()) throw new AppError('Automation name is required.', 400, 'ERR_AUTO_001');
 
+  const stepsJson = typeof steps === 'object' && steps !== null ? JSON.stringify(steps) : (steps || '[]');
+  const triggerConfigJson = typeof triggerConfig === 'object' && triggerConfig !== null ? JSON.stringify(triggerConfig) : (triggerConfig || '{}');
+
   const { rows } = await query(
     `INSERT INTO automations (tenant_id, name, description, trigger_type, trigger_config, steps, created_by)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)
+     VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7)
      RETURNING *`,
-    [req.user.tenantId, name.trim(), description, triggerType, JSON.stringify(triggerConfig), JSON.stringify(steps), req.user.id]
+    [req.user.tenantId, name.trim(), description, triggerType, triggerConfigJson, stepsJson, req.user.id]
   );
   return sendSuccess(res, rows[0], 'Automation created.', 201);
 }));
@@ -93,19 +96,35 @@ router.post('/', catchAsync(async (req, res) => {
 router.put('/:id', catchAsync(async (req, res) => {
   await ensureTables();
   const { name, description, triggerType, triggerConfig, steps, isActive } = req.body;
+
+  const stepsJson = steps !== undefined
+    ? (typeof steps === 'object' && steps !== null ? JSON.stringify(steps) : steps)
+    : null;
+  const triggerConfigJson = triggerConfig !== undefined
+    ? (typeof triggerConfig === 'object' && triggerConfig !== null ? JSON.stringify(triggerConfig) : triggerConfig)
+    : null;
+
   const { rows } = await query(
     `UPDATE automations
-     SET name = COALESCE($1, name),
-         description = COALESCE($2, description),
-         trigger_type = COALESCE($3, trigger_type),
-         trigger_config = COALESCE($4, trigger_config),
-         steps = COALESCE($5, steps),
-         is_active = COALESCE($6, is_active),
-         updated_at = NOW()
+     SET name           = COALESCE($1, name),
+         description    = COALESCE($2, description),
+         trigger_type   = COALESCE($3, trigger_type),
+         trigger_config = COALESCE($4::jsonb, trigger_config),
+         steps          = COALESCE($5::jsonb, steps),
+         is_active      = COALESCE($6, is_active),
+         updated_at     = NOW()
      WHERE id = $7 AND tenant_id = $8
      RETURNING *`,
-    [name ? name.trim() : null, description, triggerType, triggerConfig ? JSON.stringify(triggerConfig) : null,
-     steps ? JSON.stringify(steps) : null, isActive, req.params.id, req.user.tenantId]
+    [
+      name ? name.trim() : null,
+      description,
+      triggerType,
+      triggerConfigJson,
+      stepsJson,
+      typeof isActive === 'boolean' ? isActive : null,
+      req.params.id,
+      req.user.tenantId,
+    ]
   );
   if (!rows.length) throw new AppError('Automation not found.', 404, 'ERR_AUTO_002');
   return sendSuccess(res, rows[0], 'Automation updated.');
