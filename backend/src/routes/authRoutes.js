@@ -42,7 +42,7 @@ router.post('/login', loginValidators, validate, catchAsync(async (req, res) => 
       userId: user?.id || null,
       action: 'AUTH_LOGIN_FAILED',
       resourceType: 'user',
-      resourceId: user?.id || email,
+      resourceId: user?.id || null,
       status: 'FAILED',
       meta: {
         attemptedEmail: email,
