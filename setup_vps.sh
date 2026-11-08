@@ -135,7 +135,7 @@ echo "Configuring Nginx Reverse Proxy..."
 cat << 'EOF' > /etc/nginx/sites-available/vdaj
 server {
     listen 80;
-    server_name wa.vdajservices.com;
+    server_name wa.vdajservices.com api.vdajservices.com;
 
     client_max_body_size 64M;
 
@@ -199,3 +199,4 @@ ufw --force enable
 echo "=================================================="
 echo "✔ VDAJ Platform successfully deployed on New VPS!"
 echo "=================================================="
+
