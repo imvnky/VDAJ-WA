@@ -64,27 +64,49 @@ async function verify() {
     // 3. Query WABA Templates on Meta
     if (token) {
       console.log('\n🔍 Discovering linked WABA IDs from Meta Business...');
-      try {
-        const clientWabasRes = await fetch(
-          `https://graph.facebook.com/v21.0/1885916999154201/client_whatsapp_business_accounts?fields=id,name,message_template_namespace&access_token=${token}`
-        );
-        const clientWabas = await clientWabasRes.json();
-        if (clientWabas?.data?.length) {
-          console.log(`💼 Client WABA Accounts found for VDAJ Services:`);
-          clientWabas.data.forEach((w) => console.log(`   - WABA ID: ${w.id} | Name: ${w.name}`));
-        }
+      const businessIds = ['1333216138878667', '1885916999154201'];
+      for (const bId of businessIds) {
+        try {
+          const clientRes = await fetch(
+            `https://graph.facebook.com/v21.0/${bId}/client_whatsapp_business_accounts?fields=id,name,timezone_id&access_token=${token}`
+          );
+          const clientData = await clientRes.json();
+          if (clientData?.data?.length) {
+            console.log(`💼 Client WABAs for Business ${bId}:`);
+            clientData.data.forEach((w) => console.log(`   👉 ID: ${w.id} | Name: ${w.name}`));
+          } else if (clientData?.error) {
+            console.log(`⚠️ Client WABAs error for ${bId}: ${clientData.error.message}`);
+          }
 
-        const ownedWabasRes = await fetch(
-          `https://graph.facebook.com/v21.0/1885916999154201/owned_whatsapp_business_accounts?fields=id,name,message_template_namespace&access_token=${token}`
-        );
-        const ownedWabas = await ownedWabasRes.json();
-        if (ownedWabas?.data?.length) {
-          console.log(`💼 Owned WABA Accounts found for VDAJ Services:`);
-          ownedWabas.data.forEach((w) => console.log(`   - WABA ID: ${w.id} | Name: ${w.name}`));
+          const ownedRes = await fetch(
+            `https://graph.facebook.com/v21.0/${bId}/owned_whatsapp_business_accounts?fields=id,name,timezone_id&access_token=${token}`
+          );
+          const ownedData = await ownedRes.json();
+          if (ownedData?.data?.length) {
+            console.log(`💼 Owned WABAs for Business ${bId}:`);
+            ownedData.data.forEach((w) => console.log(`   👉 ID: ${w.id} | Name: ${w.name}`));
+          } else if (ownedData?.error) {
+            console.log(`⚠️ Owned WABAs error for ${bId}: ${ownedData.error.message}`);
+          }
+        } catch (e) {
+          console.log(`Err for ${bId}:`, e.message);
         }
-      } catch (err) {
-        console.log(`Discovery error: ${err.message}`);
       }
+
+      // Check token debug info
+      try {
+        const debugRes = await fetch(`https://graph.facebook.com/v21.0/debug_token?input_token=${token}&access_token=${token}`);
+        const debugData = await debugRes.json();
+        if (debugData?.data) {
+          console.log(`\n🔑 Token Info:`);
+          console.log(`   - App ID:      ${debugData.data.app_id}`);
+          console.log(`   - Scopes:      ${(debugData.data.scopes || []).join(', ')}`);
+          console.log(`   - Valid:       ${debugData.data.is_valid}`);
+          if (debugData.data.granular_scopes) {
+            console.log(`   - Granular Target IDs:`, debugData.data.granular_scopes.map(g => `${g.scope}: [${(g.target_ids || []).join(', ')}]`));
+          }
+        }
+      } catch (e) {}
 
       if (wabaId) {
         try {
