@@ -62,22 +62,47 @@ async function verify() {
     }
 
     // 3. Query WABA Templates on Meta
-    if (wabaId && token) {
+    if (token) {
+      console.log('\n🔍 Discovering linked WABA IDs from Meta Business...');
       try {
-        const tplRes = await fetch(
-          `https://graph.facebook.com/v21.0/${wabaId}/message_templates?fields=name,status,language&limit=10&access_token=${token}`
+        const clientWabasRes = await fetch(
+          `https://graph.facebook.com/v21.0/1885916999154201/client_whatsapp_business_accounts?fields=id,name,message_template_namespace&access_token=${token}`
         );
-        const tplData = await tplRes.json();
-        if (tplData?.error) {
-          console.log(`\n❌ Meta Template Query Error: ${tplData.error.message} (Code: ${tplData.error.code})`);
-        } else if (tplData?.data) {
-          console.log(`\n📋 Meta Templates Found: ${tplData.data.length}`);
-          tplData.data.forEach((tp) => {
-            console.log(`   - [${tp.status}] ${tp.name} (${tp.language})`);
-          });
+        const clientWabas = await clientWabasRes.json();
+        if (clientWabas?.data?.length) {
+          console.log(`💼 Client WABA Accounts found for VDAJ Services:`);
+          clientWabas.data.forEach((w) => console.log(`   - WABA ID: ${w.id} | Name: ${w.name}`));
+        }
+
+        const ownedWabasRes = await fetch(
+          `https://graph.facebook.com/v21.0/1885916999154201/owned_whatsapp_business_accounts?fields=id,name,message_template_namespace&access_token=${token}`
+        );
+        const ownedWabas = await ownedWabasRes.json();
+        if (ownedWabas?.data?.length) {
+          console.log(`💼 Owned WABA Accounts found for VDAJ Services:`);
+          ownedWabas.data.forEach((w) => console.log(`   - WABA ID: ${w.id} | Name: ${w.name}`));
         }
       } catch (err) {
-        console.log(`⚠️ Template check error: ${err.message}`);
+        console.log(`Discovery error: ${err.message}`);
+      }
+
+      if (wabaId) {
+        try {
+          const tplRes = await fetch(
+            `https://graph.facebook.com/v21.0/${wabaId}/message_templates?fields=name,status,language&limit=10&access_token=${token}`
+          );
+          const tplData = await tplRes.json();
+          if (tplData?.error) {
+            console.log(`\n❌ Meta Template Query Error for (${wabaId}): ${tplData.error.message} (Code: ${tplData.error.code})`);
+          } else if (tplData?.data) {
+            console.log(`\n📋 Meta Templates Found: ${tplData.data.length}`);
+            tplData.data.forEach((tp) => {
+              console.log(`   - [${tp.status}] ${tp.name} (${tp.language})`);
+            });
+          }
+        } catch (err) {
+          console.log(`⚠️ Template check error: ${err.message}`);
+        }
       }
 
       // 4. Check Webhook Subscribed Apps
