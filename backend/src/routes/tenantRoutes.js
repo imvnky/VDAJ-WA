@@ -23,7 +23,7 @@ const logger = require('../utils/logger');
 const { recordAudit } = require('../services/auditService');
 
 // Self-healing schema migration: ensure messaging_tier supports VARCHAR(32) for exact Meta tier codes
-query(`ALTER TABLE tenants ALTER COLUMN messaging_tier TYPE VARCHAR(32) USING messaging_tier::varchar`).catch(() => {});
+query(`ALTER TABLE tenants ALTER COLUMN messaging_tier TYPE VARCHAR(32) USING messaging_tier::varchar`).catch(() => { });
 const {
   getWABAHealth,
   getBusinessProfile,
@@ -121,19 +121,19 @@ router.get('/me', catchAsync(async (req, res) => {
   const response = {
     ...tenantCore,
     subscription: sub_id ? {
-      id:                   sub_id,
-      status:               sub_status,
-      trialEndsAt:          trial_ends_at,
-      currentPeriodStart:   current_period_start,
-      currentPeriodEnd:     current_period_end,
-      msgsUsedThisPeriod:   msgs_used_this_period,
+      id: sub_id,
+      status: sub_status,
+      trialEndsAt: trial_ends_at,
+      currentPeriodStart: current_period_start,
+      currentPeriodEnd: current_period_end,
+      msgsUsedThisPeriod: msgs_used_this_period,
       tier: tier_name ? {
-        name:          tier_name,
-        priceMonthly:  tier_price,
-        msgLimit:      tier_msg_limit,
-        contactLimit:  tier_contact_limit,
-        userLimit:     tier_user_limit,
-        features:      tier_features,
+        name: tier_name,
+        priceMonthly: tier_price,
+        msgLimit: tier_msg_limit,
+        contactLimit: tier_contact_limit,
+        userLimit: tier_user_limit,
+        features: tier_features,
       } : null,
     } : null,
   };
@@ -264,20 +264,20 @@ router.get('/me/waba-health', catchAsync(async (req, res) => {
   const effectiveWabaId = health.waba_id || process.env.META_WABA_ID || null;
 
   return sendSuccess(res, {
-    waba_id:               effectiveWabaId,
-    phone_number_id:       effectivePhoneNumberId,
-    quality_rating:        liveRating,
-    messaging_tier:        tierInfo.code,
-    tier_name:             tierInfo.tierName,
-    daily_limit:           tierInfo.dailyLimit,
-    daily_limit_label:     tierInfo.label,
-    msgs_sent_today:       msgsSentToday,
-    usage_pct:             usagePct,
-    display_phone_number:  liveDisplayPhone || process.env.META_DISPLAY_PHONE_NUMBER || null,
-    verified_name:         liveVerifiedName || process.env.META_VERIFIED_NAME || null,
-    name_status:           liveNameStatus,
-    status:                livePhoneStatus,
-    waba_connected:        health.waba_connected || Boolean(effectivePhoneNumberId),
+    waba_id: effectiveWabaId,
+    phone_number_id: effectivePhoneNumberId,
+    quality_rating: liveRating,
+    messaging_tier: tierInfo.code,
+    tier_name: tierInfo.tierName,
+    daily_limit: tierInfo.dailyLimit,
+    daily_limit_label: tierInfo.label,
+    msgs_sent_today: msgsSentToday,
+    usage_pct: usagePct,
+    display_phone_number: liveDisplayPhone || process.env.META_DISPLAY_PHONE_NUMBER || null,
+    verified_name: liveVerifiedName || process.env.META_VERIFIED_NAME || null,
+    name_status: liveNameStatus,
+    status: livePhoneStatus,
+    waba_connected: health.waba_connected || Boolean(effectivePhoneNumberId),
     waba_health_synced_at: new Date().toISOString(),
   }, 'WABA health retrieved.');
 }));
@@ -308,8 +308,8 @@ router.post('/me/waba-health/sync', catchAsync(async (req, res) => {
   }
 
   const metaData = await getWABAHealth(effectivePhoneNumberId, effectiveToken);
-  const rating   = (metaData.quality_rating || t.quality_rating || 'GREEN').toUpperCase();
-  const rawTier  = metaData.messaging_limit_tier || t.messaging_tier || 'TIER_250';
+  const rating = (metaData.quality_rating || t.quality_rating || 'GREEN').toUpperCase();
+  const rawTier = metaData.messaging_limit_tier || t.messaging_tier || 'TIER_250';
   const tierInfo = parseMetaTier(rawTier);
   const displayPhone = metaData.display_phone_number || t.display_phone_number || process.env.META_DISPLAY_PHONE_NUMBER || null;
   const verifiedName = metaData.verified_name || t.verified_name || process.env.META_VERIFIED_NAME || null;
@@ -343,20 +343,20 @@ router.post('/me/waba-health/sync', catchAsync(async (req, res) => {
   const usagePct = Math.min(100, Math.round((msgsSentToday / tierInfo.dailyLimit) * 100));
 
   return sendSuccess(res, {
-    waba_id:               t.waba_id || process.env.META_WABA_ID || null,
-    phone_number_id:       effectivePhoneNumberId,
-    quality_rating:        rating,
-    messaging_tier:        tierInfo.code,
-    tier_name:             tierInfo.tierName,
-    daily_limit:           tierInfo.dailyLimit,
-    daily_limit_label:     tierInfo.label,
-    msgs_sent_today:       msgsSentToday,
-    usage_pct:             usagePct,
-    display_phone_number:  displayPhone,
-    verified_name:         verifiedName,
-    name_status:           nameStatus,
-    status:                phoneStatus,
-    waba_connected:        true,
+    waba_id: t.waba_id || process.env.META_WABA_ID || null,
+    phone_number_id: effectivePhoneNumberId,
+    quality_rating: rating,
+    messaging_tier: tierInfo.code,
+    tier_name: tierInfo.tierName,
+    daily_limit: tierInfo.dailyLimit,
+    daily_limit_label: tierInfo.label,
+    msgs_sent_today: msgsSentToday,
+    usage_pct: usagePct,
+    display_phone_number: displayPhone,
+    verified_name: verifiedName,
+    name_status: nameStatus,
+    status: phoneStatus,
+    waba_connected: true,
     waba_health_synced_at: new Date().toISOString(),
   }, 'Live Meta health synchronized.');
 }));
@@ -409,7 +409,7 @@ router.patch('/me/whatsapp-profile', catchAsync(async (req, res) => {
     meta: { tenantName: t.name, updatedFields: Object.keys(req.body) },
     ipAddress: req.ip,
     userAgent: req.headers['user-agent'],
-  }).catch(() => {});
+  }).catch(() => { });
 
   return sendSuccess(res, { success: true }, 'WhatsApp Business Profile updated on Meta.');
 }));
@@ -476,7 +476,7 @@ router.post('/me/whatsapp-profile/picture', uploadMemory.single('file'), catchAs
     },
     ipAddress: req.ip,
     userAgent: req.headers['user-agent'],
-  }).catch(() => {});
+  }).catch(() => { });
 
   return sendSuccess(res, { success: true }, 'WhatsApp Profile Photo updated directly on Meta.');
 }));
@@ -531,7 +531,7 @@ router.post('/', authorize('super_admin'), catchAsync(async (req, res) => {
       { name: 'Tenant Profile Initialized', details: `Created tenant record in database with plan ${tenant.plan}`, component: 'PostgreSQL Store', status: 'SUCCESS' },
     ],
     ipAddress: req.ip,
-  }).catch(() => {});
+  }).catch(() => { });
 
   return sendCreated(res, tenant, 'Tenant created.');
 }));
@@ -567,7 +567,7 @@ router.patch('/:id/status', authorize('super_admin'), catchAsync(async (req, res
       { name: 'Update Tenant Activation Flag', details: `Set is_active=${isActive} in database`, component: 'PostgreSQL Store', status: 'SUCCESS' },
     ],
     ipAddress: req.ip,
-  }).catch(() => {});
+  }).catch(() => { });
 
   return sendSuccess(res, tenant, `Tenant ${isActive ? 'activated' : 'deactivated'}.`);
 }));
@@ -706,7 +706,7 @@ router.get('/me/compliance', catchAsync(async (req, res) => {
       [tenantId]
     );
     if (rows[0]) rates = rows[0];
-  } catch (err) {}
+  } catch (err) { }
 
   // 3. Contacts without opt-in (compliance risk)
   let noOptin = { count: 0 };
@@ -720,7 +720,7 @@ router.get('/me/compliance', catchAsync(async (req, res) => {
       [tenantId]
     );
     if (rows[0]) noOptin = rows[0];
-  } catch (err) {}
+  } catch (err) { }
 
   // 4. WABA quality from tenant row
   let waba = null;
@@ -731,7 +731,7 @@ router.get('/me/compliance', catchAsync(async (req, res) => {
       [tenantId]
     );
     if (rows[0]) waba = rows[0];
-  } catch (err) {}
+  } catch (err) { }
 
   const totalCount = parseInt(rates.total_count, 10) || 0;
   const optedOutCount = parseInt(rates.opted_out_count, 10) || 0;
@@ -740,14 +740,14 @@ router.get('/me/compliance', catchAsync(async (req, res) => {
     : 0;
 
   return sendSuccess(res, {
-    opt_in_breakdown:      optInBreakdown,
-    opted_out_count:       optedOutCount,
-    total_contacts:        totalCount,
-    opt_out_rate_pct:      optOutRate,
+    opt_in_breakdown: optInBreakdown,
+    opted_out_count: optedOutCount,
+    total_contacts: totalCount,
+    opt_out_rate_pct: optOutRate,
     contacts_missing_optin: parseInt(noOptin.count, 10) || 0,
-    quality_rating:        waba?.quality_rating || 'GREEN',
-    messaging_tier:        waba?.messaging_tier || 1,
-    msgs_sent_today:       waba?.msgs_sent_today || 0,
+    quality_rating: waba?.quality_rating || 'GREEN',
+    messaging_tier: waba?.messaging_tier || 1,
+    msgs_sent_today: waba?.msgs_sent_today || 0,
     waba_health_synced_at: waba?.waba_health_synced_at || null,
   }, 'Compliance data fetched.');
 }));

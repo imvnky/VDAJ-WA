@@ -17,22 +17,22 @@
  */
 
 const express = require('express');
-const router  = express.Router();
-const crypto  = require('crypto');
-const { query }           = require('../config/database');
-const { sendSuccess }     = require('../middleware/responseHandler');
-const logger              = require('../utils/logger');
+const router = express.Router();
+const crypto = require('crypto');
+const { query } = require('../config/database');
+const { sendSuccess } = require('../middleware/responseHandler');
+const logger = require('../utils/logger');
 const { optOutInterceptor } = require('../workers/optOutInterceptor');
 const { processInboundFlow } = require('../services/flowExecutionService');
 const fetch = (...args) => import('node-fetch').then(({ default: f }) => f(...args));
 
 const META_API_BASE = process.env.META_GRAPH_API_URL || 'https://graph.facebook.com';
-const API_VERSION   = process.env.META_API_VERSION   || 'v21.0';
+const API_VERSION = process.env.META_API_VERSION || 'v21.0';
 
 // ── GET /webhooks or /webhooks/whatsapp — Meta verification challenge ────────
 router.get(['/', '/whatsapp'], (req, res) => {
-  const mode      = req.query['hub.mode'];
-  const token     = req.query['hub.verify_token'];
+  const mode = req.query['hub.mode'];
+  const token = req.query['hub.verify_token'];
   const challenge = req.query['hub.challenge'];
 
   if (mode === 'subscribe' && token === process.env.META_WEBHOOK_VERIFY_TOKEN) {
@@ -51,12 +51,12 @@ router.post(['/', '/whatsapp'], (req, res) => {
 
   // Validate Meta HMAC-SHA256 signature
   const signature = req.headers['x-hub-signature-256'];
-  const rawBody   = req.body; // raw Buffer — set in server.js
+  const rawBody = req.body; // raw Buffer — set in server.js
   const appSecret = process.env.META_APP_SECRET;
   const isRealSecret = appSecret &&
-                       appSecret !== 'your_meta_app_secret' &&
-                       !appSecret.includes('your_meta') &&
-                       appSecret.length >= 16;
+    appSecret !== 'your_meta_app_secret' &&
+    !appSecret.includes('your_meta') &&
+    appSecret.length >= 16;
 
   if (signature && isRealSecret) {
     const expected = `sha256=${crypto
@@ -67,7 +67,7 @@ router.post(['/', '/whatsapp'], (req, res) => {
     const sigBuf = Buffer.from(signature);
     const expBuf = Buffer.from(expected);
     if (sigBuf.length !== expBuf.length ||
-        !crypto.timingSafeEqual(sigBuf, expBuf)) {
+      !crypto.timingSafeEqual(sigBuf, expBuf)) {
       logger.warn('Webhook HMAC signature mismatch — ignoring payload.');
       return res.status(200).json({ status: 'ignored' }); // Always 200 to Meta
     }
@@ -114,14 +114,14 @@ router.post(['/', '/whatsapp'], (req, res) => {
 // HANDLER: Inbound message from customer
 // ─────────────────────────────────────────────────────────────────
 async function handleInboundMessage(msg, value, broadcastToTenant) {
-  const fromPhone   = msg.from;                  // E.164 without '+'
+  const fromPhone = msg.from;                  // E.164 without '+'
   const waMessageId = msg.id;
-  const timestamp   = msg.timestamp;
-  const msgType     = msg.type || 'text';
+  const timestamp = msg.timestamp;
+  const msgType = msg.type || 'text';
 
   // Extract body/media depending on message type
-  let body     = null;
-  let mediaId  = null;   // Meta media object ID — resolved to URL async
+  let body = null;
+  let mediaId = null;   // Meta media object ID — resolved to URL async
   let mediaUrl = null;
   let mediaMime = null;
 
@@ -130,26 +130,26 @@ async function handleInboundMessage(msg, value, broadcastToTenant) {
       body = msg.text?.body || null;
       break;
     case 'image':
-      body      = msg.image?.caption || null;
-      mediaId   = msg.image?.id;
+      body = msg.image?.caption || null;
+      mediaId = msg.image?.id;
       mediaMime = msg.image?.mime_type || 'image/jpeg';
       break;
     case 'video':
-      body      = msg.video?.caption || null;
-      mediaId   = msg.video?.id;
+      body = msg.video?.caption || null;
+      mediaId = msg.video?.id;
       mediaMime = msg.video?.mime_type || 'video/mp4';
       break;
     case 'audio':
-      mediaId   = msg.audio?.id;
+      mediaId = msg.audio?.id;
       mediaMime = msg.audio?.mime_type || 'audio/ogg';
       break;
     case 'document':
-      body      = msg.document?.filename || msg.document?.caption || null;
-      mediaId   = msg.document?.id;
+      body = msg.document?.filename || msg.document?.caption || null;
+      mediaId = msg.document?.id;
       mediaMime = msg.document?.mime_type || 'application/octet-stream';
       break;
     case 'sticker':
-      mediaId   = msg.sticker?.id;
+      mediaId = msg.sticker?.id;
       mediaMime = msg.sticker?.mime_type || 'image/webp';
       break;
     case 'location':
@@ -166,8 +166,8 @@ async function handleInboundMessage(msg, value, broadcastToTenant) {
       break;
     case 'interactive':
       body = msg.interactive?.button_reply?.title ||
-             msg.interactive?.list_reply?.title   ||
-             msg.interactive?.nfm_reply?.response_json || '[interactive]';
+        msg.interactive?.list_reply?.title ||
+        msg.interactive?.nfm_reply?.response_json || '[interactive]';
       break;
     case 'order':
       body = `🛒 Order received (${msg.order?.product_items?.length || 0} items)`;
@@ -201,10 +201,10 @@ async function handleInboundMessage(msg, value, broadcastToTenant) {
     }
   }
 
-  const tenantId        = tenantRows[0].id;
-  const tenantToken     = tenantRows[0].meta_system_token ||
-                          process.env.META_ACCESS_TOKEN;   // env fallback for single-tenant setups
-  const displayName     = value.contacts?.[0]?.profile?.name || null;
+  const tenantId = tenantRows[0].id;
+  const tenantToken = tenantRows[0].meta_system_token ||
+    process.env.META_ACCESS_TOKEN;   // env fallback for single-tenant setups
+  const displayName = value.contacts?.[0]?.profile?.name || null;
 
   // ── Resolve media object ID → downloadable URL ─────────────────
   // Meta's Cloud API delivers media as object IDs, not direct URLs.
@@ -240,13 +240,13 @@ async function handleInboundMessage(msg, value, broadcastToTenant) {
 
   const directoryName = contact
     ? (
-        [contact.first_name, contact.last_name].filter(Boolean).join(' ').trim() ||
-        contact.first_name ||
-        contact.custom_vars?.Name ||
-        contact.custom_vars?.name ||
-        contact.custom_vars?.full_name ||
-        null
-      )
+      [contact.first_name, contact.last_name].filter(Boolean).join(' ').trim() ||
+      contact.first_name ||
+      contact.custom_vars?.Name ||
+      contact.custom_vars?.name ||
+      contact.custom_vars?.full_name ||
+      null
+    )
     : null;
 
   // Directory name takes priority; fallback to WhatsApp profile name, then phone
@@ -373,7 +373,7 @@ async function handleInboundMessage(msg, value, broadcastToTenant) {
   if (msgType === 'text' && body) {
     await optOutInterceptor({
       tenantId,
-      phoneE164:   conv.phone_e164,
+      phoneE164: conv.phone_e164,
       messageBody: body,
       waMessageId,
     });
@@ -386,11 +386,11 @@ async function handleInboundMessage(msg, value, broadcastToTenant) {
       data: {
         ...savedMsg,
         conversation: {
-          id:                  conv.id,
-          display_name:        conv.display_name || conv.phone_e164,
-          phone_e164:          conv.phone_e164,
-          unread_count:        conv.unread_count + 1,
-          last_message_at:     savedMsg.created_at,
+          id: conv.id,
+          display_name: conv.display_name || conv.phone_e164,
+          phone_e164: conv.phone_e164,
+          unread_count: conv.unread_count + 1,
+          last_message_at: savedMsg.created_at,
           last_message_preview: body ? body.slice(0, 100) : `[${msgType}]`,
         },
       },
@@ -424,7 +424,7 @@ async function handleStatusUpdate(status, broadcastToTenant) {
   if (!dbStatus) return; // Unknown status — skip
 
   const errorCode = errors?.[0]?.code ? String(errors[0].code) : null;
-  const errorMsg  = errors?.[0]?.title || errors?.[0]?.message || null;
+  const errorMsg = errors?.[0]?.title || errors?.[0]?.message || null;
 
   // ── 1. Campaign message status update ──────────────────────────
   const timestampCol = `${dbStatus}_at`;
@@ -450,18 +450,18 @@ async function handleStatusUpdate(status, broadcastToTenant) {
          SET ${dbStatus}_count = ${dbStatus}_count + 1, updated_at = NOW()
          WHERE id = $1`,
         [cmRow.campaign_id]
-      ).catch(() => {});
+      ).catch(() => { });
 
       // Broadcast real-time status update to campaign viewers
       if (typeof broadcastToTenant === 'function') {
         broadcastToTenant(cmRow.tenant_id, {
           type: 'CAMPAIGN_STATUS_UPDATE',
           data: {
-            campaignId:    cmRow.campaign_id,
-            messageId:     cmRow.id,
+            campaignId: cmRow.campaign_id,
+            messageId: cmRow.id,
             metaMessageId: metaMessageId,
-            status:        dbStatus,
-            error_code:    errorCode,
+            status: dbStatus,
+            error_code: errorCode,
             error_message: errorMsg,
           },
         });
@@ -487,12 +487,12 @@ async function handleStatusUpdate(status, broadcastToTenant) {
       broadcastToTenant(row.tenant_id, {
         type: 'message_status_update',
         data: {
-          id:              row.id,
+          id: row.id,
           conversation_id: row.conversation_id,
-          wa_message_id:   metaMessageId,
-          status:          dbStatus,
-          error_code:      errorCode,
-          error_message:   errorMsg,
+          wa_message_id: metaMessageId,
+          status: dbStatus,
+          error_code: errorCode,
+          error_message: errorMsg,
         },
       });
     }

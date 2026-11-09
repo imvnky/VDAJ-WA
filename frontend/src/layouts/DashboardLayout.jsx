@@ -95,12 +95,12 @@ export default function DashboardLayout() {
 
   const sidebarStyle = {
     background: '#FFFFFF',
-    borderRight: '1px solid #E6E4F5',
+    borderRight: '1px solid #E2E8F0',
   };
 
   const topbarStyle = {
-    background: 'rgba(255, 255, 255, 0.95)',
-    borderBottom: '1px solid #E6E4F5',
+    background: 'rgba(255, 255, 255, 0.85)',
+    borderBottom: '1px solid #E2E8F0',
     backdropFilter: 'blur(12px)',
   };
 
@@ -108,7 +108,7 @@ export default function DashboardLayout() {
     <>
       <UpdateBanner />
       <ImpersonationBanner />
-      <div className="flex h-screen overflow-hidden" style={{ background: '#F8F7FF' }}>
+      <div className="flex h-screen overflow-hidden" style={{ background: '#F8FAFC' }}>
         {/* Mobile overlay */}
         {mobileOpen && (
           <div
@@ -120,27 +120,27 @@ export default function DashboardLayout() {
         {/* ── SIDEBAR ── */}
         <aside
           className={clsx(
-            'fixed lg:relative z-40 h-full flex flex-col transition-all duration-300',
-            isCollapsed ? 'w-[70px]' : 'w-64',
+            'fixed lg:relative z-40 h-full flex flex-col transition-all duration-300 shadow-[1px_0_4px_0_rgba(0,0,0,0.02)]',
+            isCollapsed ? 'w-[72px]' : 'w-64',
             mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
           )}
           style={sidebarStyle}
         >
           {/* Logo Area */}
           <div className={clsx(
-            "flex items-center shrink-0 border-b border-[#E6E4F5]/60",
-            isCollapsed ? "justify-center py-4 px-2" : "gap-3 px-5 py-5"
+            "flex items-center shrink-0 border-b border-slate-200/80",
+            isCollapsed ? "justify-center py-4 px-2" : "gap-3 px-5 py-4"
           )}>
-            <Logo size={34} showWordmark={!isCollapsed} />
+            <Logo size={32} showWordmark={!isCollapsed} />
             {!isCollapsed && (
-              <button className="ml-auto lg:hidden text-[#9494A8] hover:text-[#0F0F0F]" onClick={() => setMobileOpen(false)}>✕</button>
+              <button className="ml-auto lg:hidden text-slate-400 hover:text-slate-800" onClick={() => setMobileOpen(false)}>✕</button>
             )}
           </div>
 
           {/* Nav */}
           <nav className={clsx(
             "flex-1 overflow-y-auto no-scrollbar",
-            isCollapsed ? "py-4 px-2 space-y-4" : "px-3 py-4 space-y-5"
+            isCollapsed ? "py-4 px-2 space-y-4" : "px-3 py-3 space-y-4"
           )}>
             {NAV_ITEMS.map((section) => {
               const isPlatformMode = user?.role === 'super_admin' && !isImpersonating;
@@ -166,7 +166,7 @@ export default function DashboardLayout() {
               return (
                 <div key={section.section}>
                   {!isCollapsed && (
-                    <p className="px-3 mb-1.5 text-2xs font-bold uppercase tracking-wider text-[#9494A8]">
+                    <p className="px-3 mb-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
                       {section.section}
                     </p>
                   )}
@@ -177,24 +177,33 @@ export default function DashboardLayout() {
                       title={isCollapsed ? item.label : undefined}
                       onClick={() => setMobileOpen(false)}
                       className={({ isActive }) => clsx(
-                        'flex items-center rounded-xl text-sm font-medium transition-all duration-150 mb-1',
+                        'flex items-center rounded-lg text-xs transition-all duration-150 mb-1',
                         isCollapsed
-                          ? 'justify-center w-11 h-11 mx-auto'
-                          : 'gap-3 px-3 py-2.5',
+                          ? 'justify-center w-10 h-10 mx-auto'
+                          : 'gap-3 px-3 py-2',
                         isActive
-                          ? 'bg-[#EDE9FE] text-[#534AB7] font-bold shadow-sm'
-                          : 'text-[#5A5A6E] hover:bg-[#F8F7FF] hover:text-[#0F0F0F]'
+                          ? 'bg-slate-100 text-slate-900 font-semibold shadow-xs border border-slate-200/60'
+                          : 'text-slate-600 hover:bg-slate-100/70 hover:text-slate-900 font-medium'
                       )}
                     >
-                      <span className={clsx("shrink-0", isCollapsed ? "w-5 h-5" : "w-4 h-4 opacity-90")}>{item.icon}</span>
-                      {!isCollapsed && <span className="flex-1">{item.label}</span>}
-                      {!isCollapsed && item.badge && (
-                        <span className={clsx(
-                          'text-2xs px-1.5 py-0.5 rounded-md font-bold',
-                          item.badge === 'Live' ? 'bg-[#E8F9F4] text-[#1D9E75]' : 'bg-[#F3F2FD] text-[#534AB7]'
-                        )}>
-                          {item.badge}
-                        </span>
+                      {({ isActive }) => (
+                        <>
+                          <span className={clsx("shrink-0", isCollapsed ? "w-5 h-5" : "w-4 h-4", isActive ? "text-[#534AB7]" : "text-slate-500 opacity-90")}>
+                            {item.icon}
+                          </span>
+                          {!isCollapsed && <span className="flex-1">{item.label}</span>}
+                          {!isCollapsed && item.badge && (
+                            <span className={clsx(
+                              'text-[10px] px-1.5 py-0.5 rounded-full font-bold border',
+                              item.badge === 'Live' ? 'bg-emerald-50 text-emerald-700 border-emerald-200/80' :
+                              item.badge === 'New' ? 'bg-indigo-50 text-indigo-700 border-indigo-200/80' :
+                              item.badge === 'Beta' ? 'bg-amber-50 text-amber-700 border-amber-200/80' :
+                              'bg-slate-100 text-slate-700 border-slate-200'
+                            )}>
+                              {item.badge}
+                            </span>
+                          )}
+                        </>
                       )}
                     </NavLink>
                   ))}
@@ -204,19 +213,20 @@ export default function DashboardLayout() {
           </nav>
 
           {/* Collapse toggle / Legal Footer */}
-          <div className={clsx("shrink-0 border-t border-[#E6E4F5]/60 mt-auto", isCollapsed ? "p-2 text-center" : "px-4 py-4")}>
+          <div className={clsx("shrink-0 border-t border-slate-200/80 mt-auto", isCollapsed ? "p-2 text-center" : "px-4 py-3")}>
             <button
               onClick={() => setIsCollapsed(!isCollapsed)}
               title={isCollapsed ? "Expand navigation" : "Collapse navigation"}
-              className="w-full flex items-center justify-center p-2 rounded-lg text-[#9494A8] hover:text-[#534AB7] hover:bg-[#F3F2FD] text-xs font-bold transition-colors"
+              className="w-full flex items-center justify-center p-1.5 rounded-lg text-slate-400 hover:text-slate-800 hover:bg-slate-100 text-xs font-semibold transition-colors gap-1.5"
             >
-              {isCollapsed ? '»' : '« Collapse'}
+              <span>{isCollapsed ? '»' : '«'}</span>
+              {!isCollapsed && <span>Collapse</span>}
             </button>
             {!isCollapsed && (
-              <div className="flex items-center gap-2 flex-wrap text-2xs text-[#9494A8] mt-2">
-                <a href="/legal/privacy" target="_blank" rel="noopener noreferrer" className="hover:text-[#534AB7] transition-colors">Privacy</a>
+              <div className="flex items-center gap-2 flex-wrap text-[10px] text-slate-400 mt-2 px-1">
+                <a href="/legal/privacy" target="_blank" rel="noopener noreferrer" className="hover:text-slate-600 transition-colors">Privacy</a>
                 <span>·</span>
-                <a href="/legal/terms" target="_blank" rel="noopener noreferrer" className="hover:text-[#534AB7] transition-colors">Terms</a>
+                <a href="/legal/terms" target="_blank" rel="noopener noreferrer" className="hover:text-slate-600 transition-colors">Terms</a>
                 <span>·</span>
                 <span>VDAJ Services LLP</span>
               </div>
@@ -228,7 +238,7 @@ export default function DashboardLayout() {
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
           {/* Topbar */}
           <header className="flex items-center gap-3 sm:gap-4 px-4 sm:px-6 h-16 shrink-0 z-20" style={topbarStyle}>
-            <button className="lg:hidden text-[#5A5A6E] hover:text-[#0F0F0F]" onClick={() => setMobileOpen(true)}>
+            <button className="lg:hidden p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:text-slate-800 hover:bg-slate-50" onClick={() => setMobileOpen(true)}>
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
               </svg>
@@ -241,26 +251,42 @@ export default function DashboardLayout() {
                 onClick={() => window.dispatchEvent(new CustomEvent('vdaj-open-flows-list'))}
                 title="Click to view all automations & flows"
               >
-                <span className="text-sm font-semibold text-[#64748B] hover:text-[#534AB7] transition-colors">Automation</span>
-                <span className="text-[#CBD5E1]">/</span>
-                <span className="text-sm font-bold text-[#0F172A] hover:text-[#534AB7] transition-colors">Flows</span>
+                <span className="text-xs font-semibold text-slate-500 hover:text-[#534AB7] transition-colors">Automation</span>
+                <span className="text-slate-300">/</span>
+                <span className="text-xs font-bold text-slate-900 hover:text-[#534AB7] transition-colors">Flows</span>
               </div>
             ) : (
-              <WorkspaceSwitcher />
+              <div className="flex items-center gap-3">
+                <WorkspaceSwitcher />
+                <div className="hidden md:flex items-center gap-1.5 text-xs text-slate-400 font-medium pl-1 border-l border-slate-200">
+                  <span>Dashboard</span>
+                  <span className="text-slate-300">/</span>
+                  <span className="text-slate-700 font-semibold capitalize">
+                    {location.pathname.replace('/', '').replace(/-/g, ' ') || 'Overview'}
+                  </span>
+                </div>
+              </div>
             )}
 
             <div className="flex-1" />
+
+            {/* Quick Search shortcut box */}
+            <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-100/70 border border-slate-200/70 text-xs text-slate-400 w-52 hover:border-slate-300 transition-colors cursor-pointer"
+                 onClick={() => navigate('/campaigns')} title="Quick search">
+              <span className="text-slate-400">🔍</span>
+              <span className="flex-1 text-left text-slate-500 text-xs">Search...</span>
+              <kbd className="px-1.5 py-0.5 rounded bg-white text-[10px] font-bold text-slate-400 border border-slate-200 shadow-2xs">⌘K</kbd>
+            </div>
 
             {/* In automation page, place WorkspaceSwitcher on the right */}
             {isAutomationPage && <WorkspaceSwitcher />}
 
             <NotificationBell />
 
-            {/* Subscription / Plan badge */}
-            <span className="hidden sm:flex items-center gap-1.5 h-7 px-3 rounded-full text-2xs font-semibold"
-              style={{ background: '#E8F9F4', color: '#148059', border: '1px solid #A3E4D0' }}>
-              <span className="w-1.5 h-1.5 rounded-full bg-[#1D9E75] animate-pulse" />
-              {user?.role === 'super_admin' && !isImpersonating ? 'Platform Owner' : (tenant?.status === 'active' ? 'Active' : 'Live')}
+            {/* Meta Live Connection Status badge */}
+            <span className="hidden sm:inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full text-2xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/80">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              {user?.role === 'super_admin' && !isImpersonating ? 'Platform Mode' : 'Meta Live'}
             </span>
 
             {/* User Profile Dropdown */}

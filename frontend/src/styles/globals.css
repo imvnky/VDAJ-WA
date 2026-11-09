@@ -13,29 +13,29 @@
 [data-theme="light"],
 [data-theme="dark"],
 [data-theme="colorful"] {
-  --bg-base:        #F8F7FF;
+  --bg-base:        #F8FAFC;
   --bg-elevated:    #FFFFFF;
   --bg-card:        #FFFFFF;
-  --bg-border:      #E6E4F5;
-  --bg-hover:       rgba(83, 74, 183, 0.05);
+  --bg-border:      #E2E8F0;
+  --bg-hover:       #F1F5F9;
 
-  --text-primary:   #0F0F0F;
-  --text-secondary: #5A5A6E;
-  --text-muted:     #9494A8;
+  --text-primary:   #0F172A;
+  --text-secondary: #475569;
+  --text-muted:     #94A3B8;
 
   --brand:          #534AB7;
   --brand-light:    #AFA9EC;
-  --brand-dark:     #3730A3;
-  --teal:           #1D9E75;
-  --teal-light:     #26C18E;
-  --teal-dark:      #148059;
+  --brand-dark:     #4338CA;
+  --teal:           #10B981;
+  --teal-light:     #34D399;
+  --teal-dark:      #059669;
 
-  --shadow-card:    0 1px 3px rgba(83, 74, 183, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
-  --shadow-brand:   0 4px 16px rgba(83, 74, 183, 0.22);
+  --shadow-card:    0 1px 3px 0 rgba(0, 0, 0, 0.04), 0 1px 2px -1px rgba(0, 0, 0, 0.04);
+  --shadow-brand:   0 4px 14px rgba(83, 74, 183, 0.18);
   --sidebar-bg:     #FFFFFF;
-  --sidebar-active: #F3F2FD;
-  --sidebar-text:   #5A5A6E;
-  --topbar-bg:      rgba(255, 255, 255, 0.92);
+  --sidebar-active: #F1F5F9;
+  --sidebar-text:   #475569;
+  --topbar-bg:      rgba(255, 255, 255, 0.85);
 }
 
 /* ============================================================
@@ -76,33 +76,41 @@
 
 @layer components {
 
-  /* ── GLASS / SURFACE CARDS ── */
+  /* ── SHADCN / MODERN ELEVATED CARDS ── */
   .card {
-    background: var(--bg-card);
-    border: 1px solid var(--bg-border);
-    border-radius: 1rem;
-    box-shadow: var(--shadow-card);
-    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    background: #FFFFFF;
+    border: 1px solid #E2E8F0;
+    border-radius: 0.875rem;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04), 0 1px 2px -1px rgba(0, 0, 0, 0.04);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
   }
-  .card:hover { border-color: rgba(83,74,183,0.3); }
+  .card:hover {
+    border-color: #CBD5E1;
+  }
+
+  .shadcn-card {
+    background: #FFFFFF;
+    border: 1px solid #E2E8F0;
+    border-radius: 0.875rem;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04), 0 1px 2px -1px rgba(0, 0, 0, 0.04);
+    transition: all 0.15s ease-in-out;
+  }
+  .shadcn-card:hover {
+    border-color: #CBD5E1;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+  }
 
   .glass-card {
-    background: var(--bg-card);
-    border: 1px solid var(--bg-border);
-    border-radius: 1rem;
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid #E2E8F0;
+    border-radius: 0.875rem;
     backdrop-filter: blur(12px);
-    box-shadow: var(--shadow-card);
-  }
-  .glass-card {
-    background: #FFFFFF;
-    border: 1px solid var(--bg-border);
-    border-radius: 1rem;
-    box-shadow: 0 4px 20px -2px rgba(83, 74, 183, 0.08);
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04);
   }
 
   /* ── GRADIENT TEXT ── */
   .text-gradient {
-    background: linear-gradient(135deg, #534AB7 0%, #3730A3 60%, #1D9E75 100%);
+    background: linear-gradient(135deg, #0F172A 0%, #334155 50%, #534AB7 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -110,11 +118,11 @@
 
   /* ── BADGE SYSTEM ── */
   .badge { @apply inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold; }
-  .badge-brand   { @apply badge; background: #F3F2FD; color: #534AB7; border: 1px solid #E6E4F5; }
-  .badge-teal    { @apply badge; background: #E8F9F4; color: #148059; border: 1px solid #A3E4D0; }
-  .badge-error   { @apply badge; background: #FEF2F2; color: #DC2626; border: 1px solid #FECACA; }
+  .badge-brand   { @apply badge; background: #EEF2FF; color: #4338CA; border: 1px solid #C7D2FE; }
+  .badge-teal    { @apply badge; background: #ECFDF5; color: #047857; border: 1px solid #A7F3D0; }
+  .badge-error   { @apply badge; background: #FEF2F2; color: #B91C1C; border: 1px solid #FECACA; }
   .badge-warning { @apply badge; background: #FFFBEB; color: #B45309; border: 1px solid #FDE68A; }
-  .badge-muted   { @apply badge; background: #F8F7FF; color: #5A5A6E; border: 1px solid #E6E4F5; }
+  .badge-muted   { @apply badge; background: #F8FAFC; color: #475569; border: 1px solid #E2E8F0; }
 
   /* ── FOCUS RING ── */
   .focus-ring {

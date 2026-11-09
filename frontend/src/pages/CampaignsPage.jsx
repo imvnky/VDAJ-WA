@@ -16,12 +16,12 @@ import { ErrorState, parseApiError } from '../components/atoms/ErrorState/ErrorS
 
 // ---- Status Badge ----
 const STATUS = {
-  draft:     { label: 'Draft',     cls: 'bg-[#F8F7FF] text-[#5A5A6E] border-[#E6E4F5]' },
+  draft: { label: 'Draft', cls: 'bg-[#F8F7FF] text-[#5A5A6E] border-[#E6E4F5]' },
   scheduled: { label: 'Scheduled', cls: 'bg-[#F3F2FD] text-[#534AB7] border-[#E6E4F5]' },
-  running:   { label: 'Running',   cls: 'bg-[#F3F2FD] text-[#534AB7] border-[#AFA9EC]' },
-  paused:    { label: 'Paused',    cls: 'bg-amber-50 text-amber-700 border-amber-200' },
-  completed: { label: 'Done',      cls: 'bg-[#E8F9F4] text-[#148059] border-[#A3E4D0]' },
-  failed:    { label: 'Failed',    cls: 'bg-red-50 text-red-700 border-red-200' },
+  running: { label: 'Running', cls: 'bg-[#F3F2FD] text-[#534AB7] border-[#AFA9EC]' },
+  paused: { label: 'Paused', cls: 'bg-amber-50 text-amber-700 border-amber-200' },
+  completed: { label: 'Done', cls: 'bg-[#E8F9F4] text-[#148059] border-[#A3E4D0]' },
+  failed: { label: 'Failed', cls: 'bg-red-50 text-red-700 border-red-200' },
 };
 
 function StatusBadge({ status }) {
@@ -191,7 +191,7 @@ function ComposerModal({ onClose, onCreated, contactLists = [], templates = [] }
           }
         }
       })
-      .catch(() => {});
+      .catch(() => { });
     return () => { isMounted = false; };
   }, []);
 
@@ -254,7 +254,7 @@ function ComposerModal({ onClose, onCreated, contactLists = [], templates = [] }
         .then((res) => {
           if (isMounted && res.data) setAudienceCount(res.data);
         })
-        .catch(() => {})
+        .catch(() => { })
         .finally(() => {
           if (isMounted) setLoadingAudienceCount(false);
         });
@@ -275,7 +275,7 @@ function ComposerModal({ onClose, onCreated, contactLists = [], templates = [] }
         .then((res) => {
           if (isMounted && res.data) setAudienceCount(res.data);
         })
-        .catch(() => {})
+        .catch(() => { })
         .finally(() => {
           if (isMounted) setLoadingAudienceCount(false);
         });
@@ -288,7 +288,7 @@ function ComposerModal({ onClose, onCreated, contactLists = [], templates = [] }
       .then((res) => {
         if (isMounted && res.data) setAudienceCount(res.data);
       })
-      .catch(() => {})
+      .catch(() => { })
       .finally(() => {
         if (isMounted) setLoadingAudienceCount(false);
       });
@@ -1482,7 +1482,7 @@ export default function CampaignsPage() {
             setCampaigns(res.data);
           }
         })
-        .catch(() => {});
+        .catch(() => { });
     }, 4000);
 
     return () => clearInterval(interval);
@@ -1635,11 +1635,11 @@ export default function CampaignsPage() {
       ) : (
         <div className="space-y-4">
           {campaigns.map((c) => {
-            const sentPct  = c.total_count  ? Math.round((c.sent_count       / c.total_count)  * 100) : 0;
-            const delPct   = c.sent_count   ? Math.round(((c.delivered_count || 0) / c.sent_count)  * 100) : 0;
-            const readPct  = c.sent_count   ? Math.round(((c.read_count      || 0) / c.sent_count)  * 100) : 0;
+            const sentPct = c.total_count ? Math.round((c.sent_count / c.total_count) * 100) : 0;
+            const delPct = c.sent_count ? Math.round(((c.delivered_count || 0) / c.sent_count) * 100) : 0;
+            const readPct = c.sent_count ? Math.round(((c.read_count || 0) / c.sent_count) * 100) : 0;
             const isRunning = c.status === 'running';
-            const isDraft   = c.status === 'draft' || c.status === 'scheduled';
+            const isDraft = c.status === 'draft' || c.status === 'scheduled';
             const al = actionLoading[c.id];
             return (
               <div
@@ -1707,11 +1707,10 @@ export default function CampaignsPage() {
                         type="button"
                         disabled={isRunning || al === 'retry'}
                         onClick={() => handleRetryFailed(c.id)}
-                        className={`h-8 px-3 rounded-lg text-xs font-semibold border transition-all inline-flex items-center gap-1.5 shadow-2xs ${
-                          isRunning
+                        className={`h-8 px-3 rounded-lg text-xs font-semibold border transition-all inline-flex items-center gap-1.5 shadow-2xs ${isRunning
                             ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-60'
                             : 'bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-200 cursor-pointer'
-                        }`}
+                          }`}
                         title={isRunning ? 'Campaign is currently in progress. Please wait for completion.' : 'Retry only failed recipients with safe rate pacing'}
                       >
                         <svg className={`w-3.5 h-3.5 ${isRunning ? 'text-slate-400 animate-spin' : 'text-rose-600'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -1725,11 +1724,10 @@ export default function CampaignsPage() {
                         type="button"
                         disabled={isRunning || al === 'resend'}
                         onClick={() => handleResend(c.id)}
-                        className={`h-8 px-3 rounded-lg text-xs font-semibold border transition-all inline-flex items-center gap-1.5 shadow-2xs ${
-                          isRunning
+                        className={`h-8 px-3 rounded-lg text-xs font-semibold border transition-all inline-flex items-center gap-1.5 shadow-2xs ${isRunning
                             ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-60'
                             : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200 cursor-pointer'
-                        }`}
+                          }`}
                         title={isRunning ? 'Campaign is currently in progress.' : 'Resend to all audience contacts'}
                       >
                         <svg className="w-3.5 h-3.5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

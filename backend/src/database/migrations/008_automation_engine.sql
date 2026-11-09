@@ -39,3 +39,4 @@ CREATE TABLE IF NOT EXISTS automation_runs (
 CREATE INDEX IF NOT EXISTS idx_automation_runs_tenant ON automation_runs(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_automation_runs_auto ON automation_runs(automation_id);
 CREATE INDEX IF NOT EXISTS idx_automation_runs_phone ON automation_runs(tenant_id, phone_e164);
+

@@ -72,12 +72,12 @@ async function aggregateTenantSnapshot(tenantId, targetDate) {
   );
 
   const snap = {
-    msgs_sent:      parseInt(agg.msgs_sent,      10),
+    msgs_sent: parseInt(agg.msgs_sent, 10),
     msgs_delivered: parseInt(agg.msgs_delivered, 10),
-    msgs_read:      parseInt(agg.msgs_read,      10),
-    msgs_failed:    parseInt(agg.msgs_failed,    10),
-    opt_outs:       parseInt(optOutRow.opt_outs, 10),
-    new_contacts:   parseInt(contactRow.new_contacts, 10),
+    msgs_read: parseInt(agg.msgs_read, 10),
+    msgs_failed: parseInt(agg.msgs_failed, 10),
+    opt_outs: parseInt(optOutRow.opt_outs, 10),
+    new_contacts: parseInt(contactRow.new_contacts, 10),
   };
 
   // ── Upsert into analytics_snapshots ───────────────────────────
@@ -119,7 +119,7 @@ async function aggregateTenantSnapshot(tenantId, targetDate) {
     date,
     ...snap,
     deliveryRate: `${deliveryRate}%`,
-    readRate:     `${readRate}%`,
+    readRate: `${readRate}%`,
   });
 
   return saved;
@@ -145,7 +145,7 @@ async function runDailyAggregation(targetDate) {
   );
 
   let success = 0;
-  let failed  = 0;
+  let failed = 0;
 
   for (const tenant of tenants) {
     try {
@@ -178,7 +178,7 @@ async function runDailyAggregation(targetDate) {
  */
 function startAnalyticsCron() {
   const scheduleDaily = () => {
-    const now  = new Date();
+    const now = new Date();
     // Next 00:10 UTC
     const next = new Date(Date.UTC(
       now.getUTCFullYear(),
@@ -223,8 +223,8 @@ function parseTier(tierStr) {
   const s = String(tierStr).toUpperCase();
   if (s === 'TIER_250' || s.includes('250')) return 'TIER_250';
   if (s.includes('100K') || s === 'TIER_100K' || s === '3') return 'TIER_100K';
-  if (s.includes('10K')  || s === 'TIER_10K'  || s === '2') return 'TIER_10K';
-  if (s.includes('1K')   || s === 'TIER_1K'   || s === '1') return 'TIER_1K';
+  if (s.includes('10K') || s === 'TIER_10K' || s === '2') return 'TIER_10K';
+  if (s.includes('1K') || s === 'TIER_1K' || s === '1') return 'TIER_1K';
   if (s.includes('UNLIMITED') || s === '4') return 'TIER_UNLIMITED';
   return 'TIER_250';
 }
@@ -269,14 +269,14 @@ async function syncWABAHealth() {
   }
 
   let success = 0;
-  let failed  = 0;
+  let failed = 0;
 
   for (const tenant of tenants) {
     try {
       const health = await getWABAHealth(tenant.phone_number_id, tenant.meta_system_token);
 
       const newRating = (health.quality_rating || 'GREEN').toUpperCase();
-      const newTier   = parseTier(health.messaging_limit_tier);
+      const newTier = parseTier(health.messaging_limit_tier);
 
       await query(
         `UPDATE tenants
@@ -292,7 +292,7 @@ async function syncWABAHealth() {
           newRating,
           newTier,
           health.display_phone_number || null,
-          health.verified_name        || null,
+          health.verified_name || null,
         ]
       );
 
@@ -309,17 +309,17 @@ async function syncWABAHealth() {
         );
         if (rowCount > 0) {
           logger.warn('Campaigns auto-paused: quality rating dropped to RED', {
-            tenantId:     tenant.id,
-            pausedCount:  rowCount,
+            tenantId: tenant.id,
+            pausedCount: rowCount,
           });
         }
       }
 
       logger.debug('WABA health synced', {
-        tenantId:    tenant.id,
-        quality:     newRating,
-        tier:        newTier,
-        dailyLimit:  tierDailyLimit(newTier),
+        tenantId: tenant.id,
+        quality: newRating,
+        tier: newTier,
+        dailyLimit: tierDailyLimit(newTier),
       });
 
       success++;
@@ -327,8 +327,8 @@ async function syncWABAHealth() {
       failed++;
       logger.error('WABA health sync failed for tenant', {
         tenantId: tenant.id,
-        error:    err.message,
-        code:     err.errorCode,
+        error: err.message,
+        code: err.errorCode,
       });
       // Continue — one tenant failure must not block the rest
     }
@@ -350,10 +350,10 @@ function startWABAHealthCron() {
 
   // Compute ms until the next 6-hour mark (00, 06, 12, 18 UTC)
   const scheduleNext = () => {
-    const now     = new Date();
+    const now = new Date();
     const utcHour = now.getUTCHours();
     const nextMark = Math.ceil((utcHour + 1) / 6) * 6; // next 0/6/12/18
-    const next    = new Date(Date.UTC(
+    const next = new Date(Date.UTC(
       now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(),
       nextMark % 24, 0, 0, 0
     ));
@@ -365,7 +365,7 @@ function startWABAHealthCron() {
     const msUntilNext = next.getTime() - Date.now();
 
     logger.info('WABA health cron scheduled', {
-      nextRun:    next.toISOString(),
+      nextRun: next.toISOString(),
       msUntilNext,
     });
 

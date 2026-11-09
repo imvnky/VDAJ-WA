@@ -10,9 +10,9 @@ import { showError } from '../components/atoms/Toast/Toast.jsx';
 // Determine API base URL — VITE_API_BASE_URL is baked in at build time.
 // Fallback chain: env var â†’ production domain â†’ localhost (dev only).
 const _envBase = import.meta.env.VITE_API_BASE_URL;
-const _isProd  = typeof window !== 'undefined' &&
-                 !window.location.hostname.includes('localhost') &&
-                 !window.location.hostname.includes('127.0.0.1');
+const _isProd = typeof window !== 'undefined' &&
+  !window.location.hostname.includes('localhost') &&
+  !window.location.hostname.includes('127.0.0.1');
 
 // In browser production, never use localhost even if baked into local build
 const getApiBase = () => {
@@ -270,24 +270,24 @@ export const billingApi = {
 // ---- SUPER ADMIN ----
 export const superAdminApi = {
   // Platform overview
-  overview:       (config = {})      => client.get('/admin/overview', config),
+  overview: (config = {}) => client.get('/admin/overview', config),
   // Tenants
-  listTenants:    (config = {})      => client.get('/admin/tenants', config),
-  createTenant:   (data)             => client.post('/admin/tenants', data),
-  updateTenant:   (id, data)         => client.patch(`/admin/tenants/${id}`, data),
-  suspendTenant:  (id, s)            => client.patch(`/admin/tenants/${id}/suspend`, { suspend: s }),
-  updateStatus:   (id, status)       => client.patch(`/admin/tenants/${id}/status`, { status }),
-  updateFeatures: (id, feats)        => client.patch(`/admin/tenants/${id}/features`, { features: feats }),
+  listTenants: (config = {}) => client.get('/admin/tenants', config),
+  createTenant: (data) => client.post('/admin/tenants', data),
+  updateTenant: (id, data) => client.patch(`/admin/tenants/${id}`, data),
+  suspendTenant: (id, s) => client.patch(`/admin/tenants/${id}/suspend`, { suspend: s }),
+  updateStatus: (id, status) => client.patch(`/admin/tenants/${id}/status`, { status }),
+  updateFeatures: (id, feats) => client.patch(`/admin/tenants/${id}/features`, { features: feats }),
   resetTenantAdminPassword: (id, pw) => client.patch(`/admin/tenants/${id}/reset-admin-password`, pw ? { password: pw } : {}),
   // Users
-  listUsers:      (config = {})      => client.get('/admin/users', config),
-  createUser:     (data)             => client.post('/admin/users', data),
-  updateUser:     (id, data)         => client.patch(`/admin/users/${id}`, data),
-  resetPassword:  (id, pw)           => client.patch(`/admin/users/${id}/reset-password`, pw ? { password: pw } : {}),
-  changeRole:     (id, role)         => client.patch(`/admin/users/${id}/role`, { role }),
+  listUsers: (config = {}) => client.get('/admin/users', config),
+  createUser: (data) => client.post('/admin/users', data),
+  updateUser: (id, data) => client.patch(`/admin/users/${id}`, data),
+  resetPassword: (id, pw) => client.patch(`/admin/users/${id}/reset-password`, pw ? { password: pw } : {}),
+  changeRole: (id, role) => client.patch(`/admin/users/${id}/role`, { role }),
   // Impersonation
-  impersonate:    (tenantId)         => client.post(`/admin/impersonate/${tenantId}`),
-  exitImpersonation: ()              => client.post('/admin/impersonate/exit'),
+  impersonate: (tenantId) => client.post(`/admin/impersonate/${tenantId}`),
+  exitImpersonation: () => client.post('/admin/impersonate/exit'),
 };
 
 // ---- AUDIT TRAIL ----

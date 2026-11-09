@@ -54,7 +54,7 @@ router.post('/login', loginValidators, validate, catchAsync(async (req, res) => 
       ],
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'],
-    }).catch(() => {});
+    }).catch(() => { });
 
     throw new AppError('Invalid credentials.', 401, 'ERR_VDAJ_AUTH_001');
   }
@@ -92,7 +92,7 @@ router.post('/login', loginValidators, validate, catchAsync(async (req, res) => 
     ],
     ipAddress: req.ip,
     userAgent: req.headers['user-agent'],
-  }).catch(() => {});
+  }).catch(() => { });
 
   return sendSuccess(res, {
     token,
@@ -115,7 +115,7 @@ router.post('/logout', authenticate, (req, res) => {
     ],
     ipAddress: req.ip,
     userAgent: req.headers['user-agent'],
-  }).catch(() => {});
+  }).catch(() => { });
 
   res.clearCookie(process.env.JWT_COOKIE_NAME || 'vdaj_access_token', COOKIE_OPTIONS);
   return sendSuccess(res, null, 'Logged out successfully.');
@@ -159,7 +159,7 @@ router.post('/meta/callback', authenticate, catchAsync(async (req, res) => {
     ],
     ipAddress: req.ip,
     userAgent: req.headers['user-agent'],
-  }).catch(() => {});
+  }).catch(() => { });
 
   return sendSuccess(res, { wabaId, phoneNumberId }, 'Meta account connected successfully.');
 }));
