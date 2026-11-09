@@ -96,7 +96,12 @@ async function main() {
       msg.template_vars?.contact_name || msg.template_vars?.name || 'Customer'
     );
 
-    const resolvedVars = { ...(campaign.template_vars || {}), ...(msg.template_vars || {}) };
+    const resolvedVars = {
+      headerUrl: campaign.header_url || campaign.template_header_url,
+      headerType: (campaign.header_url || campaign.template_header_url) ? 'IMAGE' : undefined,
+      ...(campaign.template_vars || {}),
+      ...(msg.template_vars || {}),
+    };
     if (!resolvedVars['1'] || resolvedVars['1'] === '{{name}}' || resolvedVars['1'] === '{{contact_name}}') {
       resolvedVars['1'] = recipientName;
     }
@@ -232,3 +237,4 @@ main().catch(async (e) => {
   console.error('Fatal error during retry dispatch:', e);
   try { await pool.end(); } catch {}
 });
+
