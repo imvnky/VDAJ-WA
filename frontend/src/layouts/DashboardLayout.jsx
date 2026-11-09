@@ -236,10 +236,14 @@ export default function DashboardLayout() {
 
             {/* Breadcrumb or Workspace Switcher */}
             {isAutomationPage ? (
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-semibold text-[#64748B]">Automation</span>
+              <div
+                className="flex items-center gap-2 cursor-pointer select-none"
+                onClick={() => window.dispatchEvent(new CustomEvent('vdaj-open-flows-list'))}
+                title="Click to view all automations & flows"
+              >
+                <span className="text-sm font-semibold text-[#64748B] hover:text-[#534AB7] transition-colors">Automation</span>
                 <span className="text-[#CBD5E1]">/</span>
-                <span className="text-sm font-bold text-[#0F172A]">Flows</span>
+                <span className="text-sm font-bold text-[#0F172A] hover:text-[#534AB7] transition-colors">Flows</span>
               </div>
             ) : (
               <WorkspaceSwitcher />

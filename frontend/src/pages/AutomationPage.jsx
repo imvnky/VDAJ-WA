@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -295,6 +296,7 @@ const generateId = (type) => `${type}_${Date.now()}_${++nodeSeq}`;
 
 // ── Main Canvas Component ──────────────────────────────────────
 function FlowCanvas() {
+  const navigate = useNavigate();
   const [nodes, setNodes, onNodesChange] = useNodesState(INITIAL_NODES);
   const [edges, setEdges, onEdgesChange] = useEdgesState(INITIAL_EDGES);
   const [selectedNodeId, setSelectedNodeId] = useState('n3'); // Defaults to Swimming details to match mockup!
@@ -312,6 +314,17 @@ function FlowCanvas() {
   const [showFormModalPreview, setShowFormModalPreview] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(85);
   const isLoadedRef = useRef(false);
+
+  // Flows switcher & creation states
+  const [viewMode, setViewMode] = useState('editor'); // 'editor' | 'list'
+  const [flowList, setFlowList] = useState([]);
+  const [isLoadingFlows, setIsLoadingFlows] = useState(false);
+  const [showFlowSelectorDropdown, setShowFlowSelectorDropdown] = useState(false);
+  const [showNewFlowModal, setShowNewFlowModal] = useState(false);
+  const [newFlowTitle, setNewFlowTitle] = useState('');
+  const [newFlowTemplate, setNewFlowTemplate] = useState('blank');
+  const [stepSaveEffect, setStepSaveEffect] = useState(false);
+  const [listSearchQuery, setListSearchQuery] = useState('');
 
   const reactFlowWrapper = useRef(null);
   const [reactFlowInstance, setReactFlowInstance] = useState(null);
@@ -509,84 +522,396 @@ function FlowCanvas() {
     setSaveStatus('Draft changes');
   };
 
-  // Load existing flow from server on mount (or restore unsaved draft)
+  // Load flow data into canvas
+  const loadFlowData = useCallback((flow) => {
+    if (!flow) return;
+    setActiveFlowId(flow.id);
+    if (flow.name) setFlowName(flow.name);
+    setPublishedVersion(flow.is_active ? 'Live' : 'Draft');
+
+    let loadedNodes = [];
+    let loadedEdges = [];
+    if (flow.steps) {
+      if (flow.steps.nodes && flow.steps.edges) {
+        loadedNodes = flow.steps.nodes;
+        loadedEdges = flow.steps.edges;
+      } else if (Array.isArray(flow.steps)) {
+        loadedNodes = flow.steps.filter((s) => !s.source);
+        loadedEdges = flow.steps.filter((s) => s.source);
+      }
+    }
+
+    // Check if user has an unsaved local draft newer than server flow
+    const localDraftRaw = localStorage.getItem(`vdaj_flow_draft_${flow.id}`);
+    let draftLoaded = false;
+    if (localDraftRaw) {
+      try {
+        const draft = JSON.parse(localDraftRaw);
+        const serverTime = new Date(flow.updated_at || 0).getTime();
+        if (draft?.nodes?.length && draft.updatedAt > serverTime) {
+          loadedNodes = draft.nodes;
+          loadedEdges = draft.edges || loadedEdges;
+          if (draft.name) setFlowName(draft.name);
+          setHasDraftChanges(true);
+          setSaveStatus('Draft changes');
+          draftLoaded = true;
+        }
+      } catch { }
+    }
+
+    if (!draftLoaded) {
+      setHasDraftChanges(false);
+      setSaveStatus(flow.is_active ? 'Live on WhatsApp' : 'Saved');
+    }
+
+    if (loadedNodes.length > 0) {
+      setNodes(loadedNodes);
+      setEdges(loadedEdges);
+      setSelectedNodeId(loadedNodes[0]?.id || null);
+    } else {
+      setNodes(INITIAL_NODES);
+      setEdges(INITIAL_EDGES);
+      setSelectedNodeId('n3');
+    }
+  }, [setEdges, setNodes]);
+
+  // Fetch all tenant flows from server
+  const refreshFlowList = useCallback(async () => {
+    try {
+      setIsLoadingFlows(true);
+      const res = await automationApi.list();
+      const flows = res?.data || [];
+      setFlowList(flows);
+      return flows;
+    } catch (err) {
+      console.warn('Could not load flows from server:', err);
+      return [];
+    } finally {
+      setIsLoadingFlows(false);
+    }
+  }, []);
+
+  // Initial load on mount
   useEffect(() => {
     let mounted = true;
-    const loadFlow = async () => {
-      try {
-        const res = await automationApi.list();
-        if (!mounted) return;
-        const flows = res?.data || [];
-        const primaryFlow = flows.find((f) => f.is_active) || flows[0];
+    const init = async () => {
+      const flows = await refreshFlowList();
+      if (!mounted) return;
+      const primaryFlow = flows.find((f) => f.is_active) || flows[0];
 
-        if (primaryFlow) {
-          setActiveFlowId(primaryFlow.id);
-          if (primaryFlow.name) setFlowName(primaryFlow.name);
-          setPublishedVersion(primaryFlow.is_active ? 'Live' : 'Draft');
-
-          let loadedNodes = [];
-          let loadedEdges = [];
-          if (primaryFlow.steps) {
-            if (primaryFlow.steps.nodes && primaryFlow.steps.edges) {
-              loadedNodes = primaryFlow.steps.nodes;
-              loadedEdges = primaryFlow.steps.edges;
-            } else if (Array.isArray(primaryFlow.steps)) {
-              loadedNodes = primaryFlow.steps.filter((s) => !s.source);
-              loadedEdges = primaryFlow.steps.filter((s) => s.source);
+      if (primaryFlow) {
+        loadFlowData(primaryFlow);
+      } else {
+        // Check for unsaved draft for a new flow
+        const localDraftRaw = localStorage.getItem('vdaj_flow_draft_new');
+        if (localDraftRaw) {
+          try {
+            const draft = JSON.parse(localDraftRaw);
+            if (draft?.nodes?.length) {
+              setNodes(draft.nodes);
+              setEdges(draft.edges || INITIAL_EDGES);
+              if (draft.name) setFlowName(draft.name);
+              setHasDraftChanges(true);
+              setSaveStatus('Draft changes');
             }
-          }
-
-          // Check if user has an unsaved local draft newer than server flow
-          const localDraftRaw = localStorage.getItem(`vdaj_flow_draft_${primaryFlow.id}`);
-          if (localDraftRaw) {
-            try {
-              const draft = JSON.parse(localDraftRaw);
-              const serverTime = new Date(primaryFlow.updated_at || 0).getTime();
-              if (draft?.nodes?.length && draft.updatedAt > serverTime) {
-                loadedNodes = draft.nodes;
-                loadedEdges = draft.edges || loadedEdges;
-                if (draft.name) setFlowName(draft.name);
-                setHasDraftChanges(true);
-                setSaveStatus('Draft changes');
-              }
-            } catch {}
-          }
-
-          if (loadedNodes.length > 0) {
-            setNodes(loadedNodes);
-            setEdges(loadedEdges);
-            if (!loadedNodes.some((n) => n.id === 'n3') && loadedNodes[0]) {
-              setSelectedNodeId(loadedNodes[0].id);
-            }
-          }
-        } else {
-          // Check for unsaved draft for a new flow
-          const localDraftRaw = localStorage.getItem('vdaj_flow_draft_new');
-          if (localDraftRaw) {
-            try {
-              const draft = JSON.parse(localDraftRaw);
-              if (draft?.nodes?.length) {
-                setNodes(draft.nodes);
-                setEdges(draft.edges || INITIAL_EDGES);
-                if (draft.name) setFlowName(draft.name);
-                setHasDraftChanges(true);
-                setSaveStatus('Draft changes');
-              }
-            } catch {}
-          }
-        }
-      } catch (err) {
-        console.warn('Could not load flows from server:', err);
-      } finally {
-        if (mounted) {
-          isLoadedRef.current = true;
+          } catch { }
         }
       }
+      isLoadedRef.current = true;
     };
 
-    loadFlow();
+    init();
     return () => { mounted = false; };
-  }, [setNodes, setEdges]);
+  }, [loadFlowData, refreshFlowList, setEdges, setNodes]);
+
+  // Listen to breadcrumb click in DashboardLayout to open Flows Overview
+  useEffect(() => {
+    const handleOpenList = () => {
+      refreshFlowList();
+      setViewMode('list');
+    };
+    window.addEventListener('vdaj-open-flows-list', handleOpenList);
+    return () => window.removeEventListener('vdaj-open-flows-list', handleOpenList);
+  }, [refreshFlowList]);
+
+  // Select and load a flow from list or dropdown
+  const handleSelectFlow = (flow) => {
+    loadFlowData(flow);
+    setViewMode('editor');
+    setShowFlowSelectorDropdown(false);
+    showSuccess(`Loaded flow "${flow.name}"`);
+  };
+
+  // Create brand new flow with template options
+  const handleCreateNewFlow = async (customTitle, templateType = 'blank') => {
+    const title = customTitle?.trim() || 'New WhatsApp Journey';
+
+    let starterNodes = [];
+    let starterEdges = [];
+
+    if (templateType === 'inquiry') {
+      const trigId = generateId('trigger');
+      const qId = generateId('question');
+      const m1 = generateId('message');
+      const m2 = generateId('message');
+      const m3 = generateId('message');
+      const end1 = generateId('end');
+      const end2 = generateId('end');
+      const end3 = generateId('end');
+
+      starterNodes = [
+        {
+          id: trigId,
+          type: 'trigger',
+          position: { x: 440, y: 40 },
+          data: { label: 'Incoming message', config: { triggerType: 'keyword', keywords: ['Hi', 'Hello', 'Help', 'Enquiry'] } },
+        },
+        {
+          id: qId,
+          type: 'question',
+          position: { x: 410, y: 190 },
+          data: {
+            label: 'Select Service',
+            config: {
+              body: 'Welcome! What would you like to inquire about?',
+              buttons: [{ label: 'Swimming' }, { label: 'Gym' }, { label: 'Badminton' }],
+            },
+          },
+        },
+        {
+          id: m1,
+          type: 'message',
+          position: { x: 170, y: 450 },
+          data: { label: 'Swimming details', config: { messageType: 'text', body: 'Our swimming pool is open daily from 6:00 AM to 10:00 AM and 4:00 PM to 9:00 PM.' } },
+        },
+        {
+          id: m2,
+          type: 'message',
+          position: { x: 460, y: 450 },
+          data: { label: 'Gym details', config: { messageType: 'text', body: 'Our gym is open daily from 6:00 AM to 10:00 AM and 4:00 PM to 8:00 PM.' } },
+        },
+        {
+          id: m3,
+          type: 'message',
+          position: { x: 750, y: 450 },
+          data: { label: 'Badminton details', config: { messageType: 'text', body: 'Our badminton courts are open daily from 6:00 AM to 10:00 AM and 4:00 PM to 9:00 PM.' } },
+        },
+        { id: end1, type: 'end', position: { x: 250, y: 640 }, data: { label: 'End' } },
+        { id: end2, type: 'end', position: { x: 540, y: 640 }, data: { label: 'End' } },
+        { id: end3, type: 'end', position: { x: 830, y: 640 }, data: { label: 'End' } },
+      ];
+
+      starterEdges = [
+        { id: `e_${trigId}_${qId}`, source: trigId, target: qId, ...EDGE_DEFAULTS },
+        { id: `e_${qId}_${m1}`, source: qId, sourceHandle: 'btn_0', target: m1, label: 'Swimming', ...EDGE_DEFAULTS },
+        { id: `e_${qId}_${m2}`, source: qId, sourceHandle: 'btn_1', target: m2, label: 'Gym', ...EDGE_DEFAULTS },
+        { id: `e_${qId}_${m3}`, source: qId, sourceHandle: 'btn_2', target: m3, label: 'Badminton', ...EDGE_DEFAULTS },
+        { id: `e_${m1}_${end1}`, source: m1, target: end1, ...EDGE_DEFAULTS },
+        { id: `e_${m2}_${end2}`, source: m2, target: end2, ...EDGE_DEFAULTS },
+        { id: `e_${m3}_${end3}`, source: m3, target: end3, ...EDGE_DEFAULTS },
+      ];
+    } else if (templateType === 'form') {
+      const trigId = generateId('trigger');
+      const formId = generateId('form');
+      const confirmId = generateId('message');
+      const endId = generateId('end');
+
+      starterNodes = [
+        {
+          id: trigId,
+          type: 'trigger',
+          position: { x: 440, y: 40 },
+          data: { label: 'Incoming message', config: { triggerType: 'keyword', keywords: ['Register', 'Join', 'Form'] } },
+        },
+        {
+          id: formId,
+          type: 'form',
+          position: { x: 410, y: 200 },
+          data: {
+            label: 'WhatsApp Form',
+            config: {
+              preset: 'registration',
+              screenTitle: 'Member Registration',
+              buttonLabel: 'Complete Registration',
+              fields: [
+                { id: 'f1', label: 'Full Name', type: 'text', required: true },
+                { id: 'f2', label: 'Phone Number', type: 'phone', required: true },
+                { id: 'f3', label: 'Preferred Plan', type: 'select', required: true },
+              ],
+            },
+          },
+        },
+        {
+          id: confirmId,
+          type: 'message',
+          position: { x: 410, y: 440 },
+          data: {
+            label: 'Confirmation message',
+            config: { messageType: 'text', body: 'Thank you for submitting! Your details have been received.' },
+          },
+        },
+        { id: endId, type: 'end', position: { x: 480, y: 640 }, data: { label: 'End' } },
+      ];
+
+      starterEdges = [
+        { id: `e_${trigId}_${formId}`, source: trigId, target: formId, ...EDGE_DEFAULTS },
+        { id: `e_${formId}_${confirmId}`, source: formId, target: confirmId, ...EDGE_DEFAULTS },
+        { id: `e_${confirmId}_${endId}`, source: confirmId, target: endId, ...EDGE_DEFAULTS },
+      ];
+    } else {
+      // Blank template
+      const trigId = generateId('trigger');
+      const msgId = generateId('message');
+      const endId = generateId('end');
+
+      starterNodes = [
+        {
+          id: trigId,
+          type: 'trigger',
+          position: { x: 440, y: 50 },
+          data: { label: 'Incoming message', config: { triggerType: 'keyword', keywords: ['Hi', 'Hello'] } },
+        },
+        {
+          id: msgId,
+          type: 'message',
+          position: { x: 410, y: 220 },
+          data: {
+            label: 'Welcome message',
+            config: { messageType: 'text', body: 'Hello! Thank you for contacting us. How can we help you today?' },
+          },
+        },
+        { id: endId, type: 'end', position: { x: 470, y: 440 }, data: { label: 'End' } },
+      ];
+
+      starterEdges = [
+        { id: `e_${trigId}_${msgId}`, source: trigId, target: msgId, ...EDGE_DEFAULTS },
+        { id: `e_${msgId}_${endId}`, source: msgId, target: endId, ...EDGE_DEFAULTS },
+      ];
+    }
+
+    try {
+      const res = await automationApi.create({
+        name: title,
+        triggerType: 'keyword',
+        triggerConfig: { keywords: ['Hi', 'Hello'] },
+        steps: { nodes: starterNodes, edges: starterEdges },
+        isActive: false,
+      });
+
+      if (res?.data?.id) {
+        setActiveFlowId(res.data.id);
+        setFlowName(res.data.name);
+        setPublishedVersion('Draft');
+        setNodes(starterNodes);
+        setEdges(starterEdges);
+        setSelectedNodeId(starterNodes[1]?.id || starterNodes[0]?.id);
+        setHasDraftChanges(false);
+        setSaveStatus('Saved');
+        await refreshFlowList();
+        setViewMode('editor');
+        setShowNewFlowModal(false);
+        showSuccess(`Created flow "${res.data.name}"!`);
+        return;
+      }
+    } catch (err) {
+      console.warn('Could not create flow on server immediately, using canvas state:', err);
+    }
+
+    // Fallback if offline / server error
+    setActiveFlowId(null);
+    setFlowName(title);
+    setPublishedVersion('Draft');
+    setNodes(starterNodes);
+    setEdges(starterEdges);
+    setSelectedNodeId(starterNodes[1]?.id || starterNodes[0]?.id);
+    setHasDraftChanges(true);
+    setSaveStatus('Draft changes');
+    setViewMode('editor');
+    setShowNewFlowModal(false);
+    showSuccess(`Created flow "${title}". Customize and publish when ready.`);
+  };
+
+  // Delete a flow
+  const handleDeleteFlow = async (flow) => {
+    if (!window.confirm(`Are you sure you want to delete flow "${flow.name}"? This cannot be undone.`)) return;
+    try {
+      await automationApi.delete(flow.id);
+      localStorage.removeItem(`vdaj_flow_draft_${flow.id}`);
+      showSuccess(`Flow "${flow.name}" deleted.`);
+      const updated = await refreshFlowList();
+      if (activeFlowId === flow.id) {
+        if (updated.length > 0) {
+          loadFlowData(updated[0]);
+        } else {
+          handleCreateNewFlow('New WhatsApp Flow');
+        }
+      }
+    } catch (err) {
+      showError(err?.response?.data?.message || 'Failed to delete flow.');
+    }
+  };
+
+  // Toggle flow Active (Live on WhatsApp) status
+  const handleToggleActiveFlow = async (flow) => {
+    try {
+      const nextActive = !flow.is_active;
+      await automationApi.update(flow.id, { isActive: nextActive });
+      showSuccess(nextActive ? `Flow "${flow.name}" is now LIVE on WhatsApp!` : `Flow "${flow.name}" paused.`);
+      const updated = await refreshFlowList();
+      if (activeFlowId === flow.id) {
+        setPublishedVersion(nextActive ? 'Live' : 'Draft');
+      }
+    } catch (err) {
+      showError(err?.response?.data?.message || 'Failed to update flow status.');
+    }
+  };
+
+  // Duplicate a flow
+  const handleDuplicateFlow = async (flow) => {
+    try {
+      const res = await automationApi.create({
+        name: `${flow.name} (Copy)`,
+        description: flow.description,
+        triggerType: flow.trigger_type || 'keyword',
+        triggerConfig: flow.trigger_config || {},
+        steps: flow.steps || { nodes: [], edges: [] },
+        isActive: false,
+      });
+      showSuccess(`Duplicated flow as "${res.data.name}".`);
+      await refreshFlowList();
+      loadFlowData(res.data);
+      setViewMode('editor');
+    } catch (err) {
+      showError(err?.response?.data?.message || 'Failed to duplicate flow.');
+    }
+  };
+
+  // Explicit Save Current Step Changes (User requirement #2)
+  const handleSaveCurrentStep = () => {
+    if (!selectedNode) return;
+    recordHistory();
+    setHasDraftChanges(true);
+    setSaveStatus('Step saved locally');
+
+    const draftKey = activeFlowId ? `vdaj_flow_draft_${activeFlowId}` : 'vdaj_flow_draft_new';
+    try {
+      localStorage.setItem(
+        draftKey,
+        JSON.stringify({
+          name: flowName,
+          nodes,
+          edges,
+          updatedAt: Date.now(),
+        })
+      );
+    } catch { }
+
+    setStepSaveEffect(true);
+    setTimeout(() => setStepSaveEffect(false), 2000);
+
+    const nodeLabel = selectedNode.data?.label || selectedNode.type || 'Step';
+    showSuccess(`Step "${nodeLabel}" saved successfully!`);
+  };
 
   // Local draft autosave whenever user edits canvas
   useEffect(() => {
@@ -605,7 +930,7 @@ function FlowCanvas() {
           updatedAt: Date.now(),
         })
       );
-    } catch {}
+    } catch { }
 
     const timer = setTimeout(() => {
       setSaveStatus('Saved locally');
@@ -670,6 +995,7 @@ function FlowCanvas() {
       setHasDraftChanges(false);
       setPublishedVersion('Live');
       setSaveStatus('Saved just now');
+      await refreshFlowList();
       showSuccess('Published! Your WhatsApp flow is now live 🚀');
     } catch (err) {
       showError(err?.response?.data?.message || 'Failed to publish changes.');
@@ -690,6 +1016,556 @@ function FlowCanvas() {
     })).filter((cat) => cat.items.length > 0);
   }, [searchQuery]);
 
+  // Modal for creating a new flow
+  const renderNewFlowModal = () => (
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(15, 23, 42, 0.45)',
+        backdropFilter: 'blur(3px)',
+        zIndex: 1000,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '20px',
+      }}
+    >
+      <div
+        style={{
+          background: '#FFFFFF',
+          borderRadius: '16px',
+          width: '100%',
+          maxWidth: '520px',
+          padding: '24px',
+          boxShadow: '0 20px 40px rgba(0,0,0,0.2)',
+          border: '1px solid #E2E8F0',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+          <div>
+            <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#0F172A', margin: 0 }}>
+              Create New WhatsApp Flow
+            </h3>
+            <p style={{ fontSize: '12px', color: '#64748B', margin: '3px 0 0' }}>
+              Set up an automated conversation journey or lead capture flow.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowNewFlowModal(false)}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              fontSize: '18px',
+              color: '#94A3B8',
+              cursor: 'pointer',
+              padding: '4px',
+            }}
+          >
+            ✕
+          </button>
+        </div>
+
+        <div style={{ marginBottom: '16px' }}>
+          <label style={{ display: 'block', fontSize: '12px', fontWeight: 800, color: '#334155', marginBottom: '6px' }}>
+            Flow Name <span style={{ color: '#EF4444' }}>*</span>
+          </label>
+          <input
+            autoFocus
+            placeholder="e.g., Diwali Offer Enquiry, Customer Support, Registration"
+            value={newFlowTitle}
+            onChange={(e) => setNewFlowTitle(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && newFlowTitle.trim()) {
+                handleCreateNewFlow(newFlowTitle, newFlowTemplate);
+              }
+            }}
+            style={{
+              width: '100%',
+              padding: '10px 12px',
+              borderRadius: '10px',
+              border: '1.5px solid #CBD5E1',
+              fontSize: '13px',
+              outline: 'none',
+              boxSizing: 'border-box',
+            }}
+          />
+        </div>
+
+        <div style={{ marginBottom: '20px' }}>
+          <label style={{ display: 'block', fontSize: '12px', fontWeight: 800, color: '#334155', marginBottom: '8px' }}>
+            Choose Starting Template
+          </label>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
+            {[
+              { id: 'blank', icon: '⚡', title: 'Blank Flow', desc: 'Trigger + Welcome Message + End' },
+              { id: 'inquiry', icon: '❓', title: 'Interactive Inquiry', desc: 'Question with 3 branching options' },
+              { id: 'form', icon: '📝', title: 'WhatsApp Form', desc: 'In-app Form + Confirmation' },
+            ].map((tpl) => (
+              <div
+                key={tpl.id}
+                onClick={() => setNewFlowTemplate(tpl.id)}
+                style={{
+                  padding: '12px',
+                  borderRadius: '10px',
+                  border: newFlowTemplate === tpl.id ? '2px solid #534AB7' : '1px solid #E2E8F0',
+                  background: newFlowTemplate === tpl.id ? '#F5F3FF' : '#FFFFFF',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <div style={{ fontSize: '20px', marginBottom: '6px' }}>{tpl.icon}</div>
+                <div style={{ fontSize: '12px', fontWeight: 800, color: '#0F172A' }}>{tpl.title}</div>
+                <div style={{ fontSize: '10px', color: '#64748B', marginTop: '2px', lineHeight: 1.3 }}>{tpl.desc}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '10px' }}>
+          <button
+            type="button"
+            onClick={() => setShowNewFlowModal(false)}
+            style={{
+              padding: '9px 16px',
+              borderRadius: '10px',
+              background: '#F1F5F9',
+              border: 'none',
+              color: '#475569',
+              fontSize: '13px',
+              fontWeight: 700,
+              cursor: 'pointer',
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            disabled={!newFlowTitle.trim()}
+            onClick={() => handleCreateNewFlow(newFlowTitle, newFlowTemplate)}
+            style={{
+              padding: '9px 20px',
+              borderRadius: '10px',
+              background: !newFlowTitle.trim() ? '#CBD5E1' : '#534AB7',
+              border: 'none',
+              color: '#FFFFFF',
+              fontSize: '13px',
+              fontWeight: 800,
+              cursor: !newFlowTitle.trim() ? 'not-allowed' : 'pointer',
+              boxShadow: '0 4px 12px rgba(83, 74, 183, 0.28)',
+            }}
+          >
+            Create Flow & Open Builder →
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  // ── VIEW MODE: FLOWS OVERVIEW LIST ───────────────────────────
+  if (viewMode === 'list') {
+    const filteredFlows = flowList.filter((f) => {
+      if (!listSearchQuery.trim()) return true;
+      const q = listSearchQuery.toLowerCase();
+      return (
+        f.name?.toLowerCase().includes(q) ||
+        f.description?.toLowerCase().includes(q) ||
+        f.trigger_type?.toLowerCase().includes(q)
+      );
+    });
+
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%', background: '#F8FAFC', overflowY: 'auto' }}>
+        {/* Top Header */}
+        <div
+          style={{
+            height: '60px',
+            background: '#FFFFFF',
+            borderBottom: '1px solid #E2E8F0',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '0 24px',
+            flexShrink: 0,
+            position: 'sticky',
+            top: 0,
+            zIndex: 10,
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <button
+              type="button"
+              onClick={() => {
+                if (activeFlowId) {
+                  setViewMode('editor');
+                } else {
+                  navigate('/dashboard');
+                }
+              }}
+              title="Return to canvas editor or dashboard"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 12px',
+                borderRadius: '8px',
+                border: '1px solid #E2E8F0',
+                background: '#FFFFFF',
+                color: '#475569',
+                fontSize: '12px',
+                fontWeight: 700,
+                cursor: 'pointer',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = '#F8FAFC')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = '#FFFFFF')}
+            >
+              <span>←</span>
+              <span>{activeFlowId ? 'Back to Canvas' : 'Dashboard'}</span>
+            </button>
+
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <h1 style={{ fontSize: '16px', fontWeight: 800, color: '#0F172A', margin: 0 }}>
+                  Automations & WhatsApp Flows
+                </h1>
+                <span
+                  style={{
+                    fontSize: '11px',
+                    fontWeight: 800,
+                    padding: '2px 8px',
+                    borderRadius: '10px',
+                    background: '#F1F5F9',
+                    color: '#475569',
+                  }}
+                >
+                  {flowList.length} flows
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            {/* Search Input */}
+            <div style={{ position: 'relative' }}>
+              <span style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', fontSize: '13px', color: '#94A3B8' }}>
+                🔍
+              </span>
+              <input
+                type="text"
+                placeholder="Search flows..."
+                value={listSearchQuery}
+                onChange={(e) => setListSearchQuery(e.target.value)}
+                style={{
+                  padding: '7px 12px 7px 32px',
+                  borderRadius: '8px',
+                  border: '1px solid #CBD5E1',
+                  fontSize: '12px',
+                  outline: 'none',
+                  width: '210px',
+                  background: '#FFFFFF',
+                }}
+              />
+            </div>
+
+            {/* + Create New Flow Button */}
+            <button
+              type="button"
+              onClick={() => {
+                setNewFlowTitle('');
+                setShowNewFlowModal(true);
+              }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '7px 16px',
+                borderRadius: '10px',
+                background: '#534AB7',
+                border: 'none',
+                color: '#FFFFFF',
+                fontSize: '13px',
+                fontWeight: 800,
+                cursor: 'pointer',
+                boxShadow: '0 4px 12px rgba(83, 74, 183, 0.28)',
+              }}
+            >
+              <span>+</span>
+              <span>Create New Flow</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Content Body */}
+        <div style={{ padding: '24px', maxWidth: '1200px', width: '100%', margin: '0 auto', boxSizing: 'border-box' }}>
+          {isLoadingFlows ? (
+            <div style={{ textAlign: 'center', padding: '60px 0', color: '#64748B' }}>
+              <div style={{ fontSize: '28px', marginBottom: '8px' }}>⏳</div>
+              <p style={{ fontSize: '14px', fontWeight: 600 }}>Loading workspace automations...</p>
+            </div>
+          ) : filteredFlows.length === 0 ? (
+            <div
+              style={{
+                background: '#FFFFFF',
+                borderRadius: '16px',
+                border: '1.5px dashed #CBD5E1',
+                padding: '60px 24px',
+                textAlign: 'center',
+              }}
+            >
+              <div style={{ fontSize: '36px', marginBottom: '12px' }}>🤖</div>
+              <h3 style={{ fontSize: '17px', fontWeight: 800, color: '#0F172A', margin: '0 0 6px' }}>
+                {listSearchQuery ? 'No flows match your search' : 'No automation flows created yet'}
+              </h3>
+              <p style={{ fontSize: '13px', color: '#64748B', maxWidth: '420px', margin: '0 auto 20px', lineHeight: 1.5 }}>
+                Build interactive WhatsApp journeys, automated customer support replies, and lead capture forms.
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setNewFlowTitle('');
+                  setShowNewFlowModal(true);
+                }}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '10px 20px',
+                  borderRadius: '10px',
+                  background: '#534AB7',
+                  border: 'none',
+                  color: '#FFFFFF',
+                  fontSize: '13px',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 12px rgba(83, 74, 183, 0.28)',
+                }}
+              >
+                <span>+</span> Create Your First Flow
+              </button>
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '16px' }}>
+              {filteredFlows.map((flow) => {
+                const nodesCount = flow.steps?.nodes?.length || (Array.isArray(flow.steps) ? flow.steps.filter((s) => !s.source).length : 0);
+                const isSelected = flow.id === activeFlowId;
+
+                return (
+                  <div
+                    key={flow.id}
+                    style={{
+                      background: '#FFFFFF',
+                      borderRadius: '14px',
+                      border: isSelected ? '2px solid #534AB7' : '1px solid #E2E8F0',
+                      padding: '18px',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'space-between',
+                      position: 'relative',
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    <div>
+                      {/* Top Badges & Options */}
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                        {flow.is_active ? (
+                          <span
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              padding: '3px 10px',
+                              borderRadius: '12px',
+                              background: '#ECFDF5',
+                              border: '1px solid #A7F3D0',
+                              color: '#065F46',
+                              fontSize: '11px',
+                              fontWeight: 800,
+                            }}
+                          >
+                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10B981' }} />
+                            Live on WhatsApp
+                          </span>
+                        ) : (
+                          <span
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              padding: '3px 10px',
+                              borderRadius: '12px',
+                              background: '#F1F5F9',
+                              border: '1px solid #E2E8F0',
+                              color: '#64748B',
+                              fontSize: '11px',
+                              fontWeight: 700,
+                            }}
+                          >
+                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#94A3B8' }} />
+                            Draft / Inactive
+                          </span>
+                        )}
+
+                        <span style={{ fontSize: '11px', color: '#94A3B8' }}>
+                          Updated {new Date(flow.updated_at || flow.created_at).toLocaleDateString()}
+                        </span>
+                      </div>
+
+                      {/* Flow Name & Description */}
+                      <h3
+                        onClick={() => handleSelectFlow(flow)}
+                        style={{
+                          fontSize: '16px',
+                          fontWeight: 800,
+                          color: '#0F172A',
+                          margin: '0 0 6px',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {flow.name}
+                      </h3>
+                      <p style={{ fontSize: '12px', color: '#64748B', margin: '0 0 14px', lineHeight: 1.45 }}>
+                        {flow.description || 'Automated multi-step WhatsApp response journey.'}
+                      </p>
+
+                      {/* Metadata row */}
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '12px',
+                          padding: '10px 12px',
+                          borderRadius: '10px',
+                          background: '#F8FAFC',
+                          border: '1px solid #F1F5F9',
+                          marginBottom: '16px',
+                        }}
+                      >
+                        <div>
+                          <span style={{ fontSize: '10px', fontWeight: 800, color: '#94A3B8', textTransform: 'uppercase', display: 'block' }}>
+                            Trigger
+                          </span>
+                          <span style={{ fontSize: '12px', fontWeight: 700, color: '#334155' }}>
+                            {flow.trigger_type === 'keyword'
+                              ? `Keywords (${flow.trigger_config?.keywords?.length || 3})`
+                              : flow.trigger_type || 'Incoming'}
+                          </span>
+                        </div>
+                        <div style={{ width: '1px', height: '24px', background: '#E2E8F0' }} />
+                        <div>
+                          <span style={{ fontSize: '10px', fontWeight: 800, color: '#94A3B8', textTransform: 'uppercase', display: 'block' }}>
+                            Steps
+                          </span>
+                          <span style={{ fontSize: '12px', fontWeight: 700, color: '#334155' }}>
+                            {nodesCount} steps
+                          </span>
+                        </div>
+                        <div style={{ width: '1px', height: '24px', background: '#E2E8F0' }} />
+                        <div>
+                          <span style={{ fontSize: '10px', fontWeight: 800, color: '#94A3B8', textTransform: 'uppercase', display: 'block' }}>
+                            Runs
+                          </span>
+                          <span style={{ fontSize: '12px', fontWeight: 700, color: '#334155' }}>
+                            {flow.run_count || 0}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Action buttons */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', borderTop: '1px solid #F1F5F9', paddingTop: '12px' }}>
+                      <button
+                        type="button"
+                        onClick={() => handleSelectFlow(flow)}
+                        style={{
+                          flex: 1,
+                          padding: '8px 12px',
+                          borderRadius: '8px',
+                          background: '#534AB7',
+                          border: 'none',
+                          color: '#FFFFFF',
+                          fontSize: '12px',
+                          fontWeight: 800,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '6px',
+                        }}
+                      >
+                        <span>✏️</span>
+                        <span>Edit in Canvas</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleToggleActiveFlow(flow)}
+                        title={flow.is_active ? 'Pause this flow' : 'Make this flow Live'}
+                        style={{
+                          padding: '8px 10px',
+                          borderRadius: '8px',
+                          background: flow.is_active ? '#FFFBEB' : '#ECFDF5',
+                          border: flow.is_active ? '1px solid #FDE68A' : '1px solid #A7F3D0',
+                          color: flow.is_active ? '#B45309' : '#065F46',
+                          fontSize: '11px',
+                          fontWeight: 800,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {flow.is_active ? 'Pause' : 'Make Live'}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleDuplicateFlow(flow)}
+                        title="Duplicate flow"
+                        style={{
+                          padding: '8px 10px',
+                          borderRadius: '8px',
+                          background: '#F8FAFC',
+                          border: '1px solid #E2E8F0',
+                          color: '#475569',
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        📋
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteFlow(flow)}
+                        title="Delete flow"
+                        style={{
+                          padding: '8px 10px',
+                          borderRadius: '8px',
+                          background: '#FEF2F2',
+                          border: '1px solid #FECACA',
+                          color: '#DC2626',
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        🗑️
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Modal if open in list view */}
+        {showNewFlowModal && renderNewFlowModal()}
+      </div>
+    );
+  }
+
+  // ── VIEW MODE: VISUAL FLOW CANVAS BUILDER ────────────────────
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%', background: '#F8FAFC', overflow: 'hidden' }}>
       {/* ── 1. EDITOR TOOLBAR ─────────────────────────────────── */}
@@ -706,11 +1582,14 @@ function FlowCanvas() {
           zIndex: 20,
         }}
       >
-        {/* Back button */}
+        {/* Back button (User requirement #3 - navigate back to flows list) */}
         <button
           type="button"
-          title="Back to flows"
-          onClick={() => window.history.back()}
+          title="Back to all flows"
+          onClick={() => {
+            refreshFlowList();
+            setViewMode('list');
+          }}
           style={{
             background: 'transparent',
             border: 'none',
@@ -766,6 +1645,154 @@ function FlowCanvas() {
               {flowName}
             </h1>
           )}
+
+          {/* Flow Switcher Dropdown */}
+          <div style={{ position: 'relative' }}>
+            <button
+              type="button"
+              onClick={() => setShowFlowSelectorDropdown((prev) => !prev)}
+              title="Switch flow or manage workspace flows"
+              style={{
+                background: '#F8FAFC',
+                border: '1px solid #CBD5E1',
+                borderRadius: '8px',
+                padding: '4px 8px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                cursor: 'pointer',
+                fontSize: '11px',
+                fontWeight: 700,
+                color: '#334155',
+              }}
+            >
+              <span>📂 Flows ({flowList.length})</span>
+              <span style={{ fontSize: '9px', color: '#64748B' }}>▼</span>
+            </button>
+
+            {showFlowSelectorDropdown && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '100%',
+                  left: 0,
+                  marginTop: '6px',
+                  width: '290px',
+                  background: '#FFFFFF',
+                  borderRadius: '12px',
+                  boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
+                  border: '1px solid #E2E8F0',
+                  padding: '8px',
+                  zIndex: 100,
+                }}
+              >
+                <div style={{ padding: '4px 8px', borderBottom: '1px solid #F1F5F9', marginBottom: '6px' }}>
+                  <p style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', color: '#94A3B8', margin: 0 }}>
+                    Workspace Flows
+                  </p>
+                </div>
+
+                <div style={{ maxHeight: '200px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                  {flowList.map((f) => (
+                    <button
+                      key={f.id}
+                      type="button"
+                      onClick={() => {
+                        loadFlowData(f);
+                        setShowFlowSelectorDropdown(false);
+                        showSuccess(`Switched to "${f.name}"`);
+                      }}
+                      style={{
+                        width: '100%',
+                        textAlign: 'left',
+                        padding: '8px 10px',
+                        borderRadius: '8px',
+                        background: f.id === activeFlowId ? '#F5F3FF' : 'transparent',
+                        border: 'none',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                      }}
+                      onMouseEnter={(e) => {
+                        if (f.id !== activeFlowId) e.currentTarget.style.background = '#F8FAFC';
+                      }}
+                      onMouseLeave={(e) => {
+                        if (f.id !== activeFlowId) e.currentTarget.style.background = 'transparent';
+                      }}
+                    >
+                      <div style={{ minWidth: 0, flex: 1, paddingRight: '8px' }}>
+                        <p style={{ fontSize: '12px', fontWeight: 700, color: '#0F172A', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {f.name}
+                        </p>
+                        <p style={{ fontSize: '10px', color: '#64748B', margin: '2px 0 0' }}>
+                          {f.steps?.nodes?.length || 0} steps
+                        </p>
+                      </div>
+                      {f.is_active ? (
+                        <span style={{ fontSize: '10px', fontWeight: 800, color: '#065F46', background: '#ECFDF5', padding: '2px 6px', borderRadius: '10px', border: '1px solid #A7F3D0' }}>
+                          Live
+                        </span>
+                      ) : (
+                        <span style={{ fontSize: '10px', color: '#64748B', background: '#F1F5F9', padding: '2px 6px', borderRadius: '10px' }}>
+                          Draft
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+
+                <div style={{ borderTop: '1px solid #F1F5F9', marginTop: '6px', paddingTop: '6px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowFlowSelectorDropdown(false);
+                      setNewFlowTitle('');
+                      setShowNewFlowModal(true);
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '8px 10px',
+                      borderRadius: '8px',
+                      background: '#F5F3FF',
+                      border: '1.5px solid #DDD6FE',
+                      color: '#534AB7',
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                    }}
+                  >
+                    <span>+</span> Create New Flow
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowFlowSelectorDropdown(false);
+                      refreshFlowList();
+                      setViewMode('list');
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '7px 10px',
+                      borderRadius: '8px',
+                      background: 'transparent',
+                      border: 'none',
+                      color: '#475569',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      textAlign: 'center',
+                    }}
+                  >
+                    View All Flows Overview →
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Draft changes status pill */}
           {hasDraftChanges ? (
@@ -869,6 +1896,35 @@ function FlowCanvas() {
             ↷
           </button>
         </div>
+
+        {/* + New Flow button (User requirement #1) */}
+        <button
+          type="button"
+          onClick={() => {
+            setNewFlowTitle('');
+            setShowNewFlowModal(true);
+          }}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '7px 14px',
+            borderRadius: '10px',
+            background: '#FFFFFF',
+            border: '1.5px solid #DDD6FE',
+            color: '#534AB7',
+            fontSize: '13px',
+            fontWeight: 800,
+            cursor: 'pointer',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+            transition: 'all 0.15s ease',
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.background = '#F5F3FF')}
+          onMouseLeave={(e) => (e.currentTarget.style.background = '#FFFFFF')}
+        >
+          <span style={{ fontSize: '15px', fontWeight: 900 }}>+</span>
+          <span>New Flow</span>
+        </button>
 
         {/* Primary Publish changes button */}
         <button
@@ -1935,6 +2991,48 @@ function FlowCanvas() {
                 </div>
               )}
             </div>
+
+            {/* Sticky Save Step Footer (User requirement #2) */}
+            <div
+              style={{
+                padding: '12px 16px',
+                borderTop: '1px solid #E2E8F0',
+                background: '#FFFFFF',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '6px',
+                flexShrink: 0,
+                boxShadow: '0 -2px 10px rgba(0,0,0,0.03)',
+              }}
+            >
+              <button
+                type="button"
+                onClick={handleSaveCurrentStep}
+                style={{
+                  width: '100%',
+                  padding: '11px 16px',
+                  borderRadius: '10px',
+                  background: stepSaveEffect ? '#10B981' : '#534AB7',
+                  border: 'none',
+                  color: '#FFFFFF',
+                  fontSize: '13px',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  boxShadow: stepSaveEffect ? '0 4px 12px rgba(16, 185, 129, 0.3)' : '0 4px 12px rgba(83, 74, 183, 0.25)',
+                  transition: 'all 0.2s ease',
+                }}
+              >
+                <span style={{ fontSize: '15px' }}>{stepSaveEffect ? '✓' : '💾'}</span>
+                <span>{stepSaveEffect ? 'Step Changes Saved!' : 'Save Step Changes'}</span>
+              </button>
+              <span style={{ fontSize: '11px', color: '#94A3B8', textAlign: 'center' }}>
+                Saves configuration for "{selectedNode.data?.label || selectedNode.type || 'Step'}"
+              </span>
+            </div>
           </div>
         )}
       </div>
@@ -2213,6 +3311,9 @@ function FlowCanvas() {
           </div>
         </div>
       )}
+
+      {/* New Flow Modal in Editor mode */}
+      {showNewFlowModal && renderNewFlowModal()}
     </div>
   );
 }
