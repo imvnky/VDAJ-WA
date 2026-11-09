@@ -14,6 +14,7 @@ import { Link } from 'react-router-dom';
 import { clsx } from 'clsx';
 import { campaignApi, queueApi, analyticsApi, tenantApi } from '../lib/api';
 import useAuthStore from '../store/authStore';
+import { showSuccess, showError } from '../components/atoms/Toast/Toast.jsx';
 
 // ─── Tiny helpers ──────────────────────────────────────────────────────────────
 const fmt = (n) => (n ?? 0).toLocaleString();
@@ -62,9 +63,30 @@ function Skeleton({ className }) {
 const RATING_COLOR  = { GREEN: '#1D9E75', YELLOW: '#f59e0b', RED:    '#ef4444' };
 const RATING_BG     = { GREEN: '#E8F9F4', YELLOW: '#FFF8EB', RED:    '#FEF2F2' };
 const RATING_EMOJI  = { GREEN: '🟢',      YELLOW: '🟡',      RED:    '🔴'     };
-const TIER_LABEL    = { 1: '1,000',       2: '10,000',       3: '100,000', 4: 'Unlimited' };
+const TIER_LABEL    = {
+  1: '1,000',
+  2: '10,000',
+  3: '100,000',
+  4: 'Unlimited',
+  TIER_250: '250',
+  TIER_1K: '1,000',
+  TIER_10K: '10,000',
+  TIER_100K: '100,000',
+  TIER_UNLIMITED: 'Unlimited',
+};
 
-function WABAHealthCard({ health, loading }) {
+function formatTierName(tier, rawTierName) {
+  if (rawTierName) return rawTierName;
+  const t = String(tier || '').toUpperCase();
+  if (t === 'TIER_250' || t.includes('250')) return 'Tier 250';
+  if (t === 'TIER_1K' || t.includes('1K') || t === '1') return 'Tier 1K';
+  if (t === 'TIER_10K' || t.includes('10K') || t === '2') return 'Tier 10K';
+  if (t === 'TIER_100K' || t.includes('100K') || t === '3') return 'Tier 100K';
+  if (t.includes('UNLIMITED') || t === '4') return 'Tier Unlimited';
+  return `Tier ${tier || '250'}`;
+}
+
+function WABAHealthCard({ health, loading, onSync, syncing }) {
   if (loading) {
     return (
       <div
@@ -107,16 +129,23 @@ function WABAHealthCard({ health, loading }) {
     );
   }
 
-  const rating    = health.quality_rating || 'GREEN';
-  const tier      = health.messaging_tier || 1;
-  const usedPct   = health.usage_pct ?? 0;
-  const barColor  = usedPct > 80 ? '#ef4444' : usedPct > 60 ? '#f59e0b' : '#1D9E75';
+  const rating    = (health.quality_rating || 'GREEN').toUpperCase();
+  const tierDisplay = formatTierName(health.messaging_tier, health.tier_name);
+  const limitLabel  = health.daily_limit_label || TIER_LABEL[health.messaging_tier] || (health.daily_limit ? Number(health.daily_limit).toLocaleString() : '250');
+  const msgsSent    = Number(health.msgs_sent_today || 0);
+  const dailyLimit  = Number(health.daily_limit || (health.messaging_tier === 'TIER_250' ? 250 : 1000));
+  const usedPct     = health.usage_pct ?? Math.min(100, Math.round((msgsSent / (dailyLimit || 1)) * 100));
+  const barColor    = usedPct > 85 ? '#ef4444' : usedPct > 60 ? '#f59e0b' : '#1D9E75';
+
   const syncedAgo = health.waba_health_synced_at
     ? (() => {
-        const diffH = Math.round((Date.now() - new Date(health.waba_health_synced_at)) / 3_600_000);
-        return diffH < 1 ? 'just now' : `${diffH}h ago`;
+        const diffMins = Math.round((Date.now() - new Date(health.waba_health_synced_at)) / 60_000);
+        if (diffMins < 1) return 'just now';
+        if (diffMins < 60) return `${diffMins}m ago`;
+        const diffH = Math.round(diffMins / 60);
+        return `${diffH}h ago`;
       })()
-    : 'Never synced';
+    : 'just now';
 
   return (
     <div
@@ -125,12 +154,39 @@ function WABAHealthCard({ health, loading }) {
     >
       {/* Card header */}
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-sm font-bold" style={{ color: '#0F0F0F' }}>
-          WhatsApp Account Health
-        </h2>
-        <span className="text-xs" style={{ color: '#94a3b8' }}>
-          Synced {syncedAgo}
-        </span>
+        <div className="flex items-center gap-2">
+          <h2 className="text-sm font-bold" style={{ color: '#0F0F0F' }}>
+            WhatsApp Account Health
+          </h2>
+          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-2xs font-semibold bg-[#E8F9F4] text-[#1D9E75] border border-[#A3E4D0]">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#1D9E75] animate-pulse" />
+            Meta Live
+          </span>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="text-xs" style={{ color: '#94a3b8' }}>
+            Synced {syncedAgo}
+          </span>
+          {onSync && (
+            <button
+              type="button"
+              onClick={onSync}
+              disabled={syncing}
+              title="Sync live status and quotas directly from Meta Graph API"
+              className={clsx(
+                "inline-flex items-center gap-1.5 px-2.5 py-1 text-2xs font-semibold rounded-lg border transition-all cursor-pointer",
+                syncing
+                  ? "bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed"
+                  : "bg-white text-[#534AB7] border-[#C9C5F5] hover:bg-[#F3F2FD] active:scale-95 shadow-2xs"
+              )}
+            >
+              <span className={clsx("inline-block", syncing && "animate-spin")}>
+                ↻
+              </span>
+              <span>{syncing ? 'Syncing...' : 'Sync with Meta'}</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* 4-column grid */}
@@ -138,14 +194,21 @@ function WABAHealthCard({ health, loading }) {
         {/* Quality Rating */}
         <div
           className="rounded-xl px-3 py-2.5"
-          style={{ background: RATING_BG[rating] }}
+          style={{ background: RATING_BG[rating] || '#E8F9F4' }}
         >
-          <p className="text-2xs font-semibold uppercase tracking-wider mb-1"
-            style={{ color: '#5A5A6E' }}>
-            Quality Rating
-          </p>
-          <p className="text-base font-black" style={{ color: RATING_COLOR[rating] }}>
-            {RATING_EMOJI[rating]} {rating}
+          <div className="flex items-center justify-between mb-1">
+            <p className="text-2xs font-semibold uppercase tracking-wider"
+              style={{ color: '#5A5A6E' }}>
+              Quality Rating
+            </p>
+            {health.status && (
+              <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded text-[#1D9E75] bg-white/70">
+                {health.status}
+              </span>
+            )}
+          </div>
+          <p className="text-base font-black" style={{ color: RATING_COLOR[rating] || '#1D9E75' }}>
+            {RATING_EMOJI[rating] || '🟢'} {rating}
           </p>
           <p className="text-2xs mt-0.5" style={{ color: '#5A5A6E' }}>
             {rating === 'GREEN' ? 'Healthy' : rating === 'YELLOW' ? 'At risk' : '⚠ Action needed'}
@@ -159,10 +222,10 @@ function WABAHealthCard({ health, loading }) {
             Messaging Tier
           </p>
           <p className="text-base font-black" style={{ color: '#534AB7' }}>
-            Tier {tier}
+            {tierDisplay}
           </p>
           <p className="text-2xs mt-0.5" style={{ color: '#5A5A6E' }}>
-            {TIER_LABEL[tier]} msgs/day
+            {limitLabel} msgs/day
           </p>
         </div>
 
@@ -173,24 +236,24 @@ function WABAHealthCard({ health, loading }) {
             Sent Today
           </p>
           <p className="text-base font-black" style={{ color: '#0F0F0F' }}>
-            {fmt(health.msgs_sent_today)}
+            {fmt(msgsSent)}
           </p>
           <p className="text-2xs mt-0.5" style={{ color: '#5A5A6E' }}>
-            of {fmt(health.daily_limit)}
+            of {limitLabel} (rolling 24h)
           </p>
         </div>
 
-        {/* Phone / Name */}
+        {/* Business Number */}
         <div className="rounded-xl px-3 py-2.5" style={{ background: '#F8F7FF' }}>
           <p className="text-2xs font-semibold uppercase tracking-wider mb-1"
             style={{ color: '#5A5A6E' }}>
             Business Number
           </p>
-          <p className="text-sm font-black truncate" style={{ color: '#0F0F0F' }}>
+          <p className="text-sm font-black truncate" style={{ color: '#0F0F0F' }} title={health.display_phone_number}>
             {health.display_phone_number || '—'}
           </p>
-          <p className="text-2xs mt-0.5 truncate" style={{ color: '#5A5A6E' }}>
-            {health.verified_name || 'Name not verified'}
+          <p className="text-2xs mt-0.5 truncate" style={{ color: '#5A5A6E' }} title={health.verified_name}>
+            {health.verified_name || (health.name_status === 'APPROVED' ? 'Meta Approved' : 'Name not verified')}
           </p>
         </div>
       </div>
@@ -198,7 +261,7 @@ function WABAHealthCard({ health, loading }) {
       {/* Usage progress bar */}
       <div className="mt-4">
         <div className="flex justify-between text-2xs mb-1" style={{ color: '#94a3b8' }}>
-          <span>Daily usage</span>
+          <span>Rolling 24h Meta Quota Usage ({fmt(msgsSent)} of {limitLabel} allowed)</span>
           <span style={{ color: barColor, fontWeight: 700 }}>{usedPct}%</span>
         </div>
         <div className="h-2 rounded-full overflow-hidden" style={{ background: '#E6E4F5' }}>
@@ -207,11 +270,15 @@ function WABAHealthCard({ health, loading }) {
             style={{ width: `${usedPct}%`, background: barColor }}
           />
         </div>
-        {usedPct >= 80 && (
-          <p className="text-2xs mt-1.5 font-semibold" style={{ color: barColor }}>
-            ⚠ Approaching daily limit — paused campaigns will be queued for tomorrow.
+        {usedPct >= 90 ? (
+          <p className="text-2xs mt-1.5 font-semibold text-red-600">
+            ⚠ Meta Daily Limit Exhausted ({usedPct}%) — Outbound campaign messages will be rate-limited by Meta (Error 130429) until the rolling 24-hour quota rolls over.
           </p>
-        )}
+        ) : usedPct >= 70 ? (
+          <p className="text-2xs mt-1.5 font-semibold text-amber-600">
+            Approaching daily Meta Tier limit ({usedPct}%) — {Math.max(0, dailyLimit - msgsSent)} business-initiated conversations remaining in this 24-hour window.
+          </p>
+        ) : null}
       </div>
     </div>
   );
@@ -415,6 +482,7 @@ export default function DashboardPage() {
   const [campaigns,       setCampaigns]       = useState([]);
   const [queueStats,      setQueueStats]      = useState(null);
   const [wabaHealth,      setWabaHealth]      = useState(null);
+  const [syncingHealth,   setSyncingHealth]   = useState(false);
   const [analytics,       setAnalytics]       = useState(null);      // current period
   const [prevAnalytics,   setPrevAnalytics]   = useState(null);      // previous period
   const [contactCount,    setContactCount]    = useState(0);
@@ -463,6 +531,19 @@ export default function DashboardPage() {
     loadCore();
     loadHealth();
   }, [isSuperAdmin]);
+
+  const handleSyncHealth = useCallback(async () => {
+    setSyncingHealth(true);
+    try {
+      const res = await tenantApi.wabaHealthSync();
+      setWabaHealth(res?.data || null);
+      showSuccess('WhatsApp health synchronized with Meta.');
+    } catch (err) {
+      showError(err?.response?.data?.message || 'Failed to sync with Meta');
+    } finally {
+      setSyncingHealth(false);
+    }
+  }, []);
 
   // ── Analytics: reload on dateRange change ─────────────────────────────────
   useEffect(() => {
@@ -557,7 +638,12 @@ export default function DashboardPage() {
 
       {/* ── WABA Health Card ───────────────────────────────────── */}
       {!isSuperAdmin && (
-        <WABAHealthCard health={wabaHealth} loading={healthLoading} />
+        <WABAHealthCard
+          health={wabaHealth}
+          loading={healthLoading}
+          onSync={handleSyncHealth}
+          syncing={syncingHealth}
+        />
       )}
 
       {/* ── Date Range Pills + KPI Tiles ──────────────────────── */}

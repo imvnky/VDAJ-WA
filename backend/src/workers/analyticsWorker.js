@@ -219,22 +219,29 @@ function startAnalyticsCron() {
  * @returns {number} 1 | 2 | 3 | 4
  */
 function parseTier(tierStr) {
-  if (!tierStr) return 1;
-  const s = tierStr.toUpperCase();
-  if (s.includes('100K') || s === 'TIER_100K') return 3;
-  if (s.includes('10K')  || s === 'TIER_10K')  return 2;
-  if (s.includes('UNLIMITED'))                  return 4;
-  return 1; // TIER_1K or unknown → safest default
+  if (!tierStr) return 'TIER_250';
+  const s = String(tierStr).toUpperCase();
+  if (s === 'TIER_250' || s.includes('250')) return 'TIER_250';
+  if (s.includes('100K') || s === 'TIER_100K' || s === '3') return 'TIER_100K';
+  if (s.includes('10K')  || s === 'TIER_10K'  || s === '2') return 'TIER_10K';
+  if (s.includes('1K')   || s === 'TIER_1K'   || s === '1') return 'TIER_1K';
+  if (s.includes('UNLIMITED') || s === '4') return 'TIER_UNLIMITED';
+  return 'TIER_250';
 }
 
 /**
  * Tier-to-daily-limit lookup (messages per day).
- * @param {number} tier
+ * @param {string|number} tier
  * @returns {number}
  */
 function tierDailyLimit(tier) {
-  const limits = { 1: 1000, 2: 10000, 3: 100000, 4: 999999 };
-  return limits[tier] || 1000;
+  const t = String(tier || '').toUpperCase();
+  if (t === 'TIER_250' || t.includes('250')) return 250;
+  if (t === 'TIER_1K' || t.includes('1K') || t === '1') return 1000;
+  if (t === 'TIER_10K' || t.includes('10K') || t === '2') return 10000;
+  if (t === 'TIER_100K' || t.includes('100K') || t === '3') return 100000;
+  if (t.includes('UNLIMITED') || t === '4') return 999999;
+  return 250;
 }
 
 /**

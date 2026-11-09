@@ -661,7 +661,8 @@ const exchangeEmbeddedSignupToken = async (code, metaAppId, metaAppSecret, redir
  * @returns {Promise<object>}     — Raw Meta API response object
  */
 const getWABAHealth = async (phoneNumberId, accessToken) => {
-  if (!phoneNumberId || !accessToken) {
+  const token = getEffectiveToken(accessToken);
+  if (!phoneNumberId || !token) {
     throw new AppError(
       'phoneNumberId and accessToken are required to fetch WABA health.',
       400,
@@ -672,7 +673,7 @@ const getWABAHealth = async (phoneNumberId, accessToken) => {
   const responseBody = await callMetaApi({
     method: 'GET',
     path: `${phoneNumberId}?fields=quality_rating,messaging_limit_tier,display_phone_number,verified_name,name_status,status,code_verification_status`,
-    accessToken,
+    accessToken: token,
   });
 
   logger.debug('WABA health fetched', {

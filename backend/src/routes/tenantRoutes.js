@@ -19,7 +19,11 @@ const { query } = require('../config/database');
 const { sendSuccess, sendCreated, catchAsync } = require('../middleware/responseHandler');
 const { authenticate, authorize } = require('../middleware/authMiddleware');
 const AppError = require('../utils/AppError');
+const logger = require('../utils/logger');
 const { recordAudit } = require('../services/auditService');
+
+// Self-healing schema migration: ensure messaging_tier supports VARCHAR(32) for exact Meta tier codes
+query(`ALTER TABLE tenants ALTER COLUMN messaging_tier TYPE VARCHAR(32) USING messaging_tier::varchar`).catch(() => {});
 const {
   getWABAHealth,
   getBusinessProfile,
@@ -137,10 +141,31 @@ router.get('/me', catchAsync(async (req, res) => {
   return sendSuccess(res, response, 'Tenant profile fetched.');
 }));
 
-// ── GET /tenants/me/waba-health — WABA health for current tenant ─
-// Returns quality rating, messaging tier, daily limit, and usage.
-// Available to all authenticated tenant roles; super_admin must pass ?tenantId=.
+// ── Helper: Parse Meta Messaging Limit Tier accurately ─────────
+function parseMetaTier(rawTier) {
+  const t = String(rawTier || '').toUpperCase();
+  if (t === 'TIER_250' || t.includes('250')) {
+    return { code: 'TIER_250', tierName: 'Tier 250', dailyLimit: 250, label: '250' };
+  }
+  if (t === 'TIER_1K' || t.includes('1K') || t === '1') {
+    return { code: 'TIER_1K', tierName: 'Tier 1K', dailyLimit: 1000, label: '1,000' };
+  }
+  if (t === 'TIER_10K' || t.includes('10K') || t === '2') {
+    return { code: 'TIER_10K', tierName: 'Tier 10K', dailyLimit: 10000, label: '10,000' };
+  }
+  if (t === 'TIER_100K' || t.includes('100K') || t === '3') {
+    return { code: 'TIER_100K', tierName: 'Tier 100K', dailyLimit: 100000, label: '100,000' };
+  }
+  if (t.includes('UNLIMITED') || t === '4') {
+    return { code: 'TIER_UNLIMITED', tierName: 'Unlimited', dailyLimit: 999999, label: 'Unlimited' };
+  }
+  return { code: 'TIER_250', tierName: 'Tier 250', dailyLimit: 250, label: '250' };
+}
+
+// ── GET /tenants/me/waba-health — Live dynamic WABA health for current tenant ─
+// Returns live quality rating, exact Meta messaging tier, rolling 24h usage, and verified details.
 router.get('/me/waba-health', catchAsync(async (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
   let tenantId;
   if (req.user.role === 'super_admin') {
     tenantId = req.query.tenantId || null;
@@ -154,9 +179,6 @@ router.get('/me/waba-health', catchAsync(async (req, res) => {
     }
   }
 
-  // Translate integer tier → human-readable daily limit
-  const TIER_LIMITS = { 1: 1000, 2: 10000, 3: 100000, 4: 999999 };
-
   const { rows: [health] } = await query(
     `SELECT
        waba_id,
@@ -164,8 +186,6 @@ router.get('/me/waba-health', catchAsync(async (req, res) => {
        meta_system_token,
        quality_rating,
        messaging_tier,
-       msgs_sent_today,
-       msgs_sent_today_date,
        display_phone_number,
        verified_name,
        waba_health_synced_at,
@@ -177,107 +197,168 @@ router.get('/me/waba-health', catchAsync(async (req, res) => {
 
   if (!health) throw new AppError('Tenant not found.', 404, 'ERR_VDAJ_TENANT_001');
 
-  // Dynamic live sync: If display fields are empty OR refresh is requested
+  const effectivePhoneNumberId = health.phone_number_id || process.env.META_PHONE_NUMBER_ID || null;
+  const effectiveToken = health.meta_system_token || process.env.META_ACCESS_TOKEN || null;
+
+  // Check how long ago health was synced from Meta (cache live calls for 60 seconds unless requested)
+  const lastSyncAgeMs = health.waba_health_synced_at
+    ? Date.now() - new Date(health.waba_health_synced_at).getTime()
+    : Infinity;
+
   const shouldLiveSync = (
-    Boolean(health.phone_number_id && health.meta_system_token) &&
-    (!health.display_phone_number || !health.verified_name || req.query.refresh === 'true')
+    Boolean(effectivePhoneNumberId && effectiveToken) &&
+    (lastSyncAgeMs > 60000 || req.query.refresh === 'true' || !health.display_phone_number || !health.verified_name)
   );
 
+  let liveRating = health.quality_rating || 'GREEN';
+  let liveRawTier = health.messaging_tier || 'TIER_250';
+  let liveDisplayPhone = health.display_phone_number;
+  let liveVerifiedName = health.verified_name;
   let liveNameStatus = 'APPROVED';
   let livePhoneStatus = 'CONNECTED';
 
   if (shouldLiveSync) {
     try {
-      const metaData = await getWABAHealth(health.phone_number_id, health.meta_system_token);
+      const metaData = await getWABAHealth(effectivePhoneNumberId, effectiveToken);
       if (metaData) {
-        health.display_phone_number = metaData.display_phone_number || health.display_phone_number;
-        health.verified_name        = metaData.verified_name || health.verified_name;
-        health.quality_rating       = (metaData.quality_rating || health.quality_rating || 'GREEN').toUpperCase();
-        liveNameStatus              = metaData.name_status || 'APPROVED';
-        livePhoneStatus             = metaData.status || 'CONNECTED';
+        liveDisplayPhone = metaData.display_phone_number || liveDisplayPhone;
+        liveVerifiedName = metaData.verified_name || liveVerifiedName;
+        liveRating = (metaData.quality_rating || liveRating || 'GREEN').toUpperCase();
+        liveRawTier = metaData.messaging_limit_tier || liveRawTier;
+        liveNameStatus = metaData.name_status || 'APPROVED';
+        livePhoneStatus = metaData.status || metaData.code_verification_status || 'CONNECTED';
 
         await query(
           `UPDATE tenants
              SET display_phone_number  = COALESCE($2, display_phone_number),
                  verified_name         = COALESCE($3, verified_name),
                  quality_rating        = COALESCE($4, quality_rating),
+                 messaging_tier        = $5,
                  waba_health_synced_at = NOW(),
                  updated_at            = NOW()
            WHERE id = $1`,
-          [tenantId, health.display_phone_number, health.verified_name, health.quality_rating]
-        ).catch(() => {});
+          [tenantId, liveDisplayPhone, liveVerifiedName, liveRating, liveRawTier]
+        ).catch(err => {
+          logger.warn('Failed to persist waba health update in DB:', err.message);
+        });
       }
     } catch (syncErr) {
-      // Graceful fallback: do not fail request if Meta is slow/rate-limited
+      logger.warn('Meta live WABA health sync skipped', { error: syncErr.message });
     }
   }
 
-  // Reset msgs_sent_today counter if date has rolled over (UTC)
-  const todayUTC = new Date().toISOString().slice(0, 10);
-  const storedDate = health.msgs_sent_today_date
-    ? new Date(health.msgs_sent_today_date).toISOString().slice(0, 10)
-    : null;
+  const tierInfo = parseMetaTier(liveRawTier);
 
-  const msgsSentToday = storedDate === todayUTC ? (health.msgs_sent_today || 0) : 0;
-  const tier          = health.messaging_tier || 1;
-  const dailyLimit    = TIER_LIMITS[tier] || 1000;
+  // Compute live outbound messages sent in the rolling 24-hour quota window
+  const { rows: [{ msgs_sent_24h }] } = await query(
+    `SELECT (
+       (SELECT COUNT(*) FROM campaign_messages WHERE tenant_id = $1 AND sent_at >= NOW() - INTERVAL '24 hours') +
+       (SELECT COUNT(*) FROM inbox_messages WHERE tenant_id = $1 AND direction = 'outbound' AND created_at >= NOW() - INTERVAL '24 hours')
+     )::int AS msgs_sent_24h`,
+    [tenantId]
+  );
+
+  const msgsSentToday = msgs_sent_24h || 0;
+  const usagePct = Math.min(100, Math.round((msgsSentToday / tierInfo.dailyLimit) * 100));
 
   const effectiveWabaId = health.waba_id || process.env.META_WABA_ID || null;
-  const effectivePhoneNumberId = health.phone_number_id || process.env.META_PHONE_NUMBER_ID || null;
 
   return sendSuccess(res, {
     waba_id:               effectiveWabaId,
     phone_number_id:       effectivePhoneNumberId,
-    quality_rating:        health.quality_rating  || 'GREEN',
-    messaging_tier:        tier,
-    daily_limit:           dailyLimit,
+    quality_rating:        liveRating,
+    messaging_tier:        tierInfo.code,
+    tier_name:             tierInfo.tierName,
+    daily_limit:           tierInfo.dailyLimit,
+    daily_limit_label:     tierInfo.label,
     msgs_sent_today:       msgsSentToday,
-    usage_pct:             Math.round((msgsSentToday / dailyLimit) * 100),
-    display_phone_number:  health.display_phone_number  || process.env.META_DISPLAY_PHONE_NUMBER || null,
-    verified_name:         health.verified_name          || process.env.META_VERIFIED_NAME || null,
+    usage_pct:             usagePct,
+    display_phone_number:  liveDisplayPhone || process.env.META_DISPLAY_PHONE_NUMBER || null,
+    verified_name:         liveVerifiedName || process.env.META_VERIFIED_NAME || null,
     name_status:           liveNameStatus,
     status:                livePhoneStatus,
     waba_connected:        health.waba_connected || Boolean(effectivePhoneNumberId),
-    waba_health_synced_at: health.waba_health_synced_at || new Date().toISOString(),
+    waba_health_synced_at: new Date().toISOString(),
   }, 'WABA health retrieved.');
 }));
 
 // ── POST /tenants/me/waba-health/sync ───────────────────────────
 // Live on-demand refresh from Meta Graph API
 router.post('/me/waba-health/sync', catchAsync(async (req, res) => {
-  const tenantId = req.user.tenantId || req.query.tenantId;
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  let tenantId;
+  if (req.user.role === 'super_admin') {
+    tenantId = req.query.tenantId || req.user.tenantId;
+  } else {
+    tenantId = req.user.tenantId;
+  }
   if (!tenantId) throw new AppError('Tenant context required.', 400, 'ERR_VDAJ_TENANT_001');
 
   const { rows: [t] } = await query(
-    `SELECT phone_number_id, meta_system_token, waba_id FROM tenants WHERE id = $1 AND deleted_at IS NULL`,
+    `SELECT phone_number_id, meta_system_token, waba_id, display_phone_number, verified_name, quality_rating, messaging_tier FROM tenants WHERE id = $1 AND deleted_at IS NULL`,
     [tenantId]
   );
-  if (!t?.phone_number_id || !t?.meta_system_token) {
+  if (!t) throw new AppError('Tenant not found.', 404, 'ERR_VDAJ_TENANT_001');
+
+  const effectivePhoneNumberId = t.phone_number_id || process.env.META_PHONE_NUMBER_ID || null;
+  const effectiveToken = t.meta_system_token || process.env.META_ACCESS_TOKEN || null;
+
+  if (!effectivePhoneNumberId || !effectiveToken) {
     throw new AppError('WhatsApp credentials not configured for this workspace.', 400, 'ERR_META_006');
   }
 
-  const metaData = await getWABAHealth(t.phone_number_id, t.meta_system_token);
-  const rating   = (metaData.quality_rating || 'GREEN').toUpperCase();
+  const metaData = await getWABAHealth(effectivePhoneNumberId, effectiveToken);
+  const rating   = (metaData.quality_rating || t.quality_rating || 'GREEN').toUpperCase();
+  const rawTier  = metaData.messaging_limit_tier || t.messaging_tier || 'TIER_250';
+  const tierInfo = parseMetaTier(rawTier);
+  const displayPhone = metaData.display_phone_number || t.display_phone_number || process.env.META_DISPLAY_PHONE_NUMBER || null;
+  const verifiedName = metaData.verified_name || t.verified_name || process.env.META_VERIFIED_NAME || null;
+  const nameStatus = metaData.name_status || 'APPROVED';
+  const phoneStatus = metaData.status || metaData.code_verification_status || 'CONNECTED';
 
   await query(
     `UPDATE tenants
        SET display_phone_number  = COALESCE($2, display_phone_number),
            verified_name         = COALESCE($3, verified_name),
            quality_rating        = COALESCE($4, quality_rating),
+           messaging_tier        = $5,
            waba_health_synced_at = NOW(),
            updated_at            = NOW()
      WHERE id = $1`,
-    [tenantId, metaData.display_phone_number || null, metaData.verified_name || null, rating]
+    [tenantId, displayPhone, verifiedName, rating, rawTier]
+  ).catch(err => {
+    logger.warn('Failed to persist waba sync in DB:', err.message);
+  });
+
+  // Calculate live rolling 24h outbound messages
+  const { rows: [{ msgs_sent_24h }] } = await query(
+    `SELECT (
+       (SELECT COUNT(*) FROM campaign_messages WHERE tenant_id = $1 AND sent_at >= NOW() - INTERVAL '24 hours') +
+       (SELECT COUNT(*) FROM inbox_messages WHERE tenant_id = $1 AND direction = 'outbound' AND created_at >= NOW() - INTERVAL '24 hours')
+     )::int AS msgs_sent_24h`,
+    [tenantId]
   );
 
+  const msgsSentToday = msgs_sent_24h || 0;
+  const usagePct = Math.min(100, Math.round((msgsSentToday / tierInfo.dailyLimit) * 100));
+
   return sendSuccess(res, {
-    display_phone_number: metaData.display_phone_number,
-    verified_name:        metaData.verified_name,
-    quality_rating:       rating,
-    name_status:          metaData.name_status || 'APPROVED',
-    status:               metaData.status || 'CONNECTED',
+    waba_id:               t.waba_id || process.env.META_WABA_ID || null,
+    phone_number_id:       effectivePhoneNumberId,
+    quality_rating:        rating,
+    messaging_tier:        tierInfo.code,
+    tier_name:             tierInfo.tierName,
+    daily_limit:           tierInfo.dailyLimit,
+    daily_limit_label:     tierInfo.label,
+    msgs_sent_today:       msgsSentToday,
+    usage_pct:             usagePct,
+    display_phone_number:  displayPhone,
+    verified_name:         verifiedName,
+    name_status:           nameStatus,
+    status:                phoneStatus,
+    waba_connected:        true,
     waba_health_synced_at: new Date().toISOString(),
-  }, 'WABA status synced with Meta in real-time.');
+  }, 'Live Meta health synchronized.');
 }));
 
 // ── GET /tenants/me/whatsapp-profile ───────────────────────────

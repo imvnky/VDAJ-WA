@@ -35,6 +35,8 @@ const MIGRATION_ORDER = [
   { name: '005_media_templates', file: path.join(DB_DIR, 'migrations', '005_media_templates.sql') },
   { name: '006_advanced_audiences', file: path.join(DB_DIR, 'migrations', '006_advanced_audiences.sql') },
   { name: '007_inbox_messages_metadata', file: path.join(DB_DIR, 'migrations', '007_inbox_messages_metadata.sql') },
+  { name: '008_automation_engine', file: path.join(DB_DIR, 'migrations', '008_automation_engine.sql') },
+  { name: '009_tier_varchar', file: path.join(DB_DIR, 'migrations', '009_tier_varchar.sql') },
 ];
 
 // ── ANSI colour helpers ────────────────────────────────────────
