@@ -56,6 +56,7 @@ async function ensureTables() {
 
 // ---- GET /automations ----
 router.get('/', catchAsync(async (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
   await ensureTables();
   let rows = [];
   try {
@@ -64,7 +65,7 @@ router.get('/', catchAsync(async (req, res) => {
        FROM automations a
        LEFT JOIN users u ON a.created_by = u.id
        WHERE a.tenant_id = $1
-       ORDER BY a.created_at DESC`,
+       ORDER BY a.is_active DESC, a.updated_at DESC`,
       [req.user.tenantId]
     );
     rows = result.rows;
@@ -77,17 +78,22 @@ router.get('/', catchAsync(async (req, res) => {
 // ---- POST /automations ----
 router.post('/', catchAsync(async (req, res) => {
   await ensureTables();
-  const { name, description, triggerType = 'manual', triggerConfig = {}, steps = [] } = req.body;
+  const { name, description, triggerType = 'manual', triggerConfig = {}, steps = [], isActive = true } = req.body;
   if (!name?.trim()) throw new AppError('Automation name is required.', 400, 'ERR_AUTO_001');
 
   const stepsJson = typeof steps === 'object' && steps !== null ? JSON.stringify(steps) : (steps || '[]');
   const triggerConfigJson = typeof triggerConfig === 'object' && triggerConfig !== null ? JSON.stringify(triggerConfig) : (triggerConfig || '{}');
 
+  // If this automation is active, deactivate others for this tenant to avoid split execution
+  if (isActive) {
+    await query(`UPDATE automations SET is_active = false WHERE tenant_id = $1`, [req.user.tenantId]);
+  }
+
   const { rows } = await query(
-    `INSERT INTO automations (tenant_id, name, description, trigger_type, trigger_config, steps, created_by)
-     VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7)
+    `INSERT INTO automations (tenant_id, name, description, trigger_type, trigger_config, steps, is_active, created_by)
+     VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7, $8)
      RETURNING *`,
-    [req.user.tenantId, name.trim(), description, triggerType, triggerConfigJson, stepsJson, req.user.id]
+    [req.user.tenantId, name.trim(), description, triggerType, triggerConfigJson, stepsJson, Boolean(isActive), req.user.id]
   );
   return sendSuccess(res, rows[0], 'Automation created.', 201);
 }));
@@ -103,6 +109,11 @@ router.put('/:id', catchAsync(async (req, res) => {
   const triggerConfigJson = triggerConfig !== undefined
     ? (typeof triggerConfig === 'object' && triggerConfig !== null ? JSON.stringify(triggerConfig) : triggerConfig)
     : null;
+
+  // If making active, deactivate any conflicting automations
+  if (isActive === true) {
+    await query(`UPDATE automations SET is_active = false WHERE tenant_id = $1 AND id != $2`, [req.user.tenantId, req.params.id]);
+  }
 
   const { rows } = await query(
     `UPDATE automations

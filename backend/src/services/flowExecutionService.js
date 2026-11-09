@@ -83,7 +83,7 @@ async function processInboundFlow({
 
       // ── A. Check if this is a click on an Interactive Button in the flow ──
       for (const node of nodes) {
-        if (node.type === 'message' && Array.isArray(node.data?.config?.buttons)) {
+        if ((node.type === 'message' || node.type === 'question') && Array.isArray(node.data?.config?.buttons)) {
           const buttons = node.data.config.buttons;
           for (let idx = 0; idx < buttons.length; idx++) {
             const btn = buttons[idx];
@@ -91,13 +91,13 @@ async function processInboundFlow({
             const btnLabel = String(btn.label || btn.title || '').trim().toLowerCase();
             const defaultHandle = `btn_${idx}`;
 
-            // Match by button ID, button handle, label, sliced 20-char label, or prefix
+            // Match by button ID, button handle, label, sliced 20-char label, or prefix/fuzzy
             const isButtonMatch =
               (cleanButton && (cleanButton === btnId || cleanButton === defaultHandle || cleanButton === btn.value || cleanButton === btn.id)) ||
               (cleanText && (
                 cleanText === btnLabel ||
                 cleanText === btnLabel.slice(0, 20) ||
-                (btnLabel.length > 4 && btnLabel.startsWith(cleanText))
+                (btnLabel.length > 3 && (cleanText.includes(btnLabel) || btnLabel.includes(cleanText)))
               ));
 
             if (isButtonMatch) {
@@ -106,10 +106,10 @@ async function processInboundFlow({
                 (e) =>
                   e.source === node.id &&
                   (e.sourceHandle === defaultHandle ||
-                   e.sourceHandle === btnId ||
-                   e.sourceHandle === btn.value ||
-                   e.sourceHandle === btn.id ||
-                   (!e.sourceHandle && buttons.length === 1))
+                    e.sourceHandle === btnId ||
+                    e.sourceHandle === btn.value ||
+                    e.sourceHandle === btn.id ||
+                    (!e.sourceHandle && buttons.length === 1))
               );
 
               if (edge) {
@@ -203,9 +203,10 @@ async function processInboundFlow({
         const nodeType = currentNode.type;
         const config = currentNode.data?.config || {};
 
-        if (nodeType === 'message') {
-          const msgType = config.messageType || 'text';
-          const bodyText = config.body || 'Hello! Thank you for reaching out.';
+        if (nodeType === 'message' || nodeType === 'question') {
+          const isQuestion = nodeType === 'question';
+          const msgType = isQuestion ? 'buttons' : (config.messageType || 'text');
+          const bodyText = config.body || (isQuestion ? 'Hi! What would you like to know about?' : 'Hello! Thank you for reaching out.');
           const buttons = Array.isArray(config.buttons) ? config.buttons : [];
 
           try {
@@ -214,7 +215,7 @@ async function processInboundFlow({
               accessToken: effectiveToken,
               to: String(fromPhone).replace(/\D/g, ''),
               body: bodyText,
-              buttons: msgType === 'buttons' && buttons.length > 0 ? buttons : undefined,
+              buttons: (msgType === 'buttons' || isQuestion) && buttons.length > 0 ? buttons : undefined,
               templateName: msgType === 'template' ? config.templateName : undefined,
               templateLanguage: config.templateLanguage || 'en',
             });
@@ -251,8 +252,8 @@ async function processInboundFlow({
             break;
           }
 
-          // If interactive buttons were sent, pause flow execution until user replies with a button!
-          if (msgType === 'buttons' && buttons.length > 0) {
+          // If interactive buttons were sent (or it was a question node), pause flow execution until user replies!
+          if ((msgType === 'buttons' || isQuestion) && buttons.length > 0) {
             break;
           }
         } else if (nodeType === 'action') {

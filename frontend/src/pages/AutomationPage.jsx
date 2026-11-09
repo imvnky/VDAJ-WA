@@ -288,14 +288,16 @@ function FlowCanvas() {
   const [flowName, setFlowName] = useState('Registration enquiry');
   const [isEditingName, setIsEditingName] = useState(false);
   const [activeFlowId, setActiveFlowId] = useState(null);
-  const [publishedVersion, setPublishedVersion] = useState('v3');
+  const [publishedVersion, setPublishedVersion] = useState('Live');
   const [saveStatus, setSaveStatus] = useState('Saved just now');
+  const [hasDraftChanges, setHasDraftChanges] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('content'); // 'content' | 'settings'
   const [showIssuesModal, setShowIssuesModal] = useState(false);
   const [showOverflowMenu, setShowOverflowMenu] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(85);
+  const isLoadedRef = useRef(false);
 
   const reactFlowWrapper = useRef(null);
   const [reactFlowInstance, setReactFlowInstance] = useState(null);
@@ -469,6 +471,7 @@ function FlowCanvas() {
     setNodes((nds) =>
       nds.map((n) => (n.id === selectedNodeId ? { ...n, data: { ...n.data, ...updates } } : n))
     );
+    setHasDraftChanges(true);
     setSaveStatus('Draft changes');
   };
 
@@ -488,16 +491,114 @@ function FlowCanvas() {
     setNodes((nds) => nds.filter((n) => n.id !== nodeId));
     setEdges((eds) => eds.filter((e) => e.source !== nodeId && e.target !== nodeId));
     if (selectedNodeId === nodeId) setSelectedNodeId(null);
+    setHasDraftChanges(true);
     setSaveStatus('Draft changes');
   };
 
-  // Autosave debouncer
+  // Load existing flow from server on mount (or restore unsaved draft)
   useEffect(() => {
+    let mounted = true;
+    const loadFlow = async () => {
+      try {
+        const res = await automationApi.list();
+        if (!mounted) return;
+        const flows = res?.data || [];
+        const primaryFlow = flows.find((f) => f.is_active) || flows[0];
+
+        if (primaryFlow) {
+          setActiveFlowId(primaryFlow.id);
+          if (primaryFlow.name) setFlowName(primaryFlow.name);
+          setPublishedVersion(primaryFlow.is_active ? 'Live' : 'Draft');
+
+          let loadedNodes = [];
+          let loadedEdges = [];
+          if (primaryFlow.steps) {
+            if (primaryFlow.steps.nodes && primaryFlow.steps.edges) {
+              loadedNodes = primaryFlow.steps.nodes;
+              loadedEdges = primaryFlow.steps.edges;
+            } else if (Array.isArray(primaryFlow.steps)) {
+              loadedNodes = primaryFlow.steps.filter((s) => !s.source);
+              loadedEdges = primaryFlow.steps.filter((s) => s.source);
+            }
+          }
+
+          // Check if user has an unsaved local draft newer than server flow
+          const localDraftRaw = localStorage.getItem(`vdaj_flow_draft_${primaryFlow.id}`);
+          if (localDraftRaw) {
+            try {
+              const draft = JSON.parse(localDraftRaw);
+              const serverTime = new Date(primaryFlow.updated_at || 0).getTime();
+              if (draft?.nodes?.length && draft.updatedAt > serverTime) {
+                loadedNodes = draft.nodes;
+                loadedEdges = draft.edges || loadedEdges;
+                if (draft.name) setFlowName(draft.name);
+                setHasDraftChanges(true);
+                setSaveStatus('Draft changes');
+              }
+            } catch {}
+          }
+
+          if (loadedNodes.length > 0) {
+            setNodes(loadedNodes);
+            setEdges(loadedEdges);
+            if (!loadedNodes.some((n) => n.id === 'n3') && loadedNodes[0]) {
+              setSelectedNodeId(loadedNodes[0].id);
+            }
+          }
+        } else {
+          // Check for unsaved draft for a new flow
+          const localDraftRaw = localStorage.getItem('vdaj_flow_draft_new');
+          if (localDraftRaw) {
+            try {
+              const draft = JSON.parse(localDraftRaw);
+              if (draft?.nodes?.length) {
+                setNodes(draft.nodes);
+                setEdges(draft.edges || INITIAL_EDGES);
+                if (draft.name) setFlowName(draft.name);
+                setHasDraftChanges(true);
+                setSaveStatus('Draft changes');
+              }
+            } catch {}
+          }
+        }
+      } catch (err) {
+        console.warn('Could not load flows from server:', err);
+      } finally {
+        if (mounted) {
+          isLoadedRef.current = true;
+        }
+      }
+    };
+
+    loadFlow();
+    return () => { mounted = false; };
+  }, [setNodes, setEdges]);
+
+  // Local draft autosave whenever user edits canvas
+  useEffect(() => {
+    if (!isLoadedRef.current) return;
+    setHasDraftChanges(true);
+    setSaveStatus('Draft changes');
+
+    const draftKey = activeFlowId ? `vdaj_flow_draft_${activeFlowId}` : 'vdaj_flow_draft_new';
+    try {
+      localStorage.setItem(
+        draftKey,
+        JSON.stringify({
+          name: flowName,
+          nodes,
+          edges,
+          updatedAt: Date.now(),
+        })
+      );
+    } catch {}
+
     const timer = setTimeout(() => {
-      setSaveStatus('Saved just now');
-    }, 1800);
+      setSaveStatus('Saved locally');
+    }, 1500);
+
     return () => clearTimeout(timer);
-  }, [nodes, edges, flowName]);
+  }, [nodes, edges, flowName, activeFlowId]);
 
   // Auto-layout helper
   const handleAutoLayout = () => {
@@ -537,18 +638,27 @@ function FlowCanvas() {
         isActive: true,
       };
 
-      if (activeFlowId) {
-        await automationApi.update(activeFlowId, payload);
+      let flowId = activeFlowId;
+      if (flowId) {
+        await automationApi.update(flowId, payload);
       } else {
         const res = await automationApi.create(payload);
-        if (res?.data?.id) setActiveFlowId(res.data.id);
+        if (res?.data?.id) {
+          flowId = res.data.id;
+          setActiveFlowId(flowId);
+        }
       }
 
-      setPublishedVersion('v4');
+      // Clear local draft for this flow
+      if (flowId) localStorage.removeItem(`vdaj_flow_draft_${flowId}`);
+      localStorage.removeItem('vdaj_flow_draft_new');
+
+      setHasDraftChanges(false);
+      setPublishedVersion('Live');
       setSaveStatus('Saved just now');
-      showSuccess('Published v4! Your WhatsApp flow is now live 🚀');
-    } catch {
-      showError('Failed to publish changes.');
+      showSuccess('Published! Your WhatsApp flow is now live 🚀');
+    } catch (err) {
+      showError(err?.response?.data?.message || 'Failed to publish changes.');
     } finally {
       setIsPublishing(false);
     }
@@ -644,23 +754,43 @@ function FlowCanvas() {
           )}
 
           {/* Draft changes status pill */}
-          <span
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '5px',
-              padding: '2px 8px',
-              borderRadius: '12px',
-              background: '#FFFBEB',
-              border: '1px solid #FDE68A',
-              color: '#B45309',
-              fontSize: '11px',
-              fontWeight: 700,
-            }}
-          >
-            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#F59E0B' }} />
-            Draft changes
-          </span>
+          {hasDraftChanges ? (
+            <span
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                padding: '2px 8px',
+                borderRadius: '12px',
+                background: '#FFFBEB',
+                border: '1px solid #FDE68A',
+                color: '#B45309',
+                fontSize: '11px',
+                fontWeight: 700,
+              }}
+            >
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#F59E0B' }} />
+              Draft changes
+            </span>
+          ) : (
+            <span
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                padding: '2px 8px',
+                borderRadius: '12px',
+                background: '#ECFDF5',
+                border: '1px solid #A7F3D0',
+                color: '#065F46',
+                fontSize: '11px',
+                fontWeight: 700,
+              }}
+            >
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10B981' }} />
+              Live on WhatsApp
+            </span>
+          )}
 
           {/* Autosave indicator */}
           <span
@@ -1525,10 +1655,12 @@ function FlowCanvas() {
           zIndex: 10,
         }}
       >
-        <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#10B981', display: 'inline-block' }} />
+        <span style={{ width: 7, height: 7, borderRadius: '50%', background: hasDraftChanges ? '#F59E0B' : '#10B981', display: 'inline-block' }} />
         <span style={{ color: '#0F172A', fontWeight: 700 }}>Published {publishedVersion}</span>
         <span>·</span>
-        <span>Draft changes are not live</span>
+        <span style={{ color: hasDraftChanges ? '#B45309' : '#059669', fontWeight: 600 }}>
+          {hasDraftChanges ? 'Draft changes are not live' : 'Active and responding on WhatsApp'}
+        </span>
       </div>
 
       {/* ── 4. VALIDATION ISSUES MODAL ───────────────────────── */}
