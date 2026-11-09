@@ -20,6 +20,7 @@ import '@xyflow/react/dist/style.css';
 import TriggerNode from '../components/flow/nodes/TriggerNode';
 import QuestionNode from '../components/flow/nodes/QuestionNode';
 import MessageNode from '../components/flow/nodes/MessageNode';
+import FormNode from '../components/flow/nodes/FormNode';
 import EndNode from '../components/flow/nodes/EndNode';
 import DelayNode from '../components/flow/nodes/DelayNode';
 import ActionNode from '../components/flow/nodes/ActionNode';
@@ -32,6 +33,7 @@ const NODE_TYPES = {
   trigger: TriggerNode,
   question: QuestionNode,
   message: MessageNode,
+  form: FormNode,
   end: EndNode,
   delay: DelayNode,
   action: ActionNode,
@@ -95,14 +97,25 @@ const STEP_CATEGORIES = [
         },
       },
       {
-        type: 'message',
+        type: 'form',
         label: 'WhatsApp form',
-        description: 'Capture details using a WhatsApp form.',
+        description: 'Capture details using an in-app WhatsApp form.',
         icon: '📋',
         iconBg: '#F5F3FF',
         iconBorder: '#DDD6FE',
         iconColor: '#7C3AED',
-        config: { messageType: 'wa_flow', flowId: 'flow_lead_capture' },
+        config: {
+          messageType: 'wa_flow',
+          flowName: 'Registration enquiry form',
+          ctaText: 'Register Now',
+          body: 'Please tap below to fill out your enquiry details for SMR Swimming Pool & Health Club.',
+          fields: [
+            { id: 'full_name', label: 'Full Name', type: 'text', required: true },
+            { id: 'phone', label: 'Phone Number', type: 'phone', required: true },
+            { id: 'activity', label: 'Activity', type: 'select', options: ['Swimming', 'Gym', 'Badminton'], required: true },
+            { id: 'batch', label: 'Preferred Timing', type: 'select', options: ['Morning (6:00 AM - 10:00 AM)', 'Evening (4:00 PM - 8:00 PM)'], required: false },
+          ],
+        },
       },
     ],
   },
@@ -296,6 +309,7 @@ function FlowCanvas() {
   const [activeTab, setActiveTab] = useState('content'); // 'content' | 'settings'
   const [showIssuesModal, setShowIssuesModal] = useState(false);
   const [showOverflowMenu, setShowOverflowMenu] = useState(false);
+  const [showFormModalPreview, setShowFormModalPreview] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(85);
   const isLoadedRef = useRef(false);
 
@@ -1425,104 +1439,391 @@ function FlowCanvas() {
             <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
               {activeTab === 'content' ? (
                 <>
-                  {/* Message Label & Variable Inserter */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                    <label style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', color: '#475569' }}>
-                      Message
-                    </label>
+                  {/* Distinguish WhatsApp Form vs Plain Message */}
+                  {selectedNode.type === 'form' || selectedNode.data?.config?.messageType === 'wa_flow' || selectedNode.data?.label?.toLowerCase().includes('form') ? (
+                    // ── WHATSAPP FORM INSPECTOR ──
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                      {/* Form Template Presets */}
+                      <div>
+                        <label style={{ display: 'block', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', color: '#475569', marginBottom: '6px' }}>
+                          Form Template
+                        </label>
+                        <select
+                          value={selectedNode.data?.config?.preset || 'registration'}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (val === 'registration') {
+                              updateSelectedNodeData({
+                                label: 'Registration enquiry form',
+                                config: {
+                                  ...selectedNode.data.config,
+                                  preset: 'registration',
+                                  flowName: 'Registration form',
+                                  ctaText: 'Register Now',
+                                  body: 'Please tap below to fill out your enquiry details for SMR Swimming Pool & Health Club.',
+                                  fields: [
+                                    { id: 'full_name', label: 'Full Name', type: 'text', required: true },
+                                    { id: 'phone', label: 'Phone Number', type: 'phone', required: true },
+                                    { id: 'activity', label: 'Activity', type: 'select', options: ['Swimming', 'Gym', 'Badminton'], required: true },
+                                    { id: 'batch', label: 'Preferred Timing', type: 'select', options: ['Morning (6:00 AM - 10:00 AM)', 'Evening (4:00 PM - 8:00 PM)'], required: false },
+                                  ],
+                                },
+                              });
+                            } else if (val === 'lead_capture') {
+                              updateSelectedNodeData({
+                                label: 'Lead Capture Form',
+                                config: {
+                                  ...selectedNode.data.config,
+                                  preset: 'lead_capture',
+                                  flowName: 'Contact details',
+                                  ctaText: 'Submit Details',
+                                  body: 'Please provide your contact details so our team can get in touch with you.',
+                                  fields: [
+                                    { id: 'full_name', label: 'Full Name', type: 'text', required: true },
+                                    { id: 'phone', label: 'WhatsApp Number', type: 'phone', required: true },
+                                    { id: 'email', label: 'Email Address', type: 'email', required: false },
+                                    { id: 'city', label: 'City / Location', type: 'text', required: false },
+                                  ],
+                                },
+                              });
+                            } else if (val === 'feedback') {
+                              updateSelectedNodeData({
+                                label: 'Feedback Survey',
+                                config: {
+                                  ...selectedNode.data.config,
+                                  preset: 'feedback',
+                                  flowName: 'Experience Feedback',
+                                  ctaText: 'Give Feedback',
+                                  body: 'How was your experience today? Tap below to let us know.',
+                                  fields: [
+                                    { id: 'rating', label: 'Rating (1 - 5)', type: 'select', options: ['5 - Excellent', '4 - Good', '3 - Average', '2 - Poor', '1 - Bad'], required: true },
+                                    { id: 'comments', label: 'Comments / Suggestions', type: 'text', required: false },
+                                  ],
+                                },
+                              });
+                            }
+                          }}
+                          style={{
+                            width: '100%',
+                            padding: '8px 12px',
+                            borderRadius: '8px',
+                            fontSize: '12px',
+                            background: '#F8FAFC',
+                            border: '1px solid #CBD5E1',
+                            color: '#0F172A',
+                            fontWeight: 600,
+                            outline: 'none',
+                          }}
+                        >
+                          <option value="registration">🏊 SMR Registration & Enquiry Form</option>
+                          <option value="lead_capture">💼 General Lead Capture Form</option>
+                          <option value="feedback">⭐ Customer Experience & Feedback</option>
+                        </select>
+                      </div>
 
-                    {/* Insert Variable Dropdown */}
-                    <div style={{ position: 'relative' }}>
-                      <select
-                        onChange={(e) => {
-                          if (e.target.value) {
-                            insertVariable(e.target.value);
-                            e.target.value = '';
+                      {/* Form Message Prompt */}
+                      <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                          <label style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', color: '#475569' }}>
+                            Introductory Message
+                          </label>
+                          <span style={{ fontSize: '11px', color: '#94A3B8' }}>WhatsApp message bubble</span>
+                        </div>
+                        <textarea
+                          rows={3}
+                          value={selectedNode.data?.config?.body || ''}
+                          onChange={(e) =>
+                            updateSelectedNodeData({
+                              config: { ...selectedNode.data.config, body: e.target.value },
+                            })
                           }
-                        }}
-                        style={{
-                          fontSize: '11px',
-                          fontWeight: 700,
-                          color: '#534AB7',
-                          background: '#F5F3FF',
-                          border: '1px solid #DDD6FE',
-                          borderRadius: '6px',
-                          padding: '3px 8px',
-                          cursor: 'pointer',
-                          outline: 'none',
-                        }}
-                      >
-                        <option value="">{'{ }'} Insert variable ∨</option>
-                        <option value="first_name">Contact: First Name</option>
-                        <option value="phone">Contact: Phone</option>
-                        <option value="business_name">Business: Name</option>
-                      </select>
-                    </div>
-                  </div>
+                          placeholder="Message sent along with the form button…"
+                          style={{
+                            width: '100%',
+                            padding: '10px 12px',
+                            borderRadius: '10px',
+                            fontSize: '12px',
+                            background: '#F8FAFC',
+                            border: '1px solid #CBD5E1',
+                            color: '#0F172A',
+                            lineHeight: 1.5,
+                            outline: 'none',
+                            fontFamily: 'Inter, sans-serif',
+                            boxSizing: 'border-box',
+                          }}
+                        />
+                      </div>
 
-                  {/* Message Textarea */}
-                  <textarea
-                    rows={5}
-                    value={selectedNode.data?.config?.body || ''}
-                    onChange={(e) =>
-                      updateSelectedNodeData({
-                        config: { ...selectedNode.data.config, body: e.target.value },
-                      })
-                    }
-                    placeholder="Type your WhatsApp message text here…"
-                    style={{
-                      width: '100%',
-                      padding: '10px 12px',
-                      borderRadius: '10px',
-                      fontSize: '12px',
-                      background: '#F8FAFC',
-                      border: '1px solid #CBD5E1',
-                      color: '#0F172A',
-                      lineHeight: 1.5,
-                      resize: 'vertical',
-                      outline: 'none',
-                      fontFamily: 'Inter, sans-serif',
-                      boxSizing: 'border-box',
-                    }}
-                  />
+                      {/* CTA Button Text */}
+                      <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                          <label style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', color: '#475569' }}>
+                            Form Button Text (CTA)
+                          </label>
+                          <span style={{ fontSize: '10px', color: '#94A3B8' }}>Max 20 chars</span>
+                        </div>
+                        <input
+                          type="text"
+                          maxLength={20}
+                          value={selectedNode.data?.config?.ctaText || 'Register Now'}
+                          onChange={(e) =>
+                            updateSelectedNodeData({
+                              config: { ...selectedNode.data.config, ctaText: e.target.value },
+                            })
+                          }
+                          style={{
+                            width: '100%',
+                            padding: '8px 12px',
+                            borderRadius: '8px',
+                            fontSize: '12px',
+                            background: '#F8FAFC',
+                            border: '1px solid #CBD5E1',
+                            color: '#0F172A',
+                            fontWeight: 600,
+                            outline: 'none',
+                            boxSizing: 'border-box',
+                          }}
+                        />
+                      </div>
 
-                  {/* WhatsApp Static Message Format Preview */}
-                  <div style={{ marginTop: '20px' }}>
-                    <p style={{ fontSize: '11px', fontWeight: 800, color: '#475569', margin: '0 0 8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <span>💬</span> WhatsApp preview
-                    </p>
-
-                    {/* Realistic WhatsApp Chat Bubble Container */}
-                    <div
-                      style={{
-                        background: '#ECE5DD',
-                        backgroundImage: 'radial-gradient(#00000008 1px, transparent 0)',
-                        backgroundSize: '12px 12px',
-                        borderRadius: '12px',
-                        padding: '16px 12px',
-                        border: '1px solid #E2E8F0',
-                      }}
-                    >
-                      <div
-                        style={{
-                          background: '#FFFFFF',
-                          borderRadius: '10px 10px 10px 2px',
-                          padding: '10px 12px 6px',
-                          boxShadow: '0 1px 3px rgba(0,0,0,0.12)',
-                          maxWidth: '88%',
-                          position: 'relative',
-                        }}
-                      >
-                        <p style={{ fontSize: '12px', color: '#111827', margin: 0, lineHeight: 1.45, whiteSpace: 'pre-wrap' }}>
-                          {selectedNode.data?.config?.body || 'Hello! Thank you for reaching out.'}
-                        </p>
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
-                          <span style={{ fontSize: '10px', color: '#9CA3AF' }}>10:24 AM</span>
-                          <span style={{ fontSize: '11px', color: '#38BDF8', fontWeight: 'bold' }}>✓✓</span>
+                      {/* Form Fields To Collect */}
+                      <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                          <label style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', color: '#475569' }}>
+                            Form Fields (Collected in WhatsApp)
+                          </label>
+                          <span style={{ fontSize: '11px', fontWeight: 700, color: '#534AB7' }}>
+                            {(selectedNode.data?.config?.fields || []).length} fields
+                          </span>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          {(selectedNode.data?.config?.fields || [
+                            { id: 'full_name', label: 'Full Name', type: 'text', required: true },
+                            { id: 'phone', label: 'Phone Number', type: 'phone', required: true },
+                            { id: 'activity', label: 'Activity', type: 'select', options: ['Swimming', 'Gym', 'Badminton'], required: true },
+                            { id: 'batch', label: 'Preferred Timing', type: 'select', options: ['Morning', 'Evening'], required: false },
+                          ]).map((field, idx) => (
+                            <div
+                              key={idx}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                background: '#FFFFFF',
+                                border: '1px solid #E2E8F0',
+                                borderRadius: '8px',
+                                padding: '8px 10px',
+                                fontSize: '12px',
+                              }}
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span style={{ color: '#534AB7' }}>📋</span>
+                                <div>
+                                  <span style={{ fontWeight: 600, color: '#0F172A' }}>{field.label}</span>
+                                  <span style={{ fontSize: '10px', color: '#94A3B8', marginLeft: '6px' }}>({field.type})</span>
+                                </div>
+                              </div>
+                              <span style={{ fontSize: '10px', fontWeight: 700, color: field.required ? '#059669' : '#94A3B8' }}>
+                                {field.required ? 'Required' : 'Optional'}
+                              </span>
+                            </div>
+                          ))}
                         </div>
                       </div>
+
+                      {/* WhatsApp Form Interactive Preview */}
+                      <div style={{ marginTop: '10px' }}>
+                        <p style={{ fontSize: '11px', fontWeight: 800, color: '#475569', margin: '0 0 8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span>📱</span> WhatsApp Chat Preview
+                        </p>
+                        <div
+                          style={{
+                            background: '#ECE5DD',
+                            backgroundImage: 'radial-gradient(#00000008 1px, transparent 0)',
+                            backgroundSize: '12px 12px',
+                            borderRadius: '12px',
+                            padding: '14px 12px',
+                            border: '1px solid #E2E8F0',
+                          }}
+                        >
+                          <div
+                            style={{
+                              background: '#FFFFFF',
+                              borderRadius: '10px 10px 10px 2px',
+                              boxShadow: '0 1px 3px rgba(0,0,0,0.12)',
+                              maxWidth: '92%',
+                              overflow: 'hidden',
+                            }}
+                          >
+                            <div style={{ padding: '10px 12px' }}>
+                              <p style={{ fontSize: '11px', fontWeight: 800, color: '#7C3AED', textTransform: 'uppercase', margin: '0 0 4px' }}>
+                                📋 {selectedNode.data?.config?.flowName || 'Registration Form'}
+                              </p>
+                              <p style={{ fontSize: '12px', color: '#111827', margin: 0, lineHeight: 1.45, whiteSpace: 'pre-wrap' }}>
+                                {selectedNode.data?.config?.body || 'Please tap below to fill out your details.'}
+                              </p>
+                              <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
+                                <span style={{ fontSize: '10px', color: '#9CA3AF' }}>10:24 AM</span>
+                                <span style={{ fontSize: '11px', color: '#38BDF8', fontWeight: 'bold' }}>✓✓</span>
+                              </div>
+                            </div>
+
+                            {/* WhatsApp Native Flow CTA button */}
+                            <button
+                              type="button"
+                              onClick={() => setShowFormModalPreview(true)}
+                              style={{
+                                width: '100%',
+                                padding: '10px',
+                                border: 'none',
+                                borderTop: '1px solid #E5E7EB',
+                                background: '#FFFFFF',
+                                color: '#00A884',
+                                fontSize: '13px',
+                                fontWeight: 700,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '8px',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              <span>📋</span>
+                              <span>{selectedNode.data?.config?.ctaText || 'Register Now'}</span>
+                              <span style={{ fontSize: '11px' }}>↗</span>
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Button to open live mobile form simulation */}
+                        <button
+                          type="button"
+                          onClick={() => setShowFormModalPreview(true)}
+                          style={{
+                            width: '100%',
+                            marginTop: '10px',
+                            padding: '8px 12px',
+                            borderRadius: '8px',
+                            background: '#F3F2FD',
+                            border: '1px solid #C9C5F5',
+                            color: '#534AB7',
+                            fontSize: '12px',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '6px',
+                          }}
+                        >
+                          <span>👁</span>
+                          <span>Preview In-App WhatsApp Form Screen</span>
+                        </button>
+                      </div>
                     </div>
-                  </div>
+                  ) : (
+                    // ── REGULAR MESSAGE INSPECTOR ──
+                    <>
+                      {/* Message Label & Variable Inserter */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                        <label style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', color: '#475569' }}>
+                          Message
+                        </label>
+
+                        {/* Insert Variable Dropdown */}
+                        <div style={{ position: 'relative' }}>
+                          <select
+                            onChange={(e) => {
+                              if (e.target.value) {
+                                insertVariable(e.target.value);
+                                e.target.value = '';
+                              }
+                            }}
+                            style={{
+                              fontSize: '11px',
+                              fontWeight: 700,
+                              color: '#534AB7',
+                              background: '#F5F3FF',
+                              border: '1px solid #DDD6FE',
+                              borderRadius: '6px',
+                              padding: '3px 8px',
+                              cursor: 'pointer',
+                              outline: 'none',
+                            }}
+                          >
+                            <option value="">{'{ }'} Insert variable ∨</option>
+                            <option value="first_name">Contact: First Name</option>
+                            <option value="phone">Contact: Phone</option>
+                            <option value="business_name">Business: Name</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* Message Textarea */}
+                      <textarea
+                        rows={5}
+                        value={selectedNode.data?.config?.body || ''}
+                        onChange={(e) =>
+                          updateSelectedNodeData({
+                            config: { ...selectedNode.data.config, body: e.target.value },
+                          })
+                        }
+                        placeholder="Type your WhatsApp message text here…"
+                        style={{
+                          width: '100%',
+                          padding: '10px 12px',
+                          borderRadius: '10px',
+                          fontSize: '12px',
+                          background: '#F8FAFC',
+                          border: '1px solid #CBD5E1',
+                          color: '#0F172A',
+                          lineHeight: 1.5,
+                          resize: 'vertical',
+                          outline: 'none',
+                          fontFamily: 'Inter, sans-serif',
+                          boxSizing: 'border-box',
+                        }}
+                      />
+
+                      {/* WhatsApp Static Message Format Preview */}
+                      <div style={{ marginTop: '20px' }}>
+                        <p style={{ fontSize: '11px', fontWeight: 800, color: '#475569', margin: '0 0 8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span>💬</span> WhatsApp preview
+                        </p>
+
+                        {/* Realistic WhatsApp Chat Bubble Container */}
+                        <div
+                          style={{
+                            background: '#ECE5DD',
+                            backgroundImage: 'radial-gradient(#00000008 1px, transparent 0)',
+                            backgroundSize: '12px 12px',
+                            borderRadius: '12px',
+                            padding: '16px 12px',
+                            border: '1px solid #E2E8F0',
+                          }}
+                        >
+                          <div
+                            style={{
+                              background: '#FFFFFF',
+                              borderRadius: '10px 10px 10px 2px',
+                              padding: '10px 12px 6px',
+                              boxShadow: '0 1px 3px rgba(0,0,0,0.12)',
+                              maxWidth: '88%',
+                              position: 'relative',
+                            }}
+                          >
+                            <p style={{ fontSize: '12px', color: '#111827', margin: 0, lineHeight: 1.45, whiteSpace: 'pre-wrap' }}>
+                              {selectedNode.data?.config?.body || 'Hello! Thank you for reaching out.'}
+                            </p>
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
+                              <span style={{ fontSize: '10px', color: '#9CA3AF' }}>10:24 AM</span>
+                              <span style={{ fontSize: '11px', color: '#38BDF8', fontWeight: 'bold' }}>✓✓</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  )}
 
                   {/* Add next step button */}
                   <button
@@ -1769,6 +2070,144 @@ function FlowCanvas() {
                 }}
               >
                 Publish Anyway
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── 5. WHATSAPP FORM MOBILE SCREEN PREVIEW MODAL ─────── */}
+      {showFormModalPreview && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(15, 23, 42, 0.65)',
+            backdropFilter: 'blur(5px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 120,
+          }}
+          onClick={() => setShowFormModalPreview(false)}
+        >
+          <div
+            style={{
+              width: '380px',
+              maxHeight: '90vh',
+              background: '#FFFFFF',
+              borderRadius: '28px',
+              boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.35)',
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
+              border: '2px solid #E2E8F0',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* WhatsApp Native Flow Header bar */}
+            <div style={{ background: '#008069', padding: '16px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: '#FFFFFF' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowFormModalPreview(false)}
+                  style={{ background: 'transparent', border: 'none', color: '#FFFFFF', fontSize: '18px', cursor: 'pointer', padding: 0 }}
+                >
+                  ✕
+                </button>
+                <div>
+                  <p style={{ margin: 0, fontSize: '15px', fontWeight: 700 }}>
+                    {selectedNode?.data?.config?.flowName || 'Registration Form'}
+                  </p>
+                  <p style={{ margin: 0, fontSize: '11px', color: '#A7F3D0' }}>SMR Swimming Pool & Health Club</p>
+                </div>
+              </div>
+              <span style={{ fontSize: '10px', fontWeight: 700, background: 'rgba(255,255,255,0.25)', padding: '3px 8px', borderRadius: '12px' }}>
+                WhatsApp Flow
+              </span>
+            </div>
+
+            {/* In-App Form Body */}
+            <div style={{ padding: '20px', flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ background: '#F8FAFC', padding: '12px 14px', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
+                <p style={{ fontSize: '12px', color: '#334155', margin: 0, lineHeight: 1.5 }}>
+                  {selectedNode?.data?.config?.body || 'Please complete the registration enquiry details below:'}
+                </p>
+              </div>
+
+              {(selectedNode?.data?.config?.fields || [
+                { id: 'full_name', label: 'Full Name', type: 'text', required: true },
+                { id: 'phone', label: 'Phone Number', type: 'phone', required: true },
+                { id: 'activity', label: 'Activity', type: 'select', options: ['Swimming', 'Gym', 'Badminton'], required: true },
+                { id: 'batch', label: 'Preferred Timing', type: 'select', options: ['Morning (6:00 AM - 10:00 AM)', 'Evening (4:00 PM - 8:00 PM)'], required: false },
+              ]).map((f, i) => (
+                <div key={i}>
+                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 800, color: '#334155', marginBottom: '5px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    {f.label} {f.required && <span style={{ color: '#EF4444' }}>*</span>}
+                  </label>
+                  {f.type === 'select' ? (
+                    <select
+                      style={{
+                        width: '100%',
+                        padding: '10px 12px',
+                        borderRadius: '10px',
+                        border: '1.5px solid #CBD5E1',
+                        fontSize: '13px',
+                        color: '#0F172A',
+                        background: '#FFFFFF',
+                        outline: 'none',
+                        boxSizing: 'border-box',
+                      }}
+                      defaultValue=""
+                    >
+                      <option value="" disabled>Select {f.label}</option>
+                      {(f.options || ['Swimming', 'Gym', 'Badminton']).map((opt, oi) => (
+                        <option key={oi} value={opt}>{opt}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type={f.type === 'phone' ? 'tel' : 'text'}
+                      placeholder={`Enter ${f.label.toLowerCase()}`}
+                      style={{
+                        width: '100%',
+                        padding: '10px 12px',
+                        borderRadius: '10px',
+                        border: '1.5px solid #CBD5E1',
+                        fontSize: '13px',
+                        color: '#0F172A',
+                        background: '#FFFFFF',
+                        outline: 'none',
+                        boxSizing: 'border-box',
+                      }}
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Bottom Submit CTA */}
+            <div style={{ padding: '16px 20px', borderTop: '1px solid #F1F5F9', background: '#FAFAFE' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowFormModalPreview(false);
+                  showSuccess('Simulated form submission! WhatsApp webhook "nfm_reply" received.');
+                }}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  borderRadius: '12px',
+                  background: '#008069',
+                  border: 'none',
+                  color: '#FFFFFF',
+                  fontSize: '14px',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 12px rgba(0, 128, 105, 0.35)',
+                }}
+              >
+                Submit Form
               </button>
             </div>
           </div>

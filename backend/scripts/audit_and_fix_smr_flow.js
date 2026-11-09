@@ -167,6 +167,6 @@ async function main() {
 
 main().catch(async (err) => {
   console.error('Error during audit:', err);
-  try { await pool.end(); } catch {}
+  try { await pool.end(); } catch { }
 });
 

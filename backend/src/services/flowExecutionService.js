@@ -83,17 +83,21 @@ async function processInboundFlow({
 
       // ── A. Check if this is a click on an Interactive Button in the flow ──
       for (const node of nodes) {
-        if ((node.type === 'message' || node.type === 'question') && Array.isArray(node.data?.config?.buttons)) {
-          const buttons = node.data.config.buttons;
+        const isFormNode = node.type === 'form' || node.data?.config?.messageType === 'wa_flow';
+        if ((node.type === 'message' || node.type === 'question' || isFormNode) && (Array.isArray(node.data?.config?.buttons) || isFormNode)) {
+          const buttons = isFormNode
+            ? [{ label: node.data?.config?.ctaText || 'Register Now', value: 'form_open' }]
+            : (node.data.config.buttons || []);
+
           for (let idx = 0; idx < buttons.length; idx++) {
             const btn = buttons[idx];
             const btnId = String(btn.value || btn.id || `btn_${idx}`).trim();
             const btnLabel = String(btn.label || btn.title || '').trim().toLowerCase();
-            const defaultHandle = `btn_${idx}`;
+            const defaultHandle = isFormNode ? 'submitted' : `btn_${idx}`;
 
             // Match by button ID, button handle, label, sliced 20-char label, or prefix/fuzzy
             const isButtonMatch =
-              (cleanButton && (cleanButton === btnId || cleanButton === defaultHandle || cleanButton === btn.value || cleanButton === btn.id)) ||
+              (cleanButton && (cleanButton === btnId || cleanButton === defaultHandle || cleanButton === btn.value || cleanButton === btn.id || cleanButton.includes('form') || cleanButton.includes('nfm_reply'))) ||
               (cleanText && (
                 cleanText === btnLabel ||
                 cleanText === btnLabel.slice(0, 20) ||
@@ -106,17 +110,18 @@ async function processInboundFlow({
                 (e) =>
                   e.source === node.id &&
                   (e.sourceHandle === defaultHandle ||
+                    e.sourceHandle === 'submitted' ||
+                    e.sourceHandle === 'out' ||
                     e.sourceHandle === btnId ||
                     e.sourceHandle === btn.value ||
-                    e.sourceHandle === btn.id ||
-                    (!e.sourceHandle && buttons.length === 1))
+                    (!e.sourceHandle))
               );
 
               if (edge) {
                 const targetNode = nodes.find((n) => n.id === edge.target);
                 if (targetNode) {
                   startNode = targetNode;
-                  matchedKeyword = `button:${btn.label || btnId}`;
+                  matchedKeyword = isFormNode ? 'form:submitted' : `button:${btn.label || btnId}`;
                   isMatch = true;
                   break;
                 }
@@ -203,11 +208,14 @@ async function processInboundFlow({
         const nodeType = currentNode.type;
         const config = currentNode.data?.config || {};
 
-        if (nodeType === 'message' || nodeType === 'question') {
+        if (nodeType === 'message' || nodeType === 'question' || nodeType === 'form') {
           const isQuestion = nodeType === 'question';
-          const msgType = isQuestion ? 'buttons' : (config.messageType || 'text');
-          const bodyText = config.body || (isQuestion ? 'Hi! What would you like to know about?' : 'Hello! Thank you for reaching out.');
-          const buttons = Array.isArray(config.buttons) ? config.buttons : [];
+          const isForm = nodeType === 'form' || config.messageType === 'wa_flow';
+          const msgType = isQuestion ? 'buttons' : isForm ? 'buttons' : (config.messageType || 'text');
+          const bodyText = config.body || (isForm ? 'Please tap below to fill out your registration enquiry form.' : isQuestion ? 'Hi! What would you like to know about?' : 'Hello! Thank you for reaching out.');
+          const buttons = isForm
+            ? [{ label: String(config.ctaText || 'Register Now').slice(0, 20), value: 'form_open' }]
+            : Array.isArray(config.buttons) ? config.buttons : [];
 
           try {
             const metaRes = await sendWhatsAppMessage({
@@ -215,7 +223,7 @@ async function processInboundFlow({
               accessToken: effectiveToken,
               to: String(fromPhone).replace(/\D/g, ''),
               body: bodyText,
-              buttons: (msgType === 'buttons' || isQuestion) && buttons.length > 0 ? buttons : undefined,
+              buttons: (msgType === 'buttons' || isQuestion || isForm) && buttons.length > 0 ? buttons : undefined,
               templateName: msgType === 'template' ? config.templateName : undefined,
               templateLanguage: config.templateLanguage || 'en',
             });
@@ -252,8 +260,8 @@ async function processInboundFlow({
             break;
           }
 
-          // If interactive buttons were sent (or it was a question node), pause flow execution until user replies!
-          if ((msgType === 'buttons' || isQuestion) && buttons.length > 0) {
+          // If interactive buttons or form was sent, pause flow execution until user replies!
+          if ((msgType === 'buttons' || isQuestion || isForm) && buttons.length > 0) {
             break;
           }
         } else if (nodeType === 'action') {
