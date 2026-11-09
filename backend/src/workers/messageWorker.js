@@ -22,12 +22,12 @@ const AppError = require('../utils/AppError');
 
 const QUEUE_CONFIG = {
   CHUNK_SIZE: parseInt(process.env.QUEUE_CHUNK_SIZE || '50', 10),
-  DELAY_BETWEEN_CHUNKS_MS: parseInt(process.env.QUEUE_DELAY_BETWEEN_CHUNKS_MS || '1000', 10),
+  DELAY_BETWEEN_CHUNKS_MS: parseInt(process.env.QUEUE_DELAY_BETWEEN_CHUNKS_MS || '2000', 10),
   MAX_RETRIES: parseInt(process.env.QUEUE_MAX_RETRIES || '3', 10),
   BACKOFF_DELAY_MS: parseInt(process.env.QUEUE_BACKOFF_DELAY_MS || '5000', 10),
   DEAD_LETTER_THRESHOLD: parseInt(process.env.QUEUE_DEAD_LETTER_THRESHOLD || '3', 10),
-  CONCURRENCY: 5, // Process 5 chunk-jobs simultaneously
-  META_DELAY_BETWEEN_MESSAGES_MS: 100, // Trickle: 100ms between each message within a chunk
+  CONCURRENCY: parseInt(process.env.QUEUE_CONCURRENCY || '2', 10), // Enterprise concurrency: max 2 simultaneous workers to protect Meta Cloud API rate limits
+  META_DELAY_BETWEEN_MESSAGES_MS: parseInt(process.env.QUEUE_META_DELAY_MS || '350', 10), // Enterprise trickle pacing: 350ms between messages (~5.7 req/s total), safely within Meta's 15-20 req/s limit
 };
 
 const REDIS_OPTIONS = {
@@ -222,14 +222,42 @@ const processMessage = async (msg, jobData) => {
       resolvedVars['1'] = recipientName || resolvedVars['1_fallback'] || 'Customer';
     }
 
-    const metaResponse = await sendWhatsAppMessage({
-      phoneNumberId,
-      accessToken: metaSystemToken,
-      to: msg.phone_e164,
-      templateName,
-      templateLanguage,
-      templateVars: resolvedVars,
-    });
+    // Enterprise Rate-Limit Backoff Loop:
+    // If Meta returns 130429 (Rate limit) or HTTP 429, pause and retry up to 3 times
+    let metaResponse = null;
+    let attempts = 0;
+    const MAX_DISPATCH_ATTEMPTS = 3;
+
+    while (attempts < MAX_DISPATCH_ATTEMPTS) {
+      attempts++;
+      try {
+        metaResponse = await sendWhatsAppMessage({
+          phoneNumberId,
+          accessToken: metaSystemToken,
+          to: msg.phone_e164,
+          templateName,
+          templateLanguage,
+          templateVars: resolvedVars,
+        });
+        break; // Successfully sent
+      } catch (sendErr) {
+        const isRateLimit = sendErr.isRateLimit || sendErr.statusCode === 429 ||
+          (sendErr.message && (
+            sendErr.message.includes('130429') ||
+            sendErr.message.includes('80007') ||
+            sendErr.message.toLowerCase().includes('rate limit')
+          ));
+
+        if (isRateLimit && attempts < MAX_DISPATCH_ATTEMPTS) {
+          const backoffDelay = attempts * 3000; // 3s, 6s
+          logger.warn(`Meta API rate limit encountered for ${msg.phone_e164}. Backing off for ${backoffDelay}ms before retry ${attempts}/${MAX_DISPATCH_ATTEMPTS}...`);
+          await new Promise((resolve) => setTimeout(resolve, backoffDelay));
+          continue;
+        }
+
+        throw sendErr; // Permanent error or attempts exhausted
+      }
+    }
 
     // Update message status to 'sent'
     await db.query(

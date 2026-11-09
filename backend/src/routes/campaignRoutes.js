@@ -16,6 +16,7 @@ const AppError = require('../utils/AppError');
 const { enqueueCampaign } = require('../workers/messageWorker');
 const { recordAudit } = require('../services/auditService');
 const logger = require('../utils/logger');
+const redisClient = require('../config/redis');
 
 // All campaign routes require authentication
 router.use(authenticate);
@@ -675,6 +676,19 @@ router.post('/:id/retry-failed', uuidParamValidator('id'), validate, catchAsync(
   const isSuperAdmin = req.user.role === 'super_admin';
   const tenantId = req.user.tenantId || req.tenant?.id;
 
+  // Enterprise idempotency guard: prevent duplicate concurrent clicks via Redis lock
+  const lockKey = `vdaj:campaign:retry-lock:${req.params.id}`;
+  if (redisClient && typeof redisClient.set === 'function') {
+    try {
+      const acquired = await redisClient.set(lockKey, 'locked', 'EX', 15, 'NX');
+      if (!acquired) {
+        throw new AppError('A retry dispatch is already in progress for this campaign. Please wait a moment.', 429, 'ERR_VDAJ_CAMP_003');
+      }
+    } catch (e) {
+      if (e instanceof AppError) throw e;
+    }
+  }
+
   const result = await withTransaction(async (client) => {
     // 1. Fetch and lock campaign + tenant credentials
     const { rows: [campaign] } = await client.query(
@@ -691,6 +705,9 @@ router.post('/:id/retry-failed', uuidParamValidator('id'), validate, catchAsync(
     );
 
     if (!campaign) throw new AppError('Campaign not found.', 404, 'ERR_VDAJ_CAMP_001');
+    if (campaign.status === 'running') {
+      throw new AppError('Campaign is currently in progress. Please wait for the current run to finish.', 409, 'ERR_VDAJ_CAMP_002');
+    }
     if (!campaign.meta_system_token) {
       throw new AppError('WhatsApp not configured. Connect your WABA credentials first.', 400, 'ERR_META_006');
     }
@@ -780,6 +797,19 @@ router.post('/:id/resend', uuidParamValidator('id'), validate, catchAsync(async 
   const isSuperAdmin = req.user.role === 'super_admin';
   const tenantId = req.user.tenantId || req.tenant?.id;
 
+  // Enterprise idempotency guard: prevent duplicate concurrent clicks via Redis lock
+  const lockKey = `vdaj:campaign:resend-lock:${req.params.id}`;
+  if (redisClient && typeof redisClient.set === 'function') {
+    try {
+      const acquired = await redisClient.set(lockKey, 'locked', 'EX', 15, 'NX');
+      if (!acquired) {
+        throw new AppError('A resend action is already being processed for this campaign. Please wait a moment.', 429, 'ERR_VDAJ_CAMP_003');
+      }
+    } catch (e) {
+      if (e instanceof AppError) throw e;
+    }
+  }
+
   const result = await withTransaction(async (client) => {
     // 1. Fetch and lock campaign + tenant credentials
     const { rows: [campaign] } = await client.query(
@@ -796,6 +826,9 @@ router.post('/:id/resend', uuidParamValidator('id'), validate, catchAsync(async 
     );
 
     if (!campaign) throw new AppError('Campaign not found.', 404, 'ERR_VDAJ_CAMP_001');
+    if (campaign.status === 'running') {
+      throw new AppError('Campaign is currently in progress. Please wait for the current run to finish.', 409, 'ERR_VDAJ_CAMP_002');
+    }
     if (!campaign.meta_system_token) {
       throw new AppError('WhatsApp not configured. Connect your WABA credentials first.', 400, 'ERR_META_006');
     }

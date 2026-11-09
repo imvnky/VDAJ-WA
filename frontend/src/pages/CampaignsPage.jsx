@@ -1470,13 +1470,31 @@ export default function CampaignsPage() {
     load();
   }, [load]);
 
+  // Active campaign auto-poller: if any campaign is 'running', poll silently every 4 seconds
+  useEffect(() => {
+    const hasRunning = campaigns.some((c) => c.status === 'running');
+    if (!hasRunning) return;
+
+    const interval = setInterval(() => {
+      campaignApi.list({ limit: 50 }, { silent: true })
+        .then((res) => {
+          if (res?.data) {
+            setCampaigns(res.data);
+          }
+        })
+        .catch(() => {});
+    }, 4000);
+
+    return () => clearInterval(interval);
+  }, [campaigns]);
+
   const setAction = (id, val) => setActionLoading((p) => ({ ...p, [id]: val }));
 
   const handleLaunch = async (id) => {
     setAction(id, 'launch');
     try {
       await campaignApi.launch(id);
-      showSuccess('Campaign launched! Messages are queued.');
+      showSuccess('Campaign launched! Messages are queued with safe rate pacing.');
       setCampaigns((cs) => cs.map((c) => c.id === id ? { ...c, status: 'running' } : c));
     } catch { } finally {
       setAction(id, null);
@@ -1508,12 +1526,16 @@ export default function CampaignsPage() {
 
   const handleRetryFailed = async (id) => {
     setAction(id, 'retry');
+    // Optimistically update status to 'running' so buttons lock immediately
+    setCampaigns((cs) => cs.map((c) => c.id === id ? { ...c, status: 'running' } : c));
     try {
       const res = await campaignApi.retryFailed(id);
-      showSuccess(res?.message || 'Retrying failed messages.');
-      loadData(true);
+      showSuccess(res?.message || 'Retrying failed messages with safe rate pacing. Live status will update automatically.');
+      const updated = await campaignApi.list({ limit: 50 }, { silent: true });
+      if (updated?.data) setCampaigns(updated.data);
     } catch (err) {
       showError(err?.message || 'Failed to retry campaign.');
+      load();
     } finally {
       setAction(id, null);
     }
@@ -1522,12 +1544,16 @@ export default function CampaignsPage() {
   const handleResend = async (id) => {
     if (!confirm('Are you sure you want to resend this campaign to all audience contacts?')) return;
     setAction(id, 'resend');
+    // Optimistically update status to 'running' so buttons lock immediately
+    setCampaigns((cs) => cs.map((c) => c.id === id ? { ...c, status: 'running' } : c));
     try {
       const res = await campaignApi.resend(id);
-      showSuccess(res?.message || 'Campaign queued for resend.');
-      loadData(true);
+      showSuccess(res?.message || 'Campaign queued for resend with safe rate pacing.');
+      const updated = await campaignApi.list({ limit: 50 }, { silent: true });
+      if (updated?.data) setCampaigns(updated.data);
     } catch (err) {
       showError(err?.message || 'Failed to resend campaign.');
+      load();
     } finally {
       setAction(id, null);
     }
@@ -1679,24 +1705,32 @@ export default function CampaignsPage() {
                     {(c.failed_count || 0) > 0 && (
                       <button
                         type="button"
-                        disabled={al === 'retry'}
+                        disabled={isRunning || al === 'retry'}
                         onClick={() => handleRetryFailed(c.id)}
-                        className="h-8 px-3 rounded-lg text-xs font-semibold bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition-all inline-flex items-center gap-1.5 cursor-pointer shadow-2xs"
-                        title="Retry only failed recipients"
+                        className={`h-8 px-3 rounded-lg text-xs font-semibold border transition-all inline-flex items-center gap-1.5 shadow-2xs ${
+                          isRunning
+                            ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-60'
+                            : 'bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-200 cursor-pointer'
+                        }`}
+                        title={isRunning ? 'Campaign is currently in progress. Please wait for completion.' : 'Retry only failed recipients with safe rate pacing'}
                       >
-                        <svg className="w-3.5 h-3.5 text-rose-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <svg className={`w-3.5 h-3.5 ${isRunning ? 'text-slate-400 animate-spin' : 'text-rose-600'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                         </svg>
-                        {al === 'retry' ? 'Retrying…' : `Retry Failed (${c.failed_count})`}
+                        {al === 'retry' ? 'Enqueuing…' : isRunning ? 'In Progress…' : `Retry Failed (${c.failed_count})`}
                       </button>
                     )}
                     {(c.status === 'completed' || c.status === 'failed' || c.status === 'paused') && (
                       <button
                         type="button"
-                        disabled={al === 'resend'}
+                        disabled={isRunning || al === 'resend'}
                         onClick={() => handleResend(c.id)}
-                        className="h-8 px-3 rounded-lg text-xs font-semibold bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 transition-all inline-flex items-center gap-1.5 cursor-pointer shadow-2xs"
-                        title="Resend to all audience contacts"
+                        className={`h-8 px-3 rounded-lg text-xs font-semibold border transition-all inline-flex items-center gap-1.5 shadow-2xs ${
+                          isRunning
+                            ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-60'
+                            : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200 cursor-pointer'
+                        }`}
+                        title={isRunning ? 'Campaign is currently in progress.' : 'Resend to all audience contacts'}
                       >
                         <svg className="w-3.5 h-3.5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -1717,6 +1751,25 @@ export default function CampaignsPage() {
                     </button>
                   </div>
                 </div>
+
+                {/* Active Dispatches Banner: informs user of safe rate pacing in real time */}
+                {isRunning && (
+                  <div className="flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl bg-indigo-50/80 border border-indigo-200 text-xs text-[#534AB7]">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <span className="relative flex h-2.5 w-2.5 shrink-0">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#534AB7] opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#534AB7]"></span>
+                      </span>
+                      <span className="font-semibold shrink-0">Campaign In Progress:</span>
+                      <span className="text-slate-600 truncate">
+                        Sending with safe enterprise rate pacing ({(c.sent_count || 0).toLocaleString()} sent of {(c.total_count || 0).toLocaleString()}). Status auto-refreshes.
+                      </span>
+                    </div>
+                    <span className="text-2xs font-semibold px-2 py-0.5 rounded-md bg-white text-[#534AB7] border border-indigo-200 shrink-0 shadow-2xs">
+                      Rate Guard Active
+                    </span>
+                  </div>
+                )}
 
                 {/* Unified Cohesive 5-Metric Enterprise Strip */}
                 <div className="bg-[#F8FAFC] border border-slate-200/70 rounded-xl p-3 sm:p-3.5 grid grid-cols-2 sm:grid-cols-5 gap-3 sm:gap-0 sm:divide-x sm:divide-slate-200/70">
