@@ -23,6 +23,7 @@ router.use(authenticate);
 
 // ── GET /campaigns ─────────────────────────────────────────────
 router.get('/', catchAsync(async (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
   const tenantId = req.user.tenantId;
   const isSuperAdmin = req.user.role === 'super_admin';
 
@@ -250,6 +251,7 @@ router.post('/', campaignValidators, validate, catchAsync(async (req, res) => {
 // Returns paginated campaign_messages with campaign + template metadata.
 // Query params: status, campaign_id, date_from, date_to, limit, offset
 router.get('/messages', catchAsync(async (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
   const isSuperAdmin = req.user.role === 'super_admin';
   const tenantId = req.user.tenantId || req.tenant?.id || null;
   const {
@@ -364,6 +366,7 @@ router.get('/messages', catchAsync(async (req, res) => {
 
 // ── GET /campaigns/:id ─────────────────────────────────────────
 router.get('/:id', uuidParamValidator('id'), validate, catchAsync(async (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
   const isSuperAdmin = req.user.role === 'super_admin';
   const tenantId = req.user.tenantId || req.tenant?.id;
   const { rows: [campaign] } = await query(

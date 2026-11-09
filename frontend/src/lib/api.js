@@ -139,8 +139,8 @@ export const authApi = {
 
 // ---- CAMPAIGNS ----
 export const campaignApi = {
-  list: (params, config = {}) => client.get('/campaigns', { params, ...config }),
-  get: (id) => client.get(`/campaigns/${id}`),
+  list: (params, config = {}) => client.get('/campaigns', { params: { ...params, _t: Date.now() }, ...config }),
+  get: (id) => client.get(`/campaigns/${id}`, { params: { _t: Date.now() } }),
   create: (data) => client.post('/campaigns', data),
   getAudienceCount: (data) => client.post('/campaigns/audience-count', data),
   launch: (id) => client.post(`/campaigns/${id}/launch`),
