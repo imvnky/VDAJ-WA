@@ -305,10 +305,11 @@ export default function MetaOnboardingPage() {
     sessionInfoRef.current = { wabaId: null, phoneNumberId: null };
     setConnecting(true);
 
-    // 45-second fallback timeout so button never spins infinitely
+    // 10-second safety timeout so button never hangs or spins indefinitely if popup is closed or blocked
     const safetyTimer = setTimeout(() => {
       setConnecting(false);
-    }, 45000);
+      showError('Meta popup did not respond or was closed. Please enable popups, or use "Enter Credentials Manually" below.', 'ERR_META_TIMEOUT');
+    }, 10000);
 
     window.FB.login(
       async (response) => {
@@ -320,7 +321,7 @@ export default function MetaOnboardingPage() {
           if (!wabaId || !phoneNumberId) {
             showError(
               'Could not retrieve WABA ID or Phone Number ID from Meta. ' +
-              'Please complete the full Embedded Signup flow — do not close the popup early.',
+              'Please complete the full Embedded Signup flow or enter credentials manually.',
               'ERR_META_SIGNUP'
             );
             setConnecting(false);
@@ -338,7 +339,7 @@ export default function MetaOnboardingPage() {
             // Toast shown by interceptor
           }
         } else {
-          showError('Meta login was cancelled or failed. Please try again.', 'ERR_META_AUTH');
+          showError('Meta login popup was closed, cancelled, or blocked. Please use "Enter Credentials Manually" below.', 'ERR_META_AUTH');
         }
         setConnecting(false);
       },
@@ -465,6 +466,16 @@ export default function MetaOnboardingPage() {
             leftIcon={<svg style={{ width: 18, height: 18 }} fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347zM12.05 2.049C6.495 2.049 2 6.545 2 12.1c0 1.784.47 3.458 1.292 4.913L2 22l5.237-1.373A9.99 9.99 0 0012.05 22c5.554 0 10.05-4.495 10.05-10.05S17.604 2.049 12.05 2.049z" /></svg>}>
             {!sdkReady ? (sdkTimedOut ? 'SDK Blocked' : 'Loading SDK…') : isConnected ? 'Reconnect with Facebook' : 'Connect with Facebook'}
           </PrimaryButton>
+
+          {connecting && (
+            <button
+              type="button"
+              onClick={() => setConnecting(false)}
+              className="h-11 px-4 rounded-xl text-xs font-semibold text-rose-600 bg-rose-50 border border-rose-200 hover:bg-rose-100 transition-colors cursor-pointer"
+            >
+              ✕ Cancel
+            </button>
+          )}
 
           <button
             type="button"

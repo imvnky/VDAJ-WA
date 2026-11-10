@@ -196,9 +196,9 @@ export default function DashboardLayout() {
                             <span className={clsx(
                               'text-[10px] px-1.5 py-0.5 rounded-full font-bold border',
                               item.badge === 'Live' ? 'bg-emerald-50 text-emerald-700 border-emerald-200/80' :
-                              item.badge === 'New' ? 'bg-indigo-50 text-indigo-700 border-indigo-200/80' :
-                              item.badge === 'Beta' ? 'bg-amber-50 text-amber-700 border-amber-200/80' :
-                              'bg-slate-100 text-slate-700 border-slate-200'
+                                item.badge === 'New' ? 'bg-indigo-50 text-indigo-700 border-indigo-200/80' :
+                                  item.badge === 'Beta' ? 'bg-amber-50 text-amber-700 border-amber-200/80' :
+                                    'bg-slate-100 text-slate-700 border-slate-200'
                             )}>
                               {item.badge}
                             </span>
@@ -272,7 +272,7 @@ export default function DashboardLayout() {
 
             {/* Quick Search shortcut box */}
             <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-100/70 border border-slate-200/70 text-xs text-slate-400 w-52 hover:border-slate-300 transition-colors cursor-pointer"
-                 onClick={() => navigate('/campaigns')} title="Quick search">
+              onClick={() => navigate('/campaigns')} title="Quick search">
               <span className="text-slate-400">🔍</span>
               <span className="flex-1 text-left text-slate-500 text-xs">Search...</span>
               <kbd className="px-1.5 py-0.5 rounded bg-white text-[10px] font-bold text-slate-400 border border-slate-200 shadow-2xs">⌘K</kbd>
