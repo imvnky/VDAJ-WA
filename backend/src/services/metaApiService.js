@@ -76,11 +76,15 @@ const callMetaApi = async ({ method = 'POST', path, accessToken, body }) => {
       throw err;
     }
 
-    const detailedMessage =
+    let detailedMessage =
       metaErr?.error_user_msg ||
       metaErr?.error_data?.details ||
       metaErr?.message ||
       'Meta API error';
+
+    if (detailedMessage.includes('nonexisting field (message_templates)')) {
+      detailedMessage = 'Invalid WABA ID: The ID provided appears to be a Phone Number ID or Business Portfolio ID rather than a WhatsApp Business Account ID. Please copy the WABA ID from Meta Business Suite → Settings → Accounts → WhatsApp accounts.';
+    }
 
     throw new AppError(detailedMessage, response.status, errorCode);
   }
