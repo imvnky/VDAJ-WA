@@ -1,0 +1,1949 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VDAJ Services LLP — Enterprise WhatsApp Platform & Critical IT Solutions</title>
+  <meta name="description" content="VDAJ Services LLP is an enterprise technology provider delivering official Meta WhatsApp Business Cloud API automation, distributed cloud architecture, multi-agent workspaces, and bespoke software engineering.">
+  <meta name="keywords" content="VDAJ Services LLP, WhatsApp Business API, Meta Cloud API, Enterprise IT Solutions, Team Inbox, WhatsApp Broadcasts, Cloud Architecture, Software Engineering, DPDP Act 2023">
+  <meta name="theme-color" content="#534AB7">
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="VDAJ Services LLP — Enterprise WhatsApp Platform & IT Solutions">
+  <meta property="og:description" content="Official WhatsApp Business Platform and high-performance enterprise IT solutions by VDAJ Services LLP.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://www.vdajservices.com">
+  <meta property="og:image" content="/vdaj_logo.jpg">
+
+  <!-- Favicons -->
+  <link rel="icon" type="image/jpeg" href="/vdaj_logo.jpg">
+  <link rel="icon" type="image/png" href="/vdaj_logo.png">
+  <link rel="apple-touch-icon" href="/vdaj_logo.jpg">
+
+  <!-- Google Fonts: Rajdhani for bold headings, Plus Jakarta Sans & Inter for body, JetBrains Mono for code -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --brand: #534AB7;
+      --brand-dark: #3B3499;
+      --brand-hover: #4338CA;
+      --brand-light: #AFA9EC;
+      --brand-subtle: #F4F3FF;
+      --teal: #1D9E75;
+      --teal-dark: #15805D;
+      --teal-light: #26C18E;
+      --teal-subtle: #ECFDF5;
+      
+      --bg-white: #FFFFFF;
+      --bg-light: #F8FAFC;
+      --bg-alt: #F1F5F9;
+      --bg-navy: #0F172A;
+      --bg-navy-dark: #080D1A;
+      
+      --text-dark: #0F172A;
+      --text-main: #334155;
+      --text-muted: #64748B;
+      --text-light: #94A3B8;
+      
+      --border-color: #E2E8F0;
+      --border-light: #F1F5F9;
+      
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+      --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.07), 0 2px 4px -2px rgba(0,0,0,0.05);
+      --shadow-lg: 0 10px 25px -3px rgba(15,23,42,0.08), 0 4px 6px -4px rgba(15,23,42,0.04);
+      --shadow-xl: 0 20px 35px -5px rgba(83,74,183,0.12), 0 8px 10px -6px rgba(83,74,183,0.04);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: var(--bg-white);
+      color: var(--text-main);
+      line-height: 1.65;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    h1, h2, h3, h4, .brand-heading {
+      font-family: 'Rajdhani', 'Plus Jakarta Sans', sans-serif;
+      color: var(--text-dark);
+      letter-spacing: 0.5px;
+      line-height: 1.2;
+    }
+
+    /* Top Utility Bar */
+    .topbar {
+      background: var(--bg-navy);
+      color: #94A3B8;
+      font-size: 13px;
+      padding: 0.55rem 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .topbar-container {
+      max-width: 1240px;
+      margin: 0 auto;
+      padding: 0 1.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+
+    .topbar-left, .topbar-right {
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+    }
+
+    .topbar-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      color: #CBD5E1;
+      text-decoration: none;
+      transition: color 0.2s ease;
+    }
+
+    .topbar-item:hover {
+      color: #FFFFFF;
+    }
+
+    .topbar-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      background: rgba(29, 158, 117, 0.18);
+      color: #26C18E;
+      border: 1px solid rgba(29, 158, 117, 0.35);
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+    }
+
+    /* Main Navigation Bar */
+    header.main-header {
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      background: #FFFFFF;
+      box-shadow: 0 2px 10px rgba(15, 23, 42, 0.05);
+      border-bottom: 1px solid var(--border-color);
+      transition: all 0.3s ease;
+    }
+
+    .nav-container {
+      max-width: 1240px;
+      margin: 0 auto;
+      padding: 0.85rem 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1.5rem;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+    }
+
+    .logo-text {
+      display: flex;
+      flex-direction: column;
+      line-height: 1.1;
+    }
+
+    .logo-title {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      color: var(--text-dark);
+    }
+
+    .logo-sub {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      color: var(--brand);
+    }
+
+    .nav-menu {
+      display: flex;
+      gap: 2rem;
+      align-items: center;
+      list-style: none;
+    }
+
+    .nav-menu a {
+      font-family: 'Rajdhani', sans-serif;
+      color: var(--text-dark);
+      text-decoration: none;
+      font-size: 15px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      padding: 6px 0;
+      position: relative;
+      transition: color 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .nav-menu a:hover, .nav-menu a.active {
+      color: var(--brand);
+    }
+
+    .nav-menu a::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      bottom: 0;
+      width: 0;
+      height: 2px;
+      background: var(--brand);
+      transition: width 0.25s ease;
+    }
+
+    .nav-menu a:hover::after, .nav-menu a.active::after {
+      width: 100%;
+    }
+
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 15px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      padding: 10px 22px;
+      border-radius: 4px;
+      text-decoration: none;
+      transition: all 0.25s ease;
+      cursor: pointer;
+      border: none;
+      white-space: nowrap;
+    }
+
+    .btn-primary {
+      background: var(--brand);
+      color: #FFFFFF;
+      box-shadow: 0 4px 12px rgba(83, 74, 183, 0.25);
+    }
+
+    .btn-primary:hover {
+      background: var(--brand-hover);
+      box-shadow: 0 6px 18px rgba(83, 74, 183, 0.38);
+      transform: translateY(-1px);
+      color: #FFFFFF;
+    }
+
+    .btn-secondary {
+      background: #FFFFFF;
+      color: var(--text-dark);
+      border: 1.5px solid var(--border-color);
+    }
+
+    .btn-secondary:hover {
+      border-color: var(--brand);
+      color: var(--brand);
+      background: var(--brand-subtle);
+    }
+
+    .btn-teal {
+      background: var(--teal);
+      color: #FFFFFF;
+      box-shadow: 0 4px 12px rgba(29, 158, 117, 0.25);
+    }
+
+    .btn-teal:hover {
+      background: var(--teal-dark);
+      transform: translateY(-1px);
+      color: #FFFFFF;
+    }
+
+    .btn-dark {
+      background: var(--bg-navy);
+      color: #FFFFFF;
+    }
+
+    .btn-dark:hover {
+      background: #1E293B;
+      color: #FFFFFF;
+    }
+
+    .mobile-menu-btn {
+      display: none;
+      background: transparent;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      padding: 7px 10px;
+      cursor: pointer;
+      color: var(--text-dark);
+    }
+
+    /* Container Utility */
+    .container {
+      max-width: 1240px;
+      margin: 0 auto;
+      padding: 0 1.5rem;
+    }
+
+    /* Section Headers */
+    .section-title-wrap {
+      text-align: center;
+      margin-bottom: 3.5rem;
+    }
+
+    .section-title-wrap.text-left {
+      text-align: left;
+    }
+
+    .section-eyebrow {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 3px;
+      color: var(--brand);
+      margin-bottom: 0.5rem;
+      display: block;
+    }
+
+    .section-title {
+      font-size: clamp(2rem, 3.2vw, 2.6rem);
+      font-weight: 700;
+      color: var(--text-dark);
+      text-transform: uppercase;
+      position: relative;
+      margin-bottom: 1rem;
+      line-height: 1.2;
+    }
+
+    .section-title-wrap.center-title .section-title::after {
+      content: '';
+      display: block;
+      width: 60px;
+      height: 3px;
+      background: var(--brand);
+      margin: 14px auto 0;
+      border-radius: 2px;
+    }
+
+    .section-title-wrap.text-left .section-title::after {
+      content: '';
+      display: block;
+      width: 60px;
+      height: 3px;
+      background: var(--brand);
+      margin-top: 14px;
+      border-radius: 2px;
+    }
+
+    .section-sub {
+      font-size: 16px;
+      color: var(--text-muted);
+      max-width: 720px;
+      margin: 0 auto;
+      line-height: 1.6;
+    }
+
+    .section-title-wrap.text-left .section-sub {
+      margin: 0;
+    }
+
+    /* Hero Section */
+    .hero {
+      position: relative;
+      background: linear-gradient(180deg, #F8FAFC 0%, #FFFFFF 100%);
+      padding: 4.5rem 0 5.5rem;
+      border-bottom: 1px solid var(--border-color);
+      overflow: hidden;
+    }
+
+    .hero-content {
+      max-width: 900px;
+      margin: 0 auto;
+      text-align: center;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: #FFFFFF;
+      border: 1px solid var(--border-color);
+      padding: 6px 16px;
+      border-radius: 50px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-dark);
+      margin-bottom: 1.75rem;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .dot-live {
+      width: 8px;
+      height: 8px;
+      background: var(--teal);
+      border-radius: 50%;
+      box-shadow: 0 0 0 3px rgba(29, 158, 117, 0.25);
+    }
+
+    .hero h1 {
+      font-size: clamp(2.3rem, 4.5vw, 3.6rem);
+      font-weight: 700;
+      color: var(--text-dark);
+      text-transform: uppercase;
+      line-height: 1.15;
+      margin-bottom: 1.25rem;
+      letter-spacing: 0.5px;
+    }
+
+    .hero h1 span.brand-accent {
+      color: var(--brand);
+    }
+
+    .hero-desc {
+      font-size: 17px;
+      color: var(--text-muted);
+      line-height: 1.75;
+      margin-bottom: 2.25rem;
+      max-width: 780px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .hero-ctas {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin-bottom: 2.5rem;
+    }
+
+    /* Floating Metric Bar (Colorlib Filter-Search Style) */
+    .metric-strip-wrapper {
+      margin-top: -3.5rem;
+      position: relative;
+      z-index: 20;
+      margin-bottom: 4.5rem;
+    }
+
+    .metric-strip-card {
+      background: #FFFFFF;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      box-shadow: 0 15px 35px -5px rgba(15, 23, 42, 0.08);
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      overflow: hidden;
+    }
+
+    .metric-item {
+      padding: 1.75rem 1.5rem;
+      border-right: 1px solid var(--border-color);
+      text-align: center;
+      transition: background 0.2s ease;
+    }
+
+    .metric-item:last-child {
+      border-right: none;
+    }
+
+    .metric-item:hover {
+      background: var(--brand-subtle);
+    }
+
+    .metric-val {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 2.4rem;
+      font-weight: 700;
+      color: var(--brand);
+      line-height: 1.1;
+      margin-bottom: 4px;
+      display: block;
+    }
+
+    .metric-label {
+      font-size: 13.5px;
+      font-weight: 600;
+      color: var(--text-dark);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      display: block;
+    }
+
+    .metric-sub {
+      font-size: 12px;
+      color: var(--text-muted);
+      display: block;
+      margin-top: 2px;
+    }
+
+    /* Services Section */
+    .services-section {
+      padding: 3rem 0 5.5rem;
+      background: #FFFFFF;
+    }
+
+    .services-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 2.5rem 2rem;
+    }
+
+    .service-card {
+      display: flex;
+      align-items: flex-start;
+      gap: 1.5rem;
+      padding: 1.75rem;
+      background: #FFFFFF;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      transition: all 0.3s ease;
+    }
+
+    .service-card:hover {
+      border-color: var(--brand);
+      transform: translateY(-4px);
+      box-shadow: var(--shadow-lg);
+    }
+
+    /* Colorlib signature rotated diamond icon */
+    .service-icon-box {
+      width: 58px;
+      height: 58px;
+      border: 2px solid var(--brand);
+      border-radius: 8px;
+      transform: rotate(45deg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin-top: 10px;
+      margin-left: 10px;
+      margin-right: 8px;
+      background: #FFFFFF;
+      transition: all 0.3s ease;
+    }
+
+    .service-card:hover .service-icon-box {
+      background: var(--brand);
+      box-shadow: 0 4px 14px rgba(83, 74, 183, 0.35);
+    }
+
+    .service-icon-svg {
+      transform: rotate(-45deg);
+      color: var(--brand);
+      transition: color 0.3s ease;
+    }
+
+    .service-card:hover .service-icon-svg {
+      color: #FFFFFF;
+    }
+
+    .service-info {
+      flex: 1;
+    }
+
+    .service-title {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 20px;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: var(--text-dark);
+      margin-bottom: 0.5rem;
+      line-height: 1.25;
+    }
+
+    .service-desc {
+      font-size: 14.5px;
+      color: var(--text-muted);
+      line-height: 1.6;
+      margin-bottom: 0.75rem;
+    }
+
+    .service-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .service-tag {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: var(--bg-alt);
+      color: var(--text-main);
+      border: 1px solid var(--border-color);
+    }
+
+    /* Why Choose Us & Architecture Split Section */
+    .chooseus-section {
+      background: var(--bg-light);
+      padding: 5.5rem 0;
+      border-top: 1px solid var(--border-color);
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .chooseus-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 3.5rem;
+      align-items: center;
+    }
+
+    .pipeline-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    .pipeline-card {
+      background: #FFFFFF;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 1.25rem 1.5rem;
+      display: flex;
+      align-items: flex-start;
+      gap: 1.25rem;
+      transition: all 0.25s ease;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .pipeline-card:hover {
+      border-color: var(--brand);
+      transform: translateX(4px);
+      box-shadow: var(--shadow-md);
+    }
+
+    .pipeline-step-badge {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      font-weight: 700;
+      background: var(--brand-subtle);
+      color: var(--brand);
+      border: 1px solid rgba(83, 74, 183, 0.2);
+      padding: 4px 8px;
+      border-radius: 4px;
+      white-space: nowrap;
+    }
+
+    .pipeline-card-title {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 17px;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: var(--text-dark);
+      margin-bottom: 0.25rem;
+    }
+
+    .pipeline-card-desc {
+      font-size: 13.5px;
+      color: var(--text-muted);
+      line-height: 1.55;
+    }
+
+    .checklist {
+      list-style: none;
+      margin: 1.75rem 0 2.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.85rem;
+    }
+
+    .checklist-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      font-size: 15px;
+      color: var(--text-main);
+    }
+
+    .checklist-icon {
+      color: var(--teal);
+      margin-top: 3px;
+      flex-shrink: 0;
+    }
+
+    /* Counter / Stats Section (Colorlib Dark Navy Style) */
+    .counter-section {
+      background: var(--bg-navy);
+      color: #FFFFFF;
+      padding: 4.5rem 0;
+      position: relative;
+    }
+
+    .counter-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 1.5rem;
+      text-align: center;
+    }
+
+    .counter-item {
+      padding: 0 1rem;
+      border-right: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .counter-item:last-child {
+      border-right: none;
+    }
+
+    .counter-item-num {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 2.8rem;
+      font-weight: 700;
+      color: #FFFFFF;
+      line-height: 1;
+      margin-bottom: 0.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+    }
+
+    .counter-item-num span.accent {
+      color: var(--brand-light);
+    }
+
+    .counter-item p {
+      font-size: 14px;
+      color: #94A3B8;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-weight: 600;
+      margin: 0;
+    }
+
+    /* Live Interactive Telemetry Showcase (Clean Enterprise Console) */
+    .telemetry-section {
+      padding: 5.5rem 0;
+      background: #FFFFFF;
+    }
+
+    .console-box {
+      background: #FFFFFF;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      box-shadow: var(--shadow-lg);
+      overflow: hidden;
+    }
+
+    .console-topbar {
+      background: var(--bg-navy);
+      color: #CBD5E1;
+      padding: 0.85rem 1.25rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .console-dots {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .dot {
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+    }
+    .dot-red { background: #EF4444; }
+    .dot-yellow { background: #F59E0B; }
+    .dot-green { background: #10B981; }
+
+    .console-tabs {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .console-tab-btn {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 13.5px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      padding: 6px 14px;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.08);
+      color: #94A3B8;
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .console-tab-btn.active, .console-tab-btn:hover {
+      background: var(--brand);
+      color: #FFFFFF;
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .console-body {
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      min-height: 380px;
+    }
+
+    .console-code-pane {
+      background: #0B0F19;
+      color: #E2E8F0;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      line-height: 1.7;
+      padding: 1.75rem;
+      overflow-x: auto;
+      border-right: 1px solid var(--border-color);
+    }
+
+    .token-kw { color: #AFA9EC; font-weight: 600; }
+    .token-str { color: #34D399; }
+    .token-val { color: #60A5FA; }
+    .token-num { color: #FBBF24; }
+    .token-comment { color: #64748B; font-style: italic; }
+
+    .console-telemetry-pane {
+      background: var(--bg-light);
+      padding: 1.75rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    .telemetry-card {
+      background: #FFFFFF;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 1.25rem;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .telemetry-card-title {
+      font-size: 11.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--text-muted);
+      margin-bottom: 0.4rem;
+    }
+
+    .telemetry-metric-large {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 2.2rem;
+      font-weight: 700;
+      color: var(--text-dark);
+      line-height: 1;
+    }
+
+    /* Corporate Profile Box */
+    .corporate-section {
+      padding: 5.5rem 0;
+      background: var(--bg-light);
+      border-top: 1px solid var(--border-color);
+    }
+
+    .corporate-box {
+      background: #FFFFFF;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 3rem;
+      box-shadow: var(--shadow-md);
+      display: grid;
+      grid-template-columns: 1.3fr 0.9fr;
+      gap: 3.5rem;
+      align-items: center;
+    }
+
+    .credentials-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      margin-top: 1.5rem;
+    }
+
+    .credentials-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      font-size: 14.5px;
+      color: var(--text-main);
+    }
+
+    .credentials-icon {
+      color: var(--brand);
+      margin-top: 2px;
+      flex-shrink: 0;
+    }
+
+    .cta-card-inner {
+      background: var(--bg-navy);
+      color: #FFFFFF;
+      padding: 2.25rem;
+      border-radius: 8px;
+      text-align: center;
+    }
+
+    .cta-card-inner h4 {
+      font-size: 24px;
+      color: #FFFFFF;
+      margin-bottom: 0.75rem;
+      text-transform: uppercase;
+    }
+
+    .cta-card-inner p {
+      font-size: 14px;
+      color: #94A3B8;
+      line-height: 1.6;
+      margin-bottom: 1.5rem;
+    }
+
+    /* Call To Action Banner (Colorlib Callto Section) */
+    .callto-section {
+      background: linear-gradient(135deg, #1E1B4B 0%, #0F172A 100%);
+      color: #FFFFFF;
+      padding: 4.5rem 0;
+      position: relative;
+    }
+
+    .callto-content {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 2rem;
+    }
+
+    .callto-text h2 {
+      font-size: clamp(1.8rem, 3vw, 2.5rem);
+      color: #FFFFFF;
+      text-transform: uppercase;
+      line-height: 1.2;
+      margin-bottom: 0.5rem;
+    }
+
+    .callto-text p {
+      color: #94A3B8;
+      font-size: 16px;
+      margin: 0;
+    }
+
+    .callto-phone {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 2.2rem;
+      font-weight: 700;
+      color: #FFFFFF;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .callto-phone span.phone-icon {
+      width: 46px;
+      height: 46px;
+      border-radius: 50%;
+      background: var(--brand);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Footer Section (Colorlib Locksmith Style) */
+    footer.main-footer {
+      background: #090E1A;
+      color: #94A3B8;
+      padding-top: 4.5rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      font-size: 14px;
+    }
+
+    .footer-grid {
+      display: grid;
+      grid-template-columns: 1.5fr 1fr 1fr 1fr;
+      gap: 3rem;
+      padding-bottom: 3.5rem;
+    }
+
+    .footer-brand p {
+      margin-top: 1.25rem;
+      color: #94A3B8;
+      font-size: 13.5px;
+      line-height: 1.65;
+    }
+
+    .footer-contact-list {
+      list-style: none;
+      margin-top: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .footer-contact-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: #CBD5E1;
+      font-size: 13.5px;
+    }
+
+    .footer-contact-item svg {
+      color: var(--brand-light);
+      flex-shrink: 0;
+    }
+
+    .footer-col h5 {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 18px;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: #FFFFFF;
+      letter-spacing: 1px;
+      margin-bottom: 1.25rem;
+      position: relative;
+    }
+
+    .footer-col h5::after {
+      content: '';
+      display: block;
+      width: 32px;
+      height: 2px;
+      background: var(--brand);
+      margin-top: 6px;
+      border-radius: 2px;
+    }
+
+    .footer-col ul {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+    }
+
+    .footer-col ul li a {
+      color: #94A3B8;
+      text-decoration: none;
+      transition: color 0.2s ease;
+      font-size: 13.5px;
+    }
+
+    .footer-col ul li a:hover {
+      color: #FFFFFF;
+      padding-left: 4px;
+    }
+
+    .footer-copyright {
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 1.75rem 0;
+    }
+
+    .footer-copyright-inner {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+      font-size: 13px;
+      color: #64748B;
+    }
+
+    .footer-copyright-inner a {
+      color: var(--brand-light);
+      text-decoration: none;
+    }
+
+    .footer-copyright-inner a:hover {
+      text-decoration: underline;
+    }
+
+    /* Mobile Drawer */
+    #mobileDrawer {
+      display: none;
+      background: #FFFFFF;
+      border-bottom: 2px solid var(--border-color);
+      padding: 1.25rem;
+      box-shadow: var(--shadow-md);
+    }
+
+    #mobileDrawer a {
+      display: block;
+      padding: 10px 0;
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 16px;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: var(--text-dark);
+      text-decoration: none;
+      border-bottom: 1px solid var(--border-light);
+    }
+
+    #mobileDrawer a:hover {
+      color: var(--brand);
+    }
+
+    /* Responsive Queries */
+    @media (max-width: 1024px) {
+      .services-grid { grid-template-columns: repeat(2, 1fr); }
+      .metric-strip-card { grid-template-columns: repeat(2, 1fr); }
+      .metric-item:nth-child(2) { border-right: none; }
+      .metric-item:nth-child(1), .metric-item:nth-child(2) { border-bottom: 1px solid var(--border-color); }
+      .chooseus-grid { grid-template-columns: 1fr; }
+      .corporate-box { grid-template-columns: 1fr; }
+      .footer-grid { grid-template-columns: 1fr 1fr; }
+      .console-body { grid-template-columns: 1fr; }
+      .console-code-pane { border-right: none; border-bottom: 1px solid var(--border-color); }
+      .counter-grid { grid-template-columns: repeat(3, 1fr); }
+    }
+
+    @media (max-width: 768px) {
+      .nav-menu { display: none; }
+      .mobile-menu-btn { display: inline-flex; }
+      .topbar { display: none; }
+      .services-grid { grid-template-columns: 1fr; }
+      .metric-strip-card { grid-template-columns: 1fr; }
+      .metric-item { border-right: none !important; border-bottom: 1px solid var(--border-color); }
+      .metric-item:last-child { border-bottom: none; }
+      .counter-grid { grid-template-columns: 1fr 1fr; }
+      .footer-grid { grid-template-columns: 1fr; }
+      .callto-content { flex-direction: column; text-align: center; }
+      .callto-phone { justify-content: center; }
+      .footer-copyright-inner { flex-direction: column; text-align: center; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Utility Bar (Colorlib Locksmith Contact Header Style) -->
+  <div class="topbar">
+    <div class="topbar-container">
+      <div class="topbar-left">
+        <a href="tel:+918007773138" class="topbar-item">
+          <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M6.62 10.79a15.053 15.053 0 006.59 6.59l2.2-2.2a1 1 0 011.02-.24c1.12.37 2.33.57 3.57.57a1 1 0 011 1V20a1 1 0 01-1 1A17 17 0 013 4a1 1 0 011-1h3.5a1 1 0 011 1c0 1.24.2 2.45.57 3.57a1 1 0 01-.24 1.02l-2.21 2.2z"/></svg>
+          <span>Hotline: +91 80077 73138</span>
+        </a>
+        <a href="mailto:info@vdajservices.com" class="topbar-item">
+          <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>
+          <span>info@vdajservices.com</span>
+        </a>
+        <span class="topbar-item">
+          <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+          <span>Maharashtra, India</span>
+        </span>
+      </div>
+      <div class="topbar-right">
+        <span class="topbar-badge">
+          <span class="dot-live"></span>
+          <span>Official Meta Tech Provider</span>
+        </span>
+        <span style="color:#64748B;">|</span>
+        <span style="font-size:12px; color:#CBD5E1;">DPDP Act 2023 Compliant</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Executive Navigation Header -->
+  <header class="main-header">
+    <div class="nav-container">
+      <a href="/" class="logo">
+        <!-- VDAJ 4-Tile Corporate Brandmark -->
+        <svg width="36" height="36" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink: 0;">
+          <rect x="8" y="8" width="20" height="20" rx="4" fill="#534AB7"/>
+          <rect x="32" y="8" width="20" height="20" rx="4" fill="#AFA9EC"/>
+          <rect x="8" y="32" width="20" height="20" rx="4" fill="#AFA9EC"/>
+          <rect x="32" y="32" width="20" height="20" rx="4" fill="#1D9E75"/>
+        </svg>
+        <div class="logo-text">
+          <span class="logo-title">VDAJ</span>
+          <span class="logo-sub">SERVICES LLP</span>
+        </div>
+      </a>
+
+      <ul class="nav-menu">
+        <li><a href="#whatsapp" class="active">WhatsApp Platform</a></li>
+        <li><a href="#services">Services</a></li>
+        <li><a href="#architecture">Architecture</a></li>
+        <li><a href="#governance">About LLP</a></li>
+        <li><a href="https://wa.vdajservices.com/legal/privacy" target="_blank">Privacy</a></li>
+        <li><a href="https://wa.vdajservices.com/legal/terms" target="_blank">Terms</a></li>
+      </ul>
+
+      <div class="nav-actions">
+        <a href="mailto:info@vdajservices.com" class="btn btn-secondary">Contact Sales</a>
+        <a href="https://wa.vdajservices.com/login" class="btn btn-primary">Client Portal →</a>
+        <button class="mobile-menu-btn" onclick="toggleMobileNav()" aria-label="Toggle Navigation">
+          <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Mobile Drawer -->
+  <div id="mobileDrawer">
+    <a href="#whatsapp" onclick="toggleMobileNav()">WhatsApp Platform</a>
+    <a href="#services" onclick="toggleMobileNav()">Services</a>
+    <a href="#architecture" onclick="toggleMobileNav()">Architecture</a>
+    <a href="#governance" onclick="toggleMobileNav()">About LLP</a>
+    <a href="https://wa.vdajservices.com/legal/privacy" target="_blank">Privacy Policy</a>
+    <a href="https://wa.vdajservices.com/legal/terms" target="_blank">Terms of Service</a>
+    <a href="https://wa.vdajservices.com/legal/data-deletion" target="_blank">Data Deletion</a>
+    <a href="https://wa.vdajservices.com/login" class="btn btn-primary" style="margin-top: 1rem; width: 100%; text-align: center;">Enter Client Portal →</a>
+  </div>
+
+  <!-- Hero Section -->
+  <section class="hero" id="whatsapp">
+    <div class="container">
+      <div class="hero-content">
+        <div class="hero-badge">
+          <span class="dot-live"></span>
+          <span>Official Meta Tech Provider · India DPDP Act 2023 · ISO/IEC 27001 Aligned</span>
+        </div>
+
+        <h1>
+          Enterprise WhatsApp Cloud API & <br>
+          <span class="brand-accent">Mission-Critical IT Infrastructure</span>
+        </h1>
+
+        <p class="hero-desc">
+          <strong>VDAJ Services LLP</strong> engineers carrier-grade Meta WhatsApp Business Cloud API gateways, distributed event pipelines, multi-agent unified workspaces, and bespoke enterprise software systems for high-reliability customer communications.
+        </p>
+
+        <div class="hero-ctas">
+          <a href="https://wa.vdajservices.com/login" class="btn btn-primary" style="padding: 12px 28px; font-size: 16px;">
+            Access WhatsApp Portal →
+          </a>
+          <a href="#architecture" class="btn btn-secondary" style="padding: 12px 24px; font-size: 16px;">
+            Inspect Technical Architecture ↓
+          </a>
+          <a href="mailto:info@vdajservices.com?subject=Enterprise%20Technical%20Briefing" class="btn btn-teal" style="padding: 12px 24px; font-size: 16px;">
+            Schedule Enterprise Briefing
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Metric Strip (Colorlib Filter-Search Style Overlapping Card) -->
+  <div class="container metric-strip-wrapper">
+    <div class="metric-strip-card">
+      <div class="metric-item">
+        <span class="metric-val">99.99%</span>
+        <span class="metric-label">Cloud Uptime SLA</span>
+        <span class="metric-sub">Enterprise Service Tier</span>
+      </div>
+      <div class="metric-item">
+        <span class="metric-val">&lt; 150ms</span>
+        <span class="metric-label">P99 Dispatch Latency</span>
+        <span class="metric-sub">High-Speed Redis Sharding</span>
+      </div>
+      <div class="metric-item">
+        <span class="metric-val">100%</span>
+        <span class="metric-label">Meta Cloud Graph API</span>
+        <span class="metric-sub">Official Graph API v20.0</span>
+      </div>
+      <div class="metric-item">
+        <span class="metric-val">AES-256</span>
+        <span class="metric-label">Cryptographic Vault</span>
+        <span class="metric-sub">TLS 1.3 In-Flight Encryption</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Services Section ("Services We Offer") -->
+  <section class="services-section" id="services">
+    <div class="container">
+      <div class="section-title-wrap center-title">
+        <span class="section-eyebrow">Our Capabilities</span>
+        <h2 class="section-title">Enterprise Services We Offer</h2>
+        <p class="section-sub">
+          Carrier-grade customer communication architectures and bespoke IT infrastructure designed for fault-tolerant execution at scale.
+        </p>
+      </div>
+
+      <div class="services-grid">
+        <!-- Service 1: WhatsApp Cloud API Gateway -->
+        <div class="service-card">
+          <div class="service-icon-box">
+            <svg class="service-icon-svg" width="26" height="26" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+            </svg>
+          </div>
+          <div class="service-info">
+            <h3 class="service-title">Official WhatsApp Cloud API</h3>
+            <p class="service-desc">
+              Direct connection to Meta Graph API v20.0 endpoints with persistent system token rotation, high-throughput delivery, and zero intermediary markups.
+            </p>
+            <div class="service-tags">
+              <span class="service-tag">Meta Verified</span>
+              <span class="service-tag">Graph API v20.0</span>
+              <span class="service-tag">Automated Token Rotation</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Service 2: Unified Multi-Agent Inbox -->
+        <div class="service-card">
+          <div class="service-icon-box">
+            <svg class="service-icon-svg" width="26" height="26" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+            </svg>
+          </div>
+          <div class="service-info">
+            <h3 class="service-title">Unified Multi-Agent Inbox</h3>
+            <p class="service-desc">
+              Collaborative workspace with atomic agent collision locks, live routing, canned snippets, 24-hour service window tracking, and real-time WebSockets.
+            </p>
+            <div class="service-tags">
+              <span class="service-tag">Real-Time WebSockets</span>
+              <span class="service-tag">Collision Locks</span>
+              <span class="service-tag">24h SLA Countdown</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Service 3: High-Throughput Broadcasts -->
+        <div class="service-card">
+          <div class="service-icon-box">
+            <svg class="service-icon-svg" width="26" height="26" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"/>
+            </svg>
+          </div>
+          <div class="service-info">
+            <h3 class="service-title">High-Throughput Broadcasts</h3>
+            <p class="service-desc">
+              Execute high-volume campaigns across millions of opted-in contacts with dynamic parameter interpolation, rate-limiting buffers, and delivery telemetry.
+            </p>
+            <div class="service-tags">
+              <span class="service-tag">Approved Templates</span>
+              <span class="service-tag">CSV Bulk Ingest</span>
+              <span class="service-tag">Queue Pacing</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Service 4: Webhooks & CRM Integration -->
+        <div class="service-card">
+          <div class="service-icon-box">
+            <svg class="service-icon-svg" width="26" height="26" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/>
+            </svg>
+          </div>
+          <div class="service-info">
+            <h3 class="service-title">Webhooks & CRM Ingestion</h3>
+            <p class="service-desc">
+              Authenticated REST endpoints with HMAC-SHA256 signature verification, syncing dispatch receipts and status telemetry seamlessly with your CRM/ERP.
+            </p>
+            <div class="service-tags">
+              <span class="service-tag">HMAC-SHA256</span>
+              <span class="service-tag">Two-Way Sync</span>
+              <span class="service-tag">Event Dispatch</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Service 5: DPDP & Automated Opt-Out -->
+        <div class="service-card">
+          <div class="service-icon-box">
+            <svg class="service-icon-svg" width="26" height="26" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+            </svg>
+          </div>
+          <div class="service-info">
+            <h3 class="service-title">Automated DPDP Compliance</h3>
+            <p class="service-desc">
+              Real-time keyword interceptor for incoming STOP keywords, automatically setting Redis suppression keys and logging immutable audit trails under DPDP Act 2023.
+            </p>
+            <div class="service-tags">
+              <span class="service-tag">Sub-200ms Suppression</span>
+              <span class="service-tag">STOP Interceptor</span>
+              <span class="service-tag">Statutory Audit</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Service 6: Mission-Critical Cloud Infra -->
+        <div class="service-card">
+          <div class="service-icon-box">
+            <svg class="service-icon-svg" width="26" height="26" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+            </svg>
+          </div>
+          <div class="service-info">
+            <h3 class="service-title">Distributed Cloud Infrastructure</h3>
+            <p class="service-desc">
+              BullMQ distributed priority queues, Redis sharding, PostgreSQL multi-tenant isolation, carrier-grade uptime monitoring, and automated failover.
+            </p>
+            <div class="service-tags">
+              <span class="service-tag">BullMQ & Redis</span>
+              <span class="service-tag">Multi-Tenancy</span>
+              <span class="service-tag">Auto-Failover</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Why Choose Us & Architecture Section (Colorlib Choose Us Style) -->
+  <section class="chooseus-section" id="architecture">
+    <div class="container">
+      <div class="chooseus-grid">
+        <!-- Left: Technical Pipeline Visual Breakdown -->
+        <div class="pipeline-stack">
+          <div class="pipeline-card">
+            <div class="pipeline-step-badge">STEP 01 // INGEST</div>
+            <div>
+              <h4 class="pipeline-card-title">CRM & REST Ingestion</h4>
+              <p class="pipeline-card-desc">
+                Payloads ingested via authenticated HTTPS APIs or automated event webhooks with tenant-level rate limiters and cryptographic validation.
+              </p>
+            </div>
+          </div>
+
+          <div class="pipeline-card">
+            <div class="pipeline-step-badge">STEP 02 // QUEUE</div>
+            <div>
+              <h4 class="pipeline-card-title">BullMQ & Redis Sharding</h4>
+              <p class="pipeline-card-desc">
+                Asynchronous priority buffers decouple broadcast load spikes, matching Meta tier limits with automatic exponential-backoff retries.
+              </p>
+            </div>
+          </div>
+
+          <div class="pipeline-card">
+            <div class="pipeline-step-badge">STEP 03 // DISPATCH</div>
+            <div>
+              <h4 class="pipeline-card-title">Meta Cloud API Gateway</h4>
+              <p class="pipeline-card-desc">
+                High-speed TLS 1.3 socket connections direct to Meta Graph API v20.0 endpoints with persistent system token rotation.
+              </p>
+            </div>
+          </div>
+
+          <div class="pipeline-card">
+            <div class="pipeline-step-badge">STEP 04 // RECONCILE</div>
+            <div>
+              <h4 class="pipeline-card-title">Real-Time Telemetry & Sync</h4>
+              <p class="pipeline-card-desc">
+                Inbound webhooks verified with HMAC-SHA256 signatures, updating database receipts and broadcasting WebSocket events to agent inboxes.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: Why Choose Us Content -->
+        <div class="chooseus-text-wrap">
+          <div class="section-title-wrap text-left" style="margin-bottom: 1.5rem;">
+            <span class="section-eyebrow">Why Choose Us</span>
+            <h2 class="section-title">Built for Carrier-Grade Security & SLA Reliability</h2>
+          </div>
+
+          <p style="color:var(--text-muted); font-size:15.5px; line-height:1.75; margin-bottom:1.5rem;">
+            VDAJ Services LLP engineers enterprise communication systems with mathematical rigor. Rather than fragile third-party wrappers, our systems communicate directly with official Meta infrastructure under strict data governance and ISO/IEC 27001 best practices.
+          </p>
+
+          <ul class="checklist">
+            <li class="checklist-item">
+              <svg class="checklist-icon" width="20" height="20" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+              <span><strong>100% Official Meta Graph API:</strong> Fully verified Cloud API integration without unofficial APK hacks.</span>
+            </li>
+            <li class="checklist-item">
+              <svg class="checklist-icon" width="20" height="20" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+              <span><strong>Automated DPDP Act 2023 Compliance:</strong> Instant sub-200ms opt-out interception and Redis suppression index.</span>
+            </li>
+            <li class="checklist-item">
+              <svg class="checklist-icon" width="20" height="20" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+              <span><strong>Zero Agent Collision:</strong> Atomic database locks ensure seamless customer handoffs across contact centers.</span>
+            </li>
+            <li class="checklist-item">
+              <svg class="checklist-icon" width="20" height="20" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+              <span><strong>Multi-Tenant Cryptographic Isolation:</strong> Strict tenant separation with encrypted credentials at rest.</span>
+            </li>
+          </ul>
+
+          <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+            <a href="https://wa.vdajservices.com/login" class="btn btn-primary">Launch Client Workspace →</a>
+            <a href="mailto:info@vdajservices.com" class="btn btn-secondary">Request Architecture Review</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Counter Section (Colorlib Locksmith Navy Counter Strip) -->
+  <div class="counter-section">
+    <div class="container">
+      <div class="counter-grid">
+        <div class="counter-item">
+          <div class="counter-item-num">99.99<span class="accent">%</span></div>
+          <p>Cloud SLA Uptime</p>
+        </div>
+        <div class="counter-item">
+          <div class="counter-item-num">&lt; 150<span class="accent">ms</span></div>
+          <p>P99 Dispatch Latency</p>
+        </div>
+        <div class="counter-item">
+          <div class="counter-item-num">100<span class="accent">%</span></div>
+          <p>Official Meta Graph API</p>
+        </div>
+        <div class="counter-item">
+          <div class="counter-item-num">&lt; 200<span class="accent">ms</span></div>
+          <p>DPDP Opt-Out Vault</p>
+        </div>
+        <div class="counter-item">
+          <div class="counter-item-num">24<span class="accent">/7</span></div>
+          <p>Engineering Support</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Interactive Telemetry & Live Developer Console -->
+  <section class="telemetry-section">
+    <div class="container">
+      <div class="section-title-wrap center-title">
+        <span class="section-eyebrow">Live Platform Telemetry</span>
+        <h2 class="section-title">Verified Cloud API Console</h2>
+        <p class="section-sub">
+          Inspect our live payload execution, team inbox dispatch rules, and automated DPDP compliance pipelines.
+        </p>
+      </div>
+
+      <div class="console-box">
+        <div class="console-topbar">
+          <div style="display:flex; align-items:center; gap:12px;">
+            <div class="console-dots">
+              <span class="dot dot-red"></span>
+              <span class="dot dot-yellow"></span>
+              <span class="dot dot-green"></span>
+            </div>
+            <span style="font-family:'JetBrains Mono',monospace; font-size:12px; color:#94A3B8;">
+              gateway.vdajservices.com/v20.0/messages
+            </span>
+          </div>
+
+          <div class="console-tabs">
+            <button class="console-tab-btn active" onclick="switchConsoleTab('api', this)">
+              <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg>
+              Cloud API Gateway
+            </button>
+            <button class="console-tab-btn" onclick="switchConsoleTab('inbox', this)">
+              <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
+              Team Operations
+            </button>
+            <button class="console-tab-btn" onclick="switchConsoleTab('audit', this)">
+              <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+              DPDP & Opt-Out Vault
+            </button>
+          </div>
+        </div>
+
+        <div class="console-body">
+          <!-- Code / Payload Pane -->
+          <div class="console-code-pane" id="consoleCodePane">
+            <div style="color: #64748B; margin-bottom: 0.75rem;">// Official Meta Graph API v20.0 High-Throughput Request Payload</div>
+            <div><span class="token-kw">POST</span> <span class="token-str">https://graph.facebook.com/v20.0/4189382189382/messages</span></div>
+            <div><span class="token-kw">Authorization:</span> <span class="token-str">Bearer EAAI0...[System_Token]</span></div>
+            <div><span class="token-kw">X-Hub-Signature-256:</span> <span class="token-str">sha256=9b7f83a04c1e...</span></div>
+            <div><span class="token-kw">Content-Type:</span> <span class="token-str">application/json</span></div>
+            <br>
+            <div>{</div>
+            <div style="padding-left: 1.5rem;"><span class="token-kw">"messaging_product"</span>: <span class="token-str">"whatsapp"</span>,</div>
+            <div style="padding-left: 1.5rem;"><span class="token-kw">"recipient_type"</span>: <span class="token-str">"individual"</span>,</div>
+            <div style="padding-left: 1.5rem;"><span class="token-kw">"to"</span>: <span class="token-str">"+919876543210"</span>,</div>
+            <div style="padding-left: 1.5rem;"><span class="token-kw">"type"</span>: <span class="token-str">"template"</span>,</div>
+            <div style="padding-left: 1.5rem;"><span class="token-kw">"template"</span>: {</div>
+            <div style="padding-left: 3rem;"><span class="token-kw">"name"</span>: <span class="token-str">"enterprise_order_dispatch"</span>,</div>
+            <div style="padding-left: 3rem;"><span class="token-kw">"language"</span>: { <span class="token-kw">"code"</span>: <span class="token-str">"en"</span> },</div>
+            <div style="padding-left: 3rem;"><span class="token-kw">"components"</span>: [</div>
+            <div style="padding-left: 4.5rem;">{ <span class="token-kw">"type"</span>: <span class="token-str">"body"</span>, <span class="token-kw">"parameters"</span>: [ { <span class="token-kw">"type"</span>: <span class="token-str">"text"</span>, <span class="token-kw">"text"</span>: <span class="token-str">"Venkatesh"</span> } ] }</div>
+            <div style="padding-left: 3rem;">]</div>
+            <div style="padding-left: 1.5rem;">}</div>
+            <div>}</div>
+          </div>
+
+          <!-- Telemetry Health Pane -->
+          <div class="console-telemetry-pane" id="consoleTelemetryPane">
+            <div class="telemetry-card">
+              <div class="telemetry-card-title">Live Pipeline State</div>
+              <div style="display:flex; align-items:center; gap:8px; font-weight:700; font-size:14px; color:#1D9E75;">
+                <span class="dot-live"></span>
+                <span>200 OK · Webhook Verified & Dispatched</span>
+              </div>
+              <div style="font-size:12px; color:var(--text-muted); margin-top:4px; font-family:'JetBrains Mono',monospace;">
+                wa_message_id: wamid.HBgLOTE...
+              </div>
+            </div>
+
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem;">
+              <div class="telemetry-card">
+                <div class="telemetry-card-title">Delivery Latency</div>
+                <div class="telemetry-metric-large">142 <span style="font-size:14px; font-weight:600; color:var(--text-muted);">ms</span></div>
+              </div>
+              <div class="telemetry-card">
+                <div class="telemetry-card-title">Queue Throughput</div>
+                <div class="telemetry-metric-large">12.5k <span style="font-size:14px; font-weight:600; color:var(--text-muted);">/min</span></div>
+              </div>
+            </div>
+
+            <div class="telemetry-card" style="font-size:12px;">
+              <div class="telemetry-card-title">Lifecycle State Progression</div>
+              <div style="display:flex; justify-content:space-between; align-items:center; font-family:'JetBrains Mono',monospace; padding-top:4px; font-size:11px;">
+                <span style="color:#534AB7; font-weight:700;">QUEUED</span>
+                <span style="color:#94A3B8;">→</span>
+                <span style="color:#2563EB; font-weight:700;">SENT</span>
+                <span style="color:#94A3B8;">→</span>
+                <span style="color:#1D9E75; font-weight:700;">DELIVERED</span>
+                <span style="color:#94A3B8;">→</span>
+                <span style="color:#10B981; font-weight:800;">READ</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Corporate Profile & Governance -->
+  <section class="corporate-section" id="governance">
+    <div class="container">
+      <div class="corporate-box">
+        <div>
+          <span class="section-eyebrow">Corporate Governance</span>
+          <h3 style="font-size:2.2rem; font-weight:700; color:var(--text-dark); margin-bottom:1rem; text-transform:uppercase;">
+            VDAJ Services LLP
+          </h3>
+          <p style="color:var(--text-muted); font-size:15.5px; line-height:1.75; margin-bottom:1.5rem;">
+            VDAJ Services LLP is an officially registered Limited Liability Partnership organized under the Limited Liability Partnership Act, 2008 of the Republic of India. We deliver verified enterprise digital communication gateways, distributed event architectures, and enterprise software systems with statutory compliance and SLA guarantees.
+          </p>
+
+          <ul class="credentials-list">
+            <li class="credentials-item">
+              <svg class="credentials-icon" width="20" height="20" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 2a1 1 0 00-.894.553L7.382 6H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V8a1 1 0 100-2h-3.382l-1.724-3.447A1 1 0 0010 2zM9 8a1 1 0 012 0v8a1 1 0 11-2 0V8z" clip-rule="evenodd"/></svg>
+              <div><strong>Entity Status:</strong> Formally Registered LLP in India (LLP Act, 2008)</div>
+            </li>
+            <li class="credentials-item">
+              <svg class="credentials-icon" width="20" height="20" fill="currentColor" viewBox="0 0 20 20"><path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z"/><path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z"/></svg>
+              <div><strong>Corporate Inquiries:</strong> <a href="mailto:info@vdajservices.com" style="color:var(--brand); text-decoration:none; font-weight:600;">info@vdajservices.com</a></div>
+            </li>
+            <li class="credentials-item">
+              <svg class="credentials-icon" width="20" height="20" fill="currentColor" viewBox="0 0 20 20"><path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 4V3z"/></svg>
+              <div><strong>Direct Support Hotline:</strong> +91 80077 73138</div>
+            </li>
+            <li class="credentials-item">
+              <svg class="credentials-icon" width="20" height="20" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"/></svg>
+              <div><strong>Corporate Base:</strong> Maharashtra, Republic of India</div>
+            </li>
+          </ul>
+        </div>
+
+        <div class="cta-card-inner">
+          <h4>Deploy Enterprise Workspace</h4>
+          <p>
+            Connect your customer operations to the official Meta WhatsApp Business Cloud API or discuss dedicated high-throughput cloud infrastructure with our engineering architects.
+          </p>
+          <div style="display:flex; flex-direction:column; gap:0.75rem;">
+            <a href="https://wa.vdajservices.com/login" class="btn btn-primary" style="width: 100%;">
+              Access Client Portal →
+            </a>
+            <a href="mailto:info@vdajservices.com?subject=Enterprise%20Technical%20Consultation" class="btn btn-secondary" style="width: 100%;">
+              Request Engineering Briefing
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Call To Action Banner (Colorlib Locksmith Callto Section) -->
+  <section class="callto-section">
+    <div class="container">
+      <div class="callto-content">
+        <div class="callto-text">
+          <h2>We Deliver Fast, Professional & Carrier-Grade Services</h2>
+          <p>Official Meta WhatsApp Business Cloud API Platform · Contact our engineering desk.</p>
+        </div>
+        <div class="callto-phone">
+          <span class="phone-icon">
+            <svg width="22" height="22" fill="#FFFFFF" viewBox="0 0 24 24"><path d="M6.62 10.79a15.053 15.053 0 006.59 6.59l2.2-2.2a1 1 0 011.02-.24c1.12.37 2.33.57 3.57.57a1 1 0 011 1V20a1 1 0 01-1 1A17 17 0 013 4a1 1 0 011-1h3.5a1 1 0 011 1c0 1.24.2 2.45.57 3.57a1 1 0 01-.24 1.02l-2.21 2.2z"/></svg>
+          </span>
+          <span>+91 80077 73138</span>
+        </div>
+        <a href="https://wa.vdajservices.com/login" class="btn btn-primary" style="padding: 12px 28px; font-size: 16px;">
+          Launch Portal Now →
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Executive MNC Footer (Colorlib Locksmith Style) -->
+  <footer class="main-footer">
+    <div class="container">
+      <div class="footer-grid">
+        <!-- Col 1: About VDAJ -->
+        <div class="footer-brand">
+          <a href="/" class="logo" style="text-decoration:none;">
+            <svg width="34" height="34" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="8" y="8" width="20" height="20" rx="4" fill="#534AB7"/>
+              <rect x="32" y="8" width="20" height="20" rx="4" fill="#AFA9EC"/>
+              <rect x="8" y="32" width="20" height="20" rx="4" fill="#AFA9EC"/>
+              <rect x="32" y="32" width="20" height="20" rx="4" fill="#1D9E75"/>
+            </svg>
+            <div class="logo-text">
+              <span class="logo-title" style="color:#FFFFFF;">VDAJ</span>
+              <span class="logo-sub" style="color:var(--brand-light);">SERVICES LLP</span>
+            </div>
+          </a>
+          <p>
+            VDAJ Services LLP is an enterprise technology provider delivering official Meta WhatsApp Business Cloud API automation, distributed cloud architecture, multi-agent workspaces, and bespoke software systems.
+          </p>
+          <ul class="footer-contact-list">
+            <li class="footer-contact-item">
+              <svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"/></svg>
+              <span>Maharashtra, Republic of India</span>
+            </li>
+            <li class="footer-contact-item">
+              <svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20"><path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 4V3z"/></svg>
+              <span>Phone: +91 80077 73138</span>
+            </li>
+            <li class="footer-contact-item">
+              <svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20"><path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z"/><path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z"/></svg>
+              <span>Email: info@vdajservices.com</span>
+            </li>
+          </ul>
+        </div>
+
+        <!-- Col 2: Platform Capabilities -->
+        <div class="footer-col">
+          <h5>Platform</h5>
+          <ul>
+            <li><a href="https://wa.vdajservices.com/login">Cloud API Gateway</a></li>
+            <li><a href="https://wa.vdajservices.com/login">Team Inbox Workspace</a></li>
+            <li><a href="https://wa.vdajservices.com/login">Broadcast Campaigns</a></li>
+            <li><a href="https://wa.vdajservices.com/login">Analytics & Audit Ledger</a></li>
+            <li><a href="#services">Webhook Integrations</a></li>
+          </ul>
+        </div>
+
+        <!-- Col 3: Architecture & Solutions -->
+        <div class="footer-col">
+          <h5>Architecture</h5>
+          <ul>
+            <li><a href="#architecture">Distributed Queues</a></li>
+            <li><a href="#architecture">BullMQ & Redis Sharding</a></li>
+            <li><a href="#architecture">ERP / CRM Webhooks</a></li>
+            <li><a href="#services">DPDP Opt-Out Vault</a></li>
+            <li><a href="#governance">Corporate Governance</a></li>
+          </ul>
+        </div>
+
+        <!-- Col 4: Trust & Legal -->
+        <div class="footer-col">
+          <h5>Trust & Legal</h5>
+          <ul>
+            <li><a href="https://wa.vdajservices.com/legal/privacy">Privacy Policy</a></li>
+            <li><a href="https://wa.vdajservices.com/legal/terms">Terms of Service</a></li>
+            <li><a href="https://wa.vdajservices.com/legal/data-deletion">User Data Deletion</a></li>
+            <li><a href="mailto:info@vdajservices.com">info@vdajservices.com</a></li>
+            <li><a href="https://wa.vdajservices.com/login">Client Portal Login</a></li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Copyright Bottom Bar -->
+      <div class="footer-copyright">
+        <div class="footer-copyright-inner">
+          <div>
+            Copyright &copy; 2026 <strong>VDAJ Services LLP</strong>. All rights reserved. Registered Limited Liability Partnership in India.
+          </div>
+          <div>
+            Official Meta WhatsApp Business Cloud API Tech Provider · India DPDP Act 2023 Compliant
+          </div>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    function toggleMobileNav() {
+      const d = document.getElementById('mobileDrawer');
+      d.style.display = (d.style.display === 'block') ? 'none' : 'block';
+    }
+
+    const consoleTabsData = {
+      api: {
+        code: `<div style="color: #64748B; margin-bottom: 0.75rem;">// Official Meta Graph API v20.0 High-Throughput Request Payload</div>
+<div><span class="token-kw">POST</span> <span class="token-str">https://graph.facebook.com/v20.0/4189382189382/messages</span></div>
+<div><span class="token-kw">Authorization:</span> <span class="token-str">Bearer EAAI0...[System_Token]</span></div>
+<div><span class="token-kw">X-Hub-Signature-256:</span> <span class="token-str">sha256=9b7f83a04c1e...</span></div>
+<div><span class="token-kw">Content-Type:</span> <span class="token-str">application/json</span></div>
+<br>
+<div>{</div>
+<div style="padding-left: 1.5rem;"><span class="token-kw">"messaging_product"</span>: <span class="token-str">"whatsapp"</span>,</div>
+<div style="padding-left: 1.5rem;"><span class="token-kw">"recipient_type"</span>: <span class="token-str">"individual"</span>,</div>
+<div style="padding-left: 1.5rem;"><span class="token-kw">"to"</span>: <span class="token-str">"+919876543210"</span>,</div>
+<div style="padding-left: 1.5rem;"><span class="token-kw">"type"</span>: <span class="token-str">"template"</span>,</div>
+<div style="padding-left: 1.5rem;"><span class="token-kw">"template"</span>: {</div>
+<div style="padding-left: 3rem;"><span class="token-kw">"name"</span>: <span class="token-str">"enterprise_order_dispatch"</span>,</div>
+<div style="padding-left: 3rem;"><span class="token-kw">"language"</span>: { <span class="token-kw">"code"</span>: <span class="token-str">"en"</span> },</div>
+<div style="padding-left: 3rem;"><span class="token-kw">"components"</span>: [</div>
+<div style="padding-left: 4.5rem;">{ <span class="token-kw">"type"</span>: <span class="token-str">"body"</span>, <span class="token-kw">"parameters"</span>: [ { <span class="token-kw">"type"</span>: <span class="token-str">"text"</span>, <span class="token-kw">"text"</span>: <span class="token-str">"Venkatesh"</span> } ] }</div>
+<div style="padding-left: 3rem;">]</div>
+<div style="padding-left: 1.5rem;">}</div>
+<div>}</div>`,
+        telemetry: `<div class="telemetry-card">
+  <div class="telemetry-card-title">Live Pipeline State</div>
+  <div style="display:flex; align-items:center; gap:8px; font-weight:700; font-size:14px; color:#1D9E75;">
+    <span class="dot-live"></span>
+    <span>200 OK · Webhook Verified & Dispatched</span>
+  </div>
+  <div style="font-size:12px; color:var(--text-muted); margin-top:4px; font-family:'JetBrains Mono',monospace;">
+    wa_message_id: wamid.HBgLOTE...
+  </div>
+</div>
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem;">
+  <div class="telemetry-card">
+    <div class="telemetry-card-title">Delivery Latency</div>
+    <div class="telemetry-metric-large">142 <span style="font-size:14px; font-weight:600; color:var(--text-muted);">ms</span></div>
+  </div>
+  <div class="telemetry-card">
+    <div class="telemetry-card-title">Queue Throughput</div>
+    <div class="telemetry-metric-large">12.5k <span style="font-size:14px; font-weight:600; color:var(--text-muted);">/min</span></div>
+  </div>
+</div>
+<div class="telemetry-card" style="font-size:12px;">
+  <div class="telemetry-card-title">Lifecycle State Progression</div>
+  <div style="display:flex; justify-content:space-between; align-items:center; font-family:'JetBrains Mono',monospace; padding-top:4px; font-size:11px;">
+    <span style="color:#534AB7; font-weight:700;">QUEUED</span>
+    <span style="color:#94A3B8;">→</span>
+    <span style="color:#2563EB; font-weight:700;">SENT</span>
+    <span style="color:#94A3B8;">→</span>
+    <span style="color:#1D9E75; font-weight:700;">DELIVERED</span>
+    <span style="color:#94A3B8;">→</span>
+    <span style="color:#10B981; font-weight:800;">READ</span>
+  </div>
+</div>`
+      },
+      inbox: {
+        code: `<div style="color: #64748B; margin-bottom: 0.75rem;">// Real-Time Agent Assignment & 24h Customer Service Window</div>
+<div><span class="token-kw">EVENT:</span> <span class="token-str">"conversation.assigned"</span></div>
+<div><span class="token-kw">Conversation ID:</span> <span class="token-val">conv_a8f92c10b</span></div>
+<div><span class="token-kw">Recipient:</span> <span class="token-str">+91 98765 43210</span> (Viren Joshi)</div>
+<div><span class="token-kw">Agent Assigned:</span> <span class="token-val">Shankar Channe</span> [Tier 2 Support]</div>
+<br>
+<div><span class="token-kw">Meta Policy Compliance Window:</span></div>
+<div>- Last Customer Message: <span class="token-num">14:32:10 UTC</span></div>
+<div>- Free-Form Messaging Closes in: <span class="token-str">23 hours 41 mins</span></div>
+<div>- Session Lock Status: <span class="token-str" style="color:#1D9E75;">OPEN (Compliant)</span></div>
+<br>
+<div style="color:#64748B;">// Real-time WebSocket packet emitted to agent workspace</div>
+<div>{ <span class="token-kw">"type"</span>: <span class="token-str">"new_message"</span>, <span class="token-kw">"unread_count"</span>: <span class="token-num">0</span>, <span class="token-kw">"sla_status"</span>: <span class="token-str">"healthy"</span> }</div>`,
+        telemetry: `<div class="telemetry-card">
+  <div class="telemetry-card-title">Team Workspace Health</div>
+  <div style="display:flex; align-items:center; gap:8px; font-weight:700; font-size:14px; color:#2563EB;">
+    <span class="dot-live" style="background:#2563EB; box-shadow:0 0 0 3px rgba(37,99,235,0.25);"></span>
+    <span>4 Agents Online · 18 Active Conversations</span>
+  </div>
+  <div style="font-size:12px; color:var(--text-muted); margin-top:4px;">
+    Zero agent collision guaranteed via atomic locks
+  </div>
+</div>
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem;">
+  <div class="telemetry-card">
+    <div class="telemetry-card-title">Avg First Response</div>
+    <div class="telemetry-metric-large">48 <span style="font-size:14px; font-weight:600; color:var(--text-muted);">sec</span></div>
+  </div>
+  <div class="telemetry-card">
+    <div class="telemetry-card-title">SLA Adherence</div>
+    <div class="telemetry-metric-large">99.4 <span style="font-size:14px; font-weight:600; color:var(--text-muted);">%</span></div>
+  </div>
+</div>
+<div class="telemetry-card" style="font-size:12px;">
+  <div class="telemetry-card-title">Automated Template Fallback</div>
+  <div style="color:var(--text-muted);">When 24h window expires, platform automatically restricts composer to pre-approved utility/service templates.</div>
+</div>`
+      },
+      audit: {
+        code: `<div style="color: #64748B; margin-bottom: 0.75rem;">// Real-Time Opt-Out Interceptor & DPDP Act 2023 Compliance</div>
+<div><span class="token-kw">INBOUND EVENT:</span> <span class="token-str">"webhook.message.inbound"</span></div>
+<div><span class="token-kw">Payload Body:</span> <span class="token-str">"STOP"</span></div>
+<div><span class="token-kw">Sender E.164:</span> <span class="token-str">+91 98765 43210</span></div>
+<br>
+<div><span class="token-kw">Execution Pipeline (Atomic &lt; 200ms):</span></div>
+<div>1. <span class="token-val">detectOptOut("STOP")</span> → <span class="token-str">Match confirmed ('stop')</span></div>
+<div>2. <span class="token-val">redis.set("optout:tenant:phone", "1")</span> → <span class="token-str" style="color:#1D9E75;">Permanent block key active</span></div>
+<div>3. <span class="token-val">UPDATE contacts SET status = 'opted_out'</span> → <span class="token-str" style="color:#1D9E75;">DB status synchronized</span></div>
+<div>4. <span class="token-val">INSERT INTO opt_out_events (...)</span> → <span class="token-str" style="color:#1D9E75;">Audit log preserved</span></div>
+<div>5. <span class="token-val">UPDATE inbox_conversations SET status = 'resolved'</span></div>`,
+        telemetry: `<div class="telemetry-card">
+  <div class="telemetry-card-title">Automated Suppression Audit</div>
+  <div style="display:flex; align-items:center; gap:8px; font-weight:700; font-size:14px; color:#EF4444;">
+    <span class="dot-live" style="background:#EF4444; box-shadow:0 0 0 3px rgba(239,68,68,0.25);"></span>
+    <span>Opt-Out Enforced · Outbound Blocked</span>
+  </div>
+  <div style="font-size:12px; color:var(--text-muted); margin-top:4px;">
+    Redis block key active · Contact marked as Opted Out
+  </div>
+</div>
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem;">
+  <div class="telemetry-card">
+    <div class="telemetry-card-title">Interception Speed</div>
+    <div class="telemetry-metric-large">18 <span style="font-size:14px; font-weight:600; color:var(--text-muted);">ms</span></div>
+  </div>
+  <div class="telemetry-card">
+    <div class="telemetry-card-title">DPDP Compliance</div>
+    <div class="telemetry-metric-large">100 <span style="font-size:14px; font-weight:600; color:var(--text-muted);">%</span></div>
+  </div>
+</div>
+<div class="telemetry-card" style="font-size:12px;">
+  <div class="telemetry-card-title">Statutory Audit Ledger</div>
+  <div style="color:var(--text-muted);">Every STOP event is cryptographically timestamped for regulatory submission to data protection authorities.</div>
+</div>`
+      }
+    };
+
+    function switchConsoleTab(tabKey, btn) {
+      document.querySelectorAll('.console-tab-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const data = consoleTabsData[tabKey];
+      if (data) {
+        document.getElementById('consoleCodePane').innerHTML = data.code;
+        document.getElementById('consoleTelemetryPane').innerHTML = data.telemetry;
+      }
+    }
+  </script>
+</body>
+</html>

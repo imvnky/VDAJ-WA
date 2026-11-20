@@ -119,7 +119,19 @@ function RequireRole({ roles }) {
 function RootRedirect() {
   const { isAuthenticated, isLoading, user, isImpersonating } = useAuthStore();
   if (isLoading) return <FullPageLoader />;
-  if (!isAuthenticated) return <Navigate to="/login" replace />;
+
+  // If visitor is on the corporate marketing domain (vdajservices.com or www.vdajservices.com),
+  // show the official corporate landing page when not logged in.
+  const hostname = window.location.hostname.toLowerCase();
+  const isMarketingDomain = hostname === 'vdajservices.com' || hostname === 'www.vdajservices.com';
+
+  if (!isAuthenticated) {
+    if (isMarketingDomain) {
+      window.location.replace('/landing.html');
+      return <FullPageLoader />;
+    }
+    return <Navigate to="/login" replace />;
+  }
   if (user?.role === 'super_admin' && !isImpersonating) {
     return <Navigate to="/admin/tenants" replace />;
   }

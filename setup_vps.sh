@@ -133,6 +133,32 @@ env PATH=$PATH:/usr/bin /usr/lib/node_modules/pm2/bin/pm2 startup systemd -u roo
 # 9. Configure Nginx
 echo "Configuring Nginx Reverse Proxy..."
 cat << 'EOF' > /etc/nginx/sites-available/vdaj
+# ── 1. Corporate Landing Page (vdajservices.com & www.vdajservices.com) ──
+server {
+    listen 80;
+    server_name vdajservices.com www.vdajservices.com;
+
+    root /var/www/VDAJ-WA/frontend/dist;
+    index landing.html index.html;
+
+    location / {
+        try_files $uri $uri/ /landing.html;
+    }
+
+    location /api/ {
+        proxy_pass http://127.0.0.1:5000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+
+# ── 2. WhatsApp SaaS Platform (wa.vdajservices.com & api.vdajservices.com) ──
 server {
     listen 80;
     server_name wa.vdajservices.com api.vdajservices.com;
