@@ -118,24 +118,33 @@ function RequireRole({ roles }) {
 // ── Root Redirect ─────────────────────────────────────────────
 function RootRedirect() {
   const { isAuthenticated, isLoading, user, isImpersonating } = useAuthStore();
-  if (isLoading) return <FullPageLoader />;
-
+  
   // If visitor is on the corporate marketing domain (vdajservices.com or www.vdajservices.com),
-  // show the official corporate landing page when not logged in.
+  // always show the official corporate landing page at root.
   const hostname = window.location.hostname.toLowerCase();
   const isMarketingDomain = hostname === 'vdajservices.com' || hostname === 'www.vdajservices.com';
-
-  if (!isAuthenticated) {
-    if (isMarketingDomain) {
-      window.location.replace('/landing.html');
-      return <FullPageLoader />;
-    }
-    return <Navigate to="/login" replace />;
+  if (isMarketingDomain) {
+    window.location.replace('/landing.html');
+    return <FullPageLoader />;
   }
+
+  if (isLoading) return <FullPageLoader />;
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
   if (user?.role === 'super_admin' && !isImpersonating) {
     return <Navigate to="/admin/tenants" replace />;
   }
   return <Navigate to="/dashboard" replace />;
+}
+
+// ── Login Domain Guard ─────────────────────────────────────────
+function LoginRoute() {
+  const hostname = window.location.hostname.toLowerCase();
+  if (hostname === 'vdajservices.com' || hostname === 'www.vdajservices.com') {
+    // The WhatsApp SaaS Portal lives on wa.vdajservices.com
+    window.location.replace('https://wa.vdajservices.com/login');
+    return <FullPageLoader />;
+  }
+  return <LoginPage />;
 }
 
 // ── App ───────────────────────────────────────────────────────
@@ -174,7 +183,7 @@ export default function App() {
       <VdajToaster />
       <Routes>
         {/* Public */}
-        <Route path="/login"          element={<LoginPage />} />
+        <Route path="/login"          element={<LoginRoute />} />
         <Route path="/"               element={<RootRedirect />} />
         {/* Legal & Compliance — public, no auth required for Meta App Review */}
         <Route path="/privacy"             element={<PrivacyPolicyPage />} />
